@@ -19,19 +19,20 @@ public enum DemoRecordKind
 public sealed class DemoRecord
 {
     /// <summary>The time in ms since the base.</summary>
-    public uint Time;
+    public uint Time { get; set; }
     /// <summary>The record kind.</summary>
-    public DemoRecordKind Kind;
+    public DemoRecordKind Kind { get; set; }
     /// <summary>The raw kind byte.</summary>
-    public byte KindByte;
+    public byte KindByte { get; set; }
     /// <summary>The packet bytes of a packet record.</summary>
-    public byte[] Packet = Array.Empty<byte>();
+    public byte[] Packet { get; set; } = [];
     /// <summary>The move of a move record.</summary>
-    public Move Move = new();
+    public ref Move Move => ref _move;
+    private Move _move = new();
     /// <summary>The value of an action record.</summary>
-    public float ActionValue;
+    public float ActionValue { get; set; }
     /// <summary>The action id of an action record.</summary>
-    public uint ActionId;
+    public uint ActionId { get; set; }
 }
 
 /// <summary>A <c>.rec</c> demo file reader (docs/client-net.md 5.2, 5.4).</summary>
@@ -39,19 +40,19 @@ public sealed class DemoRecord
 public sealed class DemoFile
 {
     /// <summary>The client id of the header.</summary>
-    public uint ClientId;
+    public uint ClientId { get; set; }
     /// <summary>The server id of the header.</summary>
-    public uint ServerId;
+    public uint ServerId { get; set; }
     /// <summary>The records in file order.</summary>
-    public readonly List<DemoRecord> Records = new();
+    public List<DemoRecord> Records { get; } = [];
     /// <summary>True when the file ended with the 0xffffffff end record.</summary>
-    public bool Complete;
+    public bool Complete { get; set; }
     /// <summary>The number of packet records.</summary>
-    public int Packets;
+    public int Packets { get; set; }
     /// <summary>The number of move records.</summary>
-    public int Moves;
+    public int Moves { get; set; }
     /// <summary>The number of action records.</summary>
-    public int Actions;
+    public int Actions { get; set; }
 
     /// <summary>Parses a demo file.</summary>
     /// <param name="data">The file bytes.</param>
@@ -59,15 +60,16 @@ public sealed class DemoFile
     public static DemoFile Parse(byte[] data)
     {
         var d = new DemoFile();
-        int p = 0;
-        uint U32() { uint v = BitConverter.ToUInt32(data, p); p += 4; return v; }
+        var p = 0;
+        uint U32()
+        { var v = BitConverter.ToUInt32(data, p); p += 4; return v; }
         if (data.Length < 8)
             throw new InvalidDataException("demo shorter than its header");
         d.ClientId = U32();
         d.ServerId = U32();
         while (p + 4 <= data.Length)
         {
-            uint time = U32();
+            var time = U32();
             if (time == 0xffffffffu)
             {
                 d.Complete = true;
@@ -75,7 +77,7 @@ public sealed class DemoFile
             }
             if (p >= data.Length)
                 break;
-            byte kind = data[p++];
+            var kind = data[p++];
             var rec = new DemoRecord { Time = time, KindByte = kind };
             if (kind == 0xff)
             {
@@ -90,7 +92,7 @@ public sealed class DemoFile
             }
             else if (kind == 0x01)
             {
-                byte sub = data[p++];
+                var sub = data[p++];
                 if (sub == 1)
                 {
                     // 32 byte raw Move: 4 x f32 axes, jet/crouch/jump/fire bytes, i32 useItem, f32 turn, f32 pitch.
@@ -136,10 +138,10 @@ public sealed class DemoFile
     /// <remarks>The header ids go to the world as the accept path would. The packet records run through the same receive path as the network. Moves append to the PSC buffer without a cap. Actions are returned to the caller.</remarks>
     public void Play(ClientGameConnection conn, Action<DemoRecord, DecodedPacket?>? each = null)
     {
-        ClientWorld w = conn.World;
+        var w = conn.World;
         w.PlayerId = (int)ClientId;
         w.ServerId = (int)ServerId;
-        foreach (DemoRecord rec in Records)
+        foreach (var rec in Records)
         {
             DecodedPacket? pkt = null;
             switch (rec.Kind)
@@ -150,6 +152,10 @@ public sealed class DemoFile
                     break;
                 case DemoRecordKind.Move:
                     w.Psc.Moves.Add(rec.Move);
+                    break;
+                case DemoRecordKind.Action:
+                case DemoRecordKind.Other:
+                default:
                     break;
             }
             each?.Invoke(rec, pkt);

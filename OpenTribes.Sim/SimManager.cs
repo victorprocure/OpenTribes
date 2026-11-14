@@ -1,6 +1,6 @@
-using OpenTribes.Core;
-
 namespace OpenTribes.Sim;
+
+using OpenTribes.Core;
 
 /// <summary>The simulation manager: the root group of one world with the id pool and dictionary, path lookup, registration, events and time (docs/sim.md 1, 2, 3.2, 8.1, 8.2).</summary>
 /// <remarks>Port of src/sim/sim_manager.cpp.</remarks>
@@ -14,37 +14,37 @@ public sealed class SimManager : SimGroup
     // src/sim/sim_manager.hpp SimManager::Event.
     private sealed class Event
     {
-        public float Time;
-        public SimObject? Dest;
-        public string Text = "";
-        public Action? Action;     // engine event when set, else console text
-        public SimObject? Sender;
+        public float Time { get; set; }
+        public SimObject? Dest { get; set; }
+        public string Text { get; set; } = "";
+        public Action? Action { get; set; }     // engine event when set, else console text
+        public SimObject? Sender { get; set; }
     }
 
-    private readonly StringTable mStrings;
-    private int mManagerId;
-    private uint mSequenceCounter;
-    private int mNextId = 8192;
-    private readonly List<int> mFreeIds = new();
-    private readonly Dictionary<int, List<SimObject>> mIds = new(); // newest at the back
-    private readonly LinkedList<Event> mEvents = new(); // sorted by time, FIFO for equal times (EV5)
-    private float mQueueTime;  // +0x80
-    private float mTargetTime; // +0x6c
-    private ConsoleHandler? mConsoleHandler;
+    private readonly StringTable _strings;
+    private int _managerId;
+    private uint _sequenceCounter;
+    private int _nextId = 8192;
+    private readonly List<int> _freeIds = [];
+    private readonly Dictionary<int, List<SimObject>> _ids = []; // newest at the back
+    private readonly LinkedList<Event> _events = new(); // sorted by time, FIFO for equal times (EV5)
+    private float _queueTime;  // +0x80
+    private float _targetTime; // +0x6c
+    private ConsoleHandler? _consoleHandler;
 
     /// <summary>Observer of every successful registration. NetObject_onAdd (0050a420) marks a ghost-always object in every ghost manager.</summary>
-    public Action<SimObject>? OnRegister;
+    public Action<SimObject>? OnRegister { get; set; }
     /// <summary>Observer of every unregistration. Ghost managers drop their entries.</summary>
-    public Action<SimObject>? OnUnregister;
+    public Action<SimObject>? OnUnregister { get; set; }
     /// <summary>Console output of the manager itself, for registration failures in <see cref="SimSet.OnAdd"/>.</summary>
-    public Action<string>? Print;
+    public Action<string>? Print { get; set; }
 
     /// <summary>Creates a manager. It is its own root, registered, and never in the id dictionary (MG7).</summary>
     /// <param name="strings">The string table for names.</param>
     public SimManager(StringTable strings)
     {
-        mStrings = strings;
-        mManager = this;
+        _strings = strings;
+        RawManager = this;
     }
 
     /// <inheritdoc/>
@@ -52,35 +52,35 @@ public sealed class SimManager : SimGroup
 
     /// <summary>Gets the manager id.</summary>
     /// <returns>The id.</returns>
-    public int ManagerId() => mManagerId;
+    public int ManagerId() => _managerId;
     /// <summary>Sets the manager id.</summary>
     /// <param name="id">The id.</param>
-    public void SetManagerId(int id) => mManagerId = id;
+    public void SetManagerId(int id) => _managerId = id;
     /// <summary>Sets the handler that runs console events.</summary>
     /// <param name="h">The handler, or null.</param>
-    public void SetConsoleHandler(ConsoleHandler? h) => mConsoleHandler = h;
+    public void SetConsoleHandler(ConsoleHandler? h) => _consoleHandler = h;
     /// <summary>Gets the queue time (TM5): the time of the event being dispatched, else the last advance target. <c>getSimTime</c> and <c>schedule</c> read it.</summary>
     /// <returns>The time in seconds.</returns>
-    public float Time() => mQueueTime;
+    public float Time() => _queueTime;
     /// <summary>Gets the number of queued events.</summary>
     /// <returns>The count.</returns>
-    public int PendingEvents() => mEvents.Count;
+    public int PendingEvents() => _events.Count;
     /// <summary>Gets the string table.</summary>
     /// <returns>The table.</returns>
-    public StringTable Strings() => mStrings;
+    public StringTable Strings() => _strings;
 
     // src/sim/sim_manager.cpp isDigit.
-    private static bool IsDigit(char c) => c >= '0' && c <= '9';
+    private static bool IsDigit(char c) => c is >= '0' and <= '9';
 
     // src/sim/sim_manager.cpp atoiWrap.
     private static int AtoiWrap(string s)
     {
         uint v = 0;
-        foreach (char c in s)
+        foreach (var c in s)
         {
             if (!IsDigit(c))
                 break;
-            v = unchecked(v * 10 + (uint)(c - '0'));
+            v = unchecked((v * 10) + (uint)(c - '0'));
         }
         return unchecked((int)v);
     }
@@ -88,49 +88,49 @@ public sealed class SimManager : SimGroup
     /// <summary>Drops the queued events and deletes the members.</summary>
     public override void Destroy()
     {
-        mEvents.Clear();
+        _events.Clear();
         base.Destroy();
     }
 
     // src/sim/sim_manager.cpp SimManager::allocateId.
     private int AllocateId()
     {
-        if (mFreeIds.Count != 0)
+        if (_freeIds.Count != 0)
         {
-            int id = mFreeIds[^1];
-            mFreeIds.RemoveAt(mFreeIds.Count - 1);
+            var id = _freeIds[^1];
+            _freeIds.RemoveAt(_freeIds.Count - 1);
             return id;
         }
-        return mNextId++;
+        return _nextId++;
     }
 
     // src/sim/sim_manager.cpp SimManager::freeId.
     private void FreeId(int id)
     {
-        mFreeIds.Add(id);
-        while (mFreeIds.Count != 0 && mFreeIds[^1] == mNextId - 1)
+        _freeIds.Add(id);
+        while (_freeIds.Count != 0 && _freeIds[^1] == _nextId - 1)
         {
-            mFreeIds.RemoveAt(mFreeIds.Count - 1);
-            --mNextId;
+            _freeIds.RemoveAt(_freeIds.Count - 1);
+            --_nextId;
         }
     }
 
     // src/sim/sim_manager.cpp SimManager::dictInsert.
     private void DictInsert(SimObject obj)
     {
-        if (!mIds.TryGetValue(obj.mId, out List<SimObject>? v))
-            mIds[obj.mId] = v = new List<SimObject>();
+        if (!_ids.TryGetValue(obj.RawId, out var v))
+            _ids[obj.RawId] = v = [];
         v.Add(obj);
     }
 
     // src/sim/sim_manager.cpp SimManager::dictErase.
     private void DictErase(SimObject obj)
     {
-        if (!mIds.TryGetValue(obj.mId, out List<SimObject>? v))
+        if (!_ids.TryGetValue(obj.RawId, out var v))
             return;
         v.RemoveAll(o => o == obj);
         if (v.Count == 0)
-            mIds.Remove(obj.mId);
+            _ids.Remove(obj.RawId);
     }
 
     /// <summary>Registers an object (OB2): sequence, id (ID1), then <see cref="SimObject.OnAdd"/>.</summary>
@@ -138,30 +138,30 @@ public sealed class SimManager : SimGroup
     /// <returns>False if OnAdd fails. The object is then unregistered again.</returns>
     public bool RegisterObject(SimObject obj)
     {
-        obj.mSequence = mSequenceCounter++;
-        obj.mRemoved = false;
-        obj.mManager = this;
-        if (obj.mId == 0 && obj.FixedId() != 0)
-            obj.mId = obj.FixedId();
-        if (obj.mId == 0)
+        obj.RawSequence = _sequenceCounter++;
+        obj.Removed = false;
+        obj.RawManager = this;
+        if (obj.RawId == 0 && obj.FixedId() != 0)
+            obj.RawId = obj.FixedId();
+        if (obj.RawId == 0)
         {
-            obj.mId = AllocateId();
-            obj.mOwnsPoolId = true;
+            obj.RawId = AllocateId();
+            obj.OwnsPoolId = true;
         }
         DictInsert(obj);
         if (obj.OnAdd())
         {
-            if (OnRegister != null && obj.mManager == this)
+            if (OnRegister != null && obj.RawManager == this)
                 OnRegister(obj);
             return true;
         }
         DictErase(obj);
-        obj.mManager = null;
-        if (obj.mOwnsPoolId)
+        obj.RawManager = null;
+        if (obj.OwnsPoolId)
         {
-            FreeId(obj.mId);
-            obj.mOwnsPoolId = false;
-            obj.mId = 0;
+            FreeId(obj.RawId);
+            obj.OwnsPoolId = false;
+            obj.RawId = 0;
         }
         return false;
     }
@@ -170,28 +170,28 @@ public sealed class SimManager : SimGroup
     /// <param name="obj">The object.</param>
     public void UnregisterObject(SimObject obj)
     {
-        if (obj.mManager == null || obj == this)
+        if (obj.RawManager == null || obj == this)
             return;
-        obj.mRemoved = true;
+        obj.Removed = true;
         obj.OnRemove();
         OnUnregister?.Invoke(obj);
-        obj.mGroup?.RemoveObject(obj);
-        var sets = new List<SimSet>(obj.mInSets);
-        foreach (SimSet s in sets)
+        obj.RawGroup?.RemoveObject(obj);
+        var sets = new List<SimSet>(obj.InSets);
+        foreach (var s in sets)
             s.RemoveObject(obj);
         DictErase(obj);
-        for (LinkedListNode<Event>? n = mEvents.First; n != null;)
+        for (var n = _events.First; n != null;)
         {
-            LinkedListNode<Event>? next = n.Next;
+            var next = n.Next;
             if (n.Value.Dest == obj || n.Value.Sender == obj)
-                mEvents.Remove(n);
+                _events.Remove(n);
             n = next;
         }
-        obj.mManager = null;
-        if (obj.mOwnsPoolId)
+        obj.RawManager = null;
+        if (obj.OwnsPoolId)
         {
-            FreeId(obj.mId);
-            obj.mOwnsPoolId = false;
+            FreeId(obj.RawId);
+            obj.OwnsPoolId = false;
         }
     }
 
@@ -202,7 +202,7 @@ public sealed class SimManager : SimGroup
         if (obj == this)
             return; // deleteObject(0) would delete the root in the original (D11)
         UnregisterObject(obj);
-        obj.mGroup?.RemoveObject(obj);
+        obj.RawGroup?.RemoveObject(obj);
         obj.Destroy();
     }
 
@@ -211,10 +211,10 @@ public sealed class SimManager : SimGroup
     /// <returns>False when registration fails.</returns>
     public bool AddToRoot(SimObject obj)
     {
-        if (obj.mManager == null && !RegisterObject(obj))
+        if (obj.RawManager == null && !RegisterObject(obj))
             return false;
-        if (obj.mGroup == null)
-            base.AddObject(obj);
+        if (obj.RawGroup == null)
+            AddObject(obj);
         return true;
     }
 
@@ -222,7 +222,7 @@ public sealed class SimManager : SimGroup
     /// <param name="id">The id.</param>
     /// <returns>The object, or null.</returns>
     public SimObject? FindById(int id) =>
-        mIds.TryGetValue(id, out List<SimObject>? v) && v.Count != 0 ? v[^1] : null;
+        _ids.TryGetValue(id, out var v) && v.Count != 0 ? v[^1] : null;
 
     /// <summary>Resolves a script string to an object (docs/sim.md 3.2): an id, a path of names, or an id followed by a path. The root is returned for <c>0</c>.</summary>
     /// <param name="s">The script string.</param>
@@ -235,8 +235,8 @@ public sealed class SimManager : SimGroup
         int pos;
         if (IsDigit(s[0]))
         {
-            int slash = s.IndexOfAny(new[] { '/', '\\' });
-            int id = AtoiWrap(slash < 0 ? s : s[..slash]);
+            var slash = s.IndexOfAny(['/', '\\']);
+            var id = AtoiWrap(slash < 0 ? s : s[..slash]);
             current = id == 0 ? this : FindById(id);
             if (slash < 0 || current == null)
                 return current;
@@ -251,18 +251,18 @@ public sealed class SimManager : SimGroup
                 ++pos;
             current = this;
         }
-        for (;;)
+        for (; ; )
         {
-            int end = pos <= s.Length ? s.IndexOfAny(new[] { '/', '\\' }, Math.Min(pos, s.Length)) : -1;
-            string part = pos >= s.Length ? "" : s.Substring(pos, (end < 0 ? s.Length : end) - pos);
-            string? name = part.Length == 0 ? null : mStrings.Lookup(part);
+            var end = pos <= s.Length ? s.IndexOfAny(['/', '\\'], Math.Min(pos, s.Length)) : -1;
+            var part = pos >= s.Length ? "" : s[pos..(end < 0 ? s.Length : end)];
+            var name = part.Length == 0 ? null : _strings.Lookup(part);
             if (name == null)
                 return null;
-            SimSet? container = current.AsSet();
+            var container = current.AsSet();
             if (container == null)
                 return null;
-            SimGroup? group = container.AsGroup();
-            SimObject? next = group != null ? group.FindChild(name) : container.FindMemberByName(name);
+            var group = container.AsGroup();
+            var next = group != null ? group.FindChild(name) : container.FindMemberByName(name);
             if (next == null)
                 return null;
             if (end < 0)
@@ -280,30 +280,30 @@ public sealed class SimManager : SimGroup
     public void SetObjectId(SimObject obj, int id)
     {
         DictErase(obj);
-        if (obj.mOwnsPoolId)
+        if (obj.OwnsPoolId)
         {
-            FreeId(obj.mId);
-            obj.mOwnsPoolId = false;
+            FreeId(obj.RawId);
+            obj.OwnsPoolId = false;
         }
         if (id == 0)
         {
             id = AllocateId();
-            obj.mOwnsPoolId = true;
+            obj.OwnsPoolId = true;
         }
-        obj.mId = id;
+        obj.RawId = id;
         DictInsert(obj);
     }
 
     // src/sim/sim_manager.cpp SimManager::insertEvent: 004fdf2c, upper bound by float time.
     private void InsertEvent(Event e)
     {
-        LinkedListNode<Event>? it = mEvents.First;
+        var it = _events.First;
         while (it != null && it.Value.Time <= e.Time)
             it = it.Next;
         if (it == null)
-            mEvents.AddLast(e);
+            _events.AddLast(e);
         else
-            mEvents.AddBefore(it, e);
+            _events.AddBefore(it, e);
     }
 
     /// <summary>Queues console text for an object. It runs after every event with time up to <paramref name="t"/> (EV5).</summary>
@@ -327,26 +327,26 @@ public sealed class SimManager : SimGroup
     /// <remarks>Follows SimManager_advanceToTime (TM6, 004ffb40). The target is read again for every pop, because <c>resetSimTime</c> inside an event sets it to 0. When nothing is due the queue time becomes the target, and a popped event raises it to its own time (004fe120).</remarks>
     public int AdvanceTo(float t)
     {
-        if (t == mTargetTime)
+        if (t == _targetTime)
             return 0;
-        mTargetTime = t;
-        int count = 0;
-        for (;;)
+        _targetTime = t;
+        var count = 0;
+        for (; ; )
         {
             // 004fe120: nothing due sets the queue time to the target; a popped event raises it to its own time.
-            if (mEvents.Count == 0 || mTargetTime < mEvents.First!.Value.Time)
+            if (_events.Count == 0 || _targetTime < _events.First!.Value.Time)
             {
-                mQueueTime = mTargetTime;
+                _queueTime = _targetTime;
                 break;
             }
-            Event e = mEvents.First!.Value;
-            mEvents.RemoveFirst();
-            if (mQueueTime < e.Time)
-                mQueueTime = e.Time;
+            var e = _events.First!.Value;
+            _events.RemoveFirst();
+            if (_queueTime < e.Time)
+                _queueTime = e.Time;
             if (e.Action != null)
                 e.Action();
             else
-                mConsoleHandler?.Invoke(e.Dest, e.Text);
+                _consoleHandler?.Invoke(e.Dest, e.Text);
             ++count;
         }
         return count;
@@ -356,14 +356,14 @@ public sealed class SimManager : SimGroup
     /// <remarks>Follows resetSimTime (TM3, 004fdec4).</remarks>
     public void ResetTime()
     {
-        if (mEvents.Count != 0)
+        if (_events.Count != 0)
         {
-            float bas = mEvents.First!.Value.Time;
-            for (LinkedListNode<Event>? it = mEvents.First.Next; it != null; it = it.Next)
+            var bas = _events.First!.Value.Time;
+            for (var it = _events.First.Next; it != null; it = it.Next)
                 it.Value.Time = Fpu.SubF(it.Value.Time, bas);
-            mEvents.First.Value.Time = 0;
+            _events.First.Value.Time = 0;
         }
-        mQueueTime = 0;
-        mTargetTime = 0;
+        _queueTime = 0;
+        _targetTime = 0;
     }
 }

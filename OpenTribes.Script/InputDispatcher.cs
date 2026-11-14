@@ -8,9 +8,9 @@ public interface IActionConsumer
     /// <param name="kind">The event kind: 2 for make and break events, 4 for mouse movement, 10 for POV events, else 1 (3.6 step 5).</param>
     /// <param name="value">The shaped value.</param>
     /// <returns>True when the consumer handled the action.</returns>
-    bool OnAction(int action, int kind, float value);
+    public bool OnAction(int action, int kind, float value);
     /// <summary>Gets whether the consumer is flagged as removing (flags &amp; 3): every action then counts as handled.</summary>
-    bool Removing { get; }
+    public bool Removing { get; }
 }
 
 /// <summary>The path of one device event to an action or a script call (docs/client-scripts.md 3.5 to 3.8).</summary>
@@ -19,40 +19,47 @@ public sealed class InputDispatcher
 {
     private sealed class Held
     {
-        public InputEvent Event;
+        public ref InputEvent Event => ref _event;
+        private InputEvent _event;
     }
 
     /// <summary>The client state that holds the action maps.</summary>
-    public readonly ClientState State;
-    private readonly List<(ActionMap Map, IActionConsumer Consumer)> mStack = new();
-    private readonly List<Held> mHeld = new();
+    public ClientState State { get; }
+    private readonly List<(ActionMap Map, IActionConsumer Consumer)> _stack = [];
+    private readonly List<Held> _held = [];
 
     /// <summary>Gets the manager's modifier byte (3.6 step 1).</summary>
     public byte Modifiers { get; private set; }
     /// <summary>Evaluates the console text of a command binding.</summary>
-    public Func<string, string> Eval = _ => "";
+    public Func<string, string> Eval { get; set; } = _ => "";
     /// <summary>The GUI side, offered every event before the maps. It is given the event with modifiers and key character filled in, and the value, and returns true when the canvas consumed the event.</summary>
-    public Func<InputEvent, float, char, bool>? OfferToGui;
+    public Func<InputEvent, float, char, bool>? OfferToGui { get; set; }
 
     /// <summary>Creates a dispatcher.</summary>
     /// <param name="state">The client state.</param>
     public InputDispatcher(ClientState state) => State = state;
 
     /// <summary>Gets the number of pushed maps.</summary>
-    public int StackDepth => mStack.Count;
+    public int StackDepth => _stack.Count;
     /// <summary>Gets the number of held keys.</summary>
-    public int HeldCount => mHeld.Count;
+    public int HeldCount => _held.Count;
     /// <summary>Tests whether a map is pushed.</summary>
     /// <param name="mapName">The map name.</param>
     /// <returns>True when the map is on the stack.</returns>
-    public bool IsPushed(string mapName) => mStack.Any(p => ClientCommands.EqualNoCase(p.Map.Name, ClientCommands.ActionMapName(mapName)));
+    public bool IsPushed(string mapName) => _stack.Any(p => ClientCommands.EqualNoCase(p.Map.Name, ClientCommands.ActionMapName(mapName)));
 
     /// <summary>Maps a modifier scan code to its modifier bit (3.6 step 1, 3.5).</summary>
     /// <param name="scan">The scan code: 0x2a and 0x36 shift, 0x1d and 0x9d control, 0x38 and 0xb8 alt.</param>
     /// <returns>The modifier bit, 0 for other keys.</returns>
     public static byte ModifierBit(int scan) => scan switch
     {
-        0x2a => 1, 0x36 => 2, 0x1d => 4, 0x9d => 8, 0x38 => 16, 0xb8 => 32, _ => 0,
+        0x2a => 1,
+        0x36 => 2,
+        0x1d => 4,
+        0x9d => 8,
+        0x38 => 16,
+        0xb8 => 32,
+        _ => 0,
     };
 
     /// <summary>Gets the character of a key (3.4 InputKey_characterFor).</summary>
@@ -61,7 +68,7 @@ public sealed class InputDispatcher
     /// <returns>The shifted entry when either shift bit is set, else the unshifted entry.</returns>
     public static char CharacterFor(int scan, byte modifiers)
     {
-        foreach (ClientCommands.KeyName k in ClientKeyTable.Keys)
+        foreach (var k in ClientKeyTable.Keys)
             if (k.Code == scan)
                 return (modifiers & 3) != 0 ? k.Upper : k.Lower;
         return '\0';
@@ -77,8 +84,8 @@ public sealed class InputDispatcher
     public static bool GroupMatches(int binding, int ev) => binding switch
     {
         0 => ev == 0,
-        1 => ev == 1 || ev == 3,
-        2 => ev == 2 || ev == 3,
+        1 => ev is 1 or 3,
+        2 => ev is 2 or 3,
         _ => ev is 1 or 2 or 3,
     };
 
@@ -99,12 +106,12 @@ public sealed class InputDispatcher
     {
         if (b.DeviceType != ev.DeviceType || b.DeviceInst != ev.DeviceInst)
             return false;
-        bool modAlone = b.DeviceType == 3 && b.ObjType == 10 && b.ObjInst == 0 && b.Modifiers != 0 && (b.Action == 1 || b.Action == 2);
+        var modAlone = b.DeviceType == 3 && b.ObjType == 10 && b.ObjInst == 0 && b.Modifiers != 0 && (b.Action == 1 || b.Action == 2);
         if (modAlone)
         {
             if (ev.ObjType != 10 || ev.Action != b.Action)
                 return false;
-            byte bit = ModifierBit(ev.ObjInst);
+            var bit = ModifierBit(ev.ObjInst);
             return bit != 0 && (b.Modifiers & bit) != 0;
         }
         if (b.ObjType != ev.ObjType || b.ObjInst != ev.ObjInst)
@@ -129,13 +136,13 @@ public sealed class InputDispatcher
     {
         if ((b.Flags & ActionBinding.Value) != 0)
             return b.ValueF;
-        float v = input;
-        bool center = (b.Flags & ActionBinding.Center) != 0;
+        var v = input;
+        var center = (b.Flags & ActionBinding.Center) != 0;
         if (center && !mouse)
-            v = 1f - 2f * v;
+            v = 1f - (2f * v);
         if ((b.Flags & ActionBinding.DeadZone) != 0)
         {
-            float d = b.DeadZoneF;
+            var d = b.DeadZoneF;
             if (v <= 0f)
                 v = v <= -d ? (v + d) / (1f - d) : 0f;
             else
@@ -145,7 +152,7 @@ public sealed class InputDispatcher
             v = !center && !mouse ? 1f - v : -v;
         if ((b.Flags & ActionBinding.Square) != 0)
         {
-            bool neg = v < 0f;
+            var neg = v < 0f;
             v *= v;
             if (neg)
                 v = -v;
@@ -159,7 +166,7 @@ public sealed class InputDispatcher
 
     private static int KindOf(in InputEvent ev)
     {
-        if (ev.Action == 1 || ev.Action == 2)
+        if (ev.Action is 1 or 2)
             return 2;
         if (ev.DeviceType == 2 && ev.Action == 3)
             return 4;
@@ -178,10 +185,10 @@ public sealed class InputDispatcher
     {
         Pop(map, consumer, silent: true);
         // Held keys that the new map binds get a break first, so a movement key held from the old map stops.
-        foreach (Held h in mHeld.ToArray())
-            if (map.Bindings.Any(b => b.Event.Action == 1 && Matches(b.Event, h.Event) || b.Event.Action == 2 && Matches(b.Event, BreakOf(h.Event))))
+        foreach (var h in _held.ToArray())
+            if (map.Bindings.Any(b => (b.Event.Action == 1 && Matches(b.Event, h.Event)) || (b.Event.Action == 2 && Matches(b.Event, BreakOf(h.Event)))))
                 DispatchStack(BreakOf(h.Event), 0f);
-        mStack.Insert(0, (map, consumer));
+        _stack.Insert(0, (map, consumer));
     }
 
     /// <summary>Pops an action map (docs/client-scripts.md 3.8).</summary>
@@ -191,20 +198,20 @@ public sealed class InputDispatcher
     /// <remarks>Held keys the popped map was handling and no remaining map binds are released through the popped map.</remarks>
     public void Pop(ActionMap map, IActionConsumer consumer, bool silent = false)
     {
-        var removed = mStack.Where(p => p.Map == map && p.Consumer == consumer).ToList();
+        var removed = _stack.Where(p => p.Map == map && p.Consumer == consumer).ToList();
         if (removed.Count == 0)
             return;
-        mStack.RemoveAll(p => p.Map == map && p.Consumer == consumer);
+        _stack.RemoveAll(p => p.Map == map && p.Consumer == consumer);
         if (silent)
             return;
         // Held keys the popped map was handling and no remaining map binds are released through the popped map.
-        foreach (Held h in mHeld.ToArray())
+        foreach (var h in _held.ToArray())
         {
-            InputEvent br = BreakOf(h.Event);
-            ActionBinding? handled = FindBinding(map, br) ?? FindBinding(map, h.Event);
-            if (handled == null || mStack.Any(p => FindBinding(p.Map, br) != null))
+            var br = BreakOf(h.Event);
+            var handled = FindBinding(map, br) ?? FindBinding(map, h.Event);
+            if (handled == null || _stack.Any(p => FindBinding(p.Map, br) != null))
                 continue;
-            ActionBinding? bb = FindBinding(map, br);
+            var bb = FindBinding(map, br);
             if (bb != null && !bb.IsCommand)
                 consumer.OnAction(bb.Action, KindOf(br), ShapeValue(bb, 0f, br.DeviceType == 2));
         }
@@ -213,8 +220,8 @@ public sealed class InputDispatcher
     /// <summary>Clears the map stack.</summary>
     public void Clear()
     {
-        mStack.Clear();
-        mHeld.Clear();
+        _stack.Clear();
+        _held.Clear();
         Modifiers = 0;
     }
 
@@ -226,7 +233,7 @@ public sealed class InputDispatcher
 
     private static ActionBinding? FindBinding(ActionMap map, in InputEvent ev)
     {
-        foreach (ActionBinding b in map.Bindings)
+        foreach (var b in map.Bindings)
             if (Matches(b.Event, ev))
                 return b;
         return null;
@@ -240,8 +247,8 @@ public sealed class InputDispatcher
     /// <returns>True when something handled the event.</returns>
     public bool Process(InputEvent ev, float value)
     {
-        bool isKey = ev.DeviceType == 3 && ev.DeviceInst == 0 && ev.ObjType == 10;
-        char ch = '\0';
+        var isKey = ev.DeviceType == 3 && ev.DeviceInst == 0 && ev.ObjType == 10;
+        var ch = '\0';
         // 1: modifier state; the modifier key's own event carries 0, every other event the current byte.
         if (isKey && (ev.Action == 1 || ev.Action == 2) && ModifierBit(ev.ObjInst) is byte bit && bit != 0)
         {
@@ -254,7 +261,7 @@ public sealed class InputDispatcher
             ch = CharacterFor(ev.ObjInst, Modifiers);
 
         // 3: a break whose make is held goes straight to the maps; everything else is offered to the GUI first.
-        bool heldBreak = ev.Action == 2 && FindHeld(ev) != null;
+        var heldBreak = ev.Action == 2 && FindHeld(ev) != null;
         if (!heldBreak && OfferToGui != null && OfferToGui(ev, value, ch))
             return true;
 
@@ -262,15 +269,15 @@ public sealed class InputDispatcher
         if (ev.Action == 1)
         {
             if (FindHeld(ev) == null)
-                mHeld.Add(new Held { Event = ev });
+                _held.Add(new Held { Event = ev });
         }
         else if (ev.Action == 2)
         {
-            Held? h = FindHeld(ev);
+            var h = FindHeld(ev);
             if (h == null)
                 return false;
             ev.Modifiers = h.Event.Modifiers;
-            mHeld.Remove(h);
+            _held.Remove(h);
         }
 
         // 5 and 6: the stack, then once more without modifiers.
@@ -286,7 +293,7 @@ public sealed class InputDispatcher
 
     private Held? FindHeld(in InputEvent ev)
     {
-        foreach (Held h in mHeld)
+        foreach (var h in _held)
             if (h.Event.DeviceType == ev.DeviceType && h.Event.DeviceInst == ev.DeviceInst &&
                 h.Event.ObjType == ev.ObjType && h.Event.ObjInst == ev.ObjInst)
                 return h;
@@ -299,9 +306,9 @@ public sealed class InputDispatcher
 
     private bool DispatchStack(in InputEvent ev, float value)
     {
-        foreach (var (map, consumer) in mStack.ToArray())
+        foreach (var (map, consumer) in _stack.ToArray())
         {
-            ActionBinding? b = FindBinding(map, ev);
+            var b = FindBinding(map, ev);
             if (b == null)
                 continue;
             if (b.IsCommand)
@@ -309,8 +316,8 @@ public sealed class InputDispatcher
                 Eval(b.Command);
                 return true;
             }
-            float v = ShapeValue(b, value, ev.DeviceType == 2);
-            bool r = consumer.OnAction(b.Action, KindOf(ev), v);
+            var v = ShapeValue(b, value, ev.DeviceType == 2);
+            var r = consumer.OnAction(b.Action, KindOf(ev), v);
             if (consumer.Removing || r)
                 return true;
         }
@@ -331,19 +338,19 @@ public static class ScanCodeMap
     /// <returns>The key code, 0 when the key has no code.</returns>
     public static int FromSdl(int sdl)
     {
-        if (sdl >= 4 && sdl <= 29)          // A..Z
-            return kLetters[sdl - 4];
-        if (sdl >= 30 && sdl <= 38)         // 1..9
+        if (sdl is >= 4 and <= 29)          // A..Z
+            return Letters[sdl - 4];
+        if (sdl is >= 30 and <= 38)         // 1..9
             return 2 + (sdl - 30);
         if (sdl == 39)
             return 0x0b;                    // 0
-        if (sdl >= 58 && sdl <= 67)         // F1..F10
+        if (sdl is >= 58 and <= 67)         // F1..F10
             return 0x3b + (sdl - 58);
-        if (sdl >= 89 && sdl <= 91)         // keypad 1 2 3
+        if (sdl is >= 89 and <= 91)         // keypad 1 2 3
             return 0x4f + (sdl - 89);
-        if (sdl >= 92 && sdl <= 94)         // keypad 4 5 6
+        if (sdl is >= 92 and <= 94)         // keypad 4 5 6
             return 0x4b + (sdl - 92);
-        if (sdl >= 95 && sdl <= 97)         // keypad 7 8 9
+        if (sdl is >= 95 and <= 97)         // keypad 7 8 9
             return 0x47 + (sdl - 95);
         return sdl switch
         {
@@ -407,9 +414,9 @@ public static class ScanCodeMap
     }
 
     // A..Z in SDL order to the key codes: Q W E R T Y U I O P = 0x10.., A S D F G H J K L = 0x1e.., Z X C V B N M = 0x2c..
-    private static readonly int[] kLetters =
-    {
+    private static readonly int[] Letters =
+    [
         0x1e, 0x30, 0x2e, 0x20, 0x12, 0x21, 0x22, 0x23, 0x17, 0x24, 0x25, 0x26, 0x32,   // A B C D E F G H I J K L M
         0x31, 0x18, 0x19, 0x10, 0x13, 0x1f, 0x14, 0x16, 0x2f, 0x11, 0x2d, 0x15, 0x2c,   // N O P Q R S T U V W X Y Z
-    };
+    ];
 }

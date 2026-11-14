@@ -1,6 +1,6 @@
-using OpenTribes.Platform.Gfx;
-
 namespace OpenTribes.Gui;
+
+using OpenTribes.Platform.Gfx;
 
 /// <summary>One player the picker looks at.</summary>
 /// <param name="Name">The name shown under the crosshair.</param>
@@ -60,7 +60,7 @@ public static class HudTargetPicker
         int bestDist = -1, bestPlayerDist = -1, bestX = 0, bestY = 0;
         double bestHealth = -1, bestPlayerHealth = -1;
         int cx = cam.Width / 2, cy = cam.Height / 2;
-        foreach (HudTargetCandidate c in players)
+        foreach (var c in players)
         {
             if (c.Dead || !c.Visible)
                 continue;
@@ -69,7 +69,7 @@ public static class HudTargetPicker
                 continue;
             if (c.IsObject && c.Team != myTeam)
                 continue;
-            if (!cam.Project(c.Head.X, c.Head.Y, c.Head.Z, out double fx, out double fy, out _))
+            if (!cam.Project(c.Head.X, c.Head.Y, c.Head.Z, out var fx, out var fy, out _))
                 continue;
             int sx = (int)fx, sy = (int)fy;
             if (sx < 0 || sx > cam.Width || sy < 0 || sy > cam.Height)
@@ -78,15 +78,15 @@ public static class HudTargetPicker
             if (!c.IsObject)
                 marks.Add(new HudTargetMark(sx, sy, teams >= 2 && myTeam == c.Team));
             var (_, depth, _) = cam.ToCamera(c.Head.X, c.Head.Y, c.Head.Z);
-            double half = cam.ProjectRadius(depth, c.Width) * 0.5;
-            double tall = cam.ProjectRadius(depth, c.Height);
-            int hw = Math.Max((int)half, MinHalfWidth);
-            int below = Math.Max((int)tall, MinBelow);
+            var half = cam.ProjectRadius(depth, c.Width) * 0.5;
+            var tall = cam.ProjectRadius(depth, c.Height);
+            var hw = Math.Max((int)half, MinHalfWidth);
+            var below = Math.Max((int)tall, MinBelow);
             if (cx < sx - hw || cx > sx + hw || cy < sy - Above || cy > sy + below)
                 continue;
             double dx = cam.X - c.Position.X, dy = cam.Y - c.Position.Y, dz = cam.Z - c.Position.Z;
-            int dist = Math.Abs((int)Math.Sqrt(dx * dx + dy * dy + dz * dz));
-            double health = half >= ShowHealthFrom ? c.Damage : -1;
+            var dist = Math.Abs((int)Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz)));
+            var health = half >= ShowHealthFrom ? c.Damage : -1;
             if (best == null || dist < bestDist)
             {
                 best = c;
@@ -119,7 +119,7 @@ public static class HudTargetPicker
     /// <returns>The length in pixels: at least 1, none at full damage (004ac88d).</returns>
     public static int BarLength(double damage, int innerWidth)
     {
-        if (damage < 0 || damage > 1)
+        if (damage is < 0 or > 1)
             return 0;
         if (damage == 1.0)
             return 0;

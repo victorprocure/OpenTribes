@@ -3,14 +3,14 @@
 // (DECISIONS D25: 64-bit values rounded toward zero like the portable truncating build, docs/portable-float.md 1 and 5;
 // the original keeps 80-bit operands and parses into 80 bits) with the output the port prints; every other case must
 // print the reference output.
-using OpenTribes.Script;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Script;
 
 public class ScriptEvalTests
 {
-    private static readonly (string src, string want)[] kCases =
-    {
+    private static readonly (string src, string want)[] Cases =
+    [
         // Float environment (3.2)
         ("echo(0.1);", "0.0999999"),
         ("echo(0.1 + 0.2);", "0.299999"),
@@ -64,10 +64,10 @@ public class ScriptEvalTests
         // Id 0 is ignored, a negative id is not readable with `*` and is never a duplicate id.
         ("IDT_Z = 0, \"z\"; echo(IDT_Z, \" \", *0);", "0 <INVALID TAG>"),
         ("IDT_N1 = -7, \"n\"; IDT_N2 = -7, \"m\"; echo(IDT_N1, \" \", IDT_N2, \" \", *-7);", "-7 -7 <INVALID TAG>"),
-    };
+    ];
 
     // Outputs of the double form where the reference output needs the 80-bit unit.
-    private static readonly Dictionary<string, string> kDouble = new()
+    private static readonly Dictionary<string, string> Double = new()
     {
         ["echo(0.1 == 1/10, 1/10 == 0.1, 0.1 == \"0.1\", \"0.1\" == 0.1);"] = "1111", // reference "0101"
     };
@@ -76,7 +76,7 @@ public class ScriptEvalTests
     public void TestScriptEval()
     {
         var interp = new Interpreter();
-        string output = "";
+        var output = "";
         interp.SetOutput(line => output += (output.Length == 0 ? "" : "\n") + line);
         string Run(string line)
         {
@@ -86,10 +86,10 @@ public class ScriptEvalTests
         }
 
         var failures = new List<string>();
-        foreach (var (src, reference) in kCases)
+        foreach (var (src, reference) in Cases)
         {
-            string want = kDouble.TryGetValue(src, out string? d) ? d : reference;
-            string got = Run(src);
+            var want = Double.TryGetValue(src, out var d) ? d : reference;
+            var got = Run(src);
             if (got != want)
                 failures.Add("FAIL " + src + "\n  want: " + want + "\n  got:  " + got);
         }

@@ -1,12 +1,10 @@
 // Port of tests/test_datablocks.cpp: the datablock layer (docs/datablocks.md): classes and groups, typed fields, defaults,
 // field access, declaration, preload. Expected values are the [live] reference results quoted in the spec. 16 asserts.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Core;
 using OpenTribes.Game;
-using OpenTribes.Script;
 using static OpenTribes.Tests.Fixtures;
-using Block = OpenTribes.Game.DataBlockManager.Block;
-
-namespace OpenTribes.Tests;
 
 public class DataBlocksTests
 {
@@ -14,10 +12,10 @@ public class DataBlocksTests
     private static uint ZlibCrc(IReadOnlyList<byte> b, uint crc)
     {
         crc = ~crc;
-        foreach (byte c in b)
+        foreach (var c in b)
         {
             crc ^= c;
-            for (int k = 0; k < 8; ++k)
+            for (var k = 0; k < 8; ++k)
                 crc = (crc >> 1) ^ (0xedb88320u & (0u - (crc & 1)));
         }
         return ~crc;
@@ -32,12 +30,12 @@ public class DataBlocksTests
         var list = new List<byte>();
         PutU32(list, 1); // details
         PutU32(list, 2); // count
-        foreach ((uint flags, string name) in new[] { (3u, "t1.bmp"), (1u, "t2.bmp") })
+        foreach ((var flags, var name) in new[] { (3u, "t1.bmp"), (1u, "t2.bmp") })
         {
             var rec = new List<byte>(new byte[64]);
             SetU32(rec, 0, flags);
-            byte[] nb = ByteString.ToBytes(name);
-            for (int i = 0; i < nb.Length; ++i)
+            var nb = ByteString.ToBytes(name);
+            for (var i = 0; i < nb.Length; ++i)
                 rec[16 + i] = nb[i];
             list.AddRange(rec);
         }
@@ -50,7 +48,7 @@ public class DataBlocksTests
     [Fact]
     public void Main()
     {
-        string root = Path.Combine(TestPaths.TmpDir(""), "db_root");
+        var root = Path.Combine(TestPaths.TmpDir(""), "db_root");
         if (Directory.Exists(root))
             Directory.Delete(root, true);
         PutFile(Path.Combine(root, "base/larmor.dts"), "abc");
@@ -64,24 +62,24 @@ public class DataBlocksTests
         PutFile(Path.Combine(root, "base/t2.bmp"), "texture two");
         var w = new Fixtures.World(root);
         var c = new Cases();
-        DataBlockManager db = w.Sim.DataBlocks();
+        var db = w.Sim.DataBlocks();
 
         // 1.2: the 31 classes, their groups (-1 abstract) and parents' fields.
         (string, int)[] kGroups =
-        {
+        [
             ("DamageSkinData", 2), ("GameBase", -1), ("ShapeBase", -1), ("StaticBase", -1), ("CarData", 27), ("TriggerData", 26),
             ("VehicleData", 9), ("TankData", 11), ("FlierData", 10), ("PlayerData", 3), ("StaticShapeData", 4), ("MarkerData", 21),
             ("ItemData", 5), ("MineData", 23), ("ItemImageData", 6), ("MoveableData", 7), ("SensorData", 8), ("TurretData", 19),
             ("BulletData", 14), ("GrenadeData", 15), ("LaserData", 17), ("TargetLaserData", 24), ("LightningData", 28),
             ("RepairEffectData", 29), ("RocketData", 16), ("SeekingMissileData", 25), ("ExplosionData", 20),
             ("SoundProfileData", 0), ("SoundData", 1), ("DebrisData", 22), ("IRCChannel", 30),
-        };
-        foreach ((string name, int group) in kGroups)
+        ];
+        foreach ((var name, var group) in kGroups)
         {
-            ClassDef? cls = db.FindClass(name);
+            var cls = DataBlockManager.FindClass(name);
             Assert.True(cls != null && cls.Group == group);
         }
-        Assert.True(db.FindClass("itemdata") == db.FindClass("ItemData")); // CR4 case-insensitive
+        Assert.True(DataBlockManager.FindClass("itemdata") == DataBlockManager.FindClass("ItemData")); // CR4 case-insensitive
         // D11: classes without a factory are rejected instead of crashing (9 note 3).
         c.Check(w, "CarData Car1; TankData Tank1; GameBase GB1; ShapeBase SB1; StaticBase StB1; echo(Car1.maxDamage);",
                 "Unknown class CarData\nUnknown class TankData\nUnknown class GameBase\nUnknown class ShapeBase\n" +
@@ -161,7 +159,7 @@ public class DataBlocksTests
                    "Img.projectileType = G1; echo(Img.projectileType); Img.projectileType = {a, b};",
                 "Snd14\n\n\nCannot set multiple args to a Projectile data block name.");
         {
-            DataBlockManager.Value v = db.Find("Img")!.Find("projectileType")!.Elems[0];
+            var v = db.Find("Img")!.Find("projectileType")!.Elems[0];
             Assert.True(v.I == 15 && v.I2 == 1); // PR1 stores (group, index)
         }
 
@@ -194,8 +192,8 @@ public class DataBlocksTests
                    "echo(Arm.animData[0], \"|\", Arm.animData[1]);",
                 "Animdata set as { Name, soundTag, direction, viewFlags, priority }\nroot|run");
         {
-            Block arm = db.Find("Arm")!;
-            DataBlockManager.Field f = arm.Find("animData")!;
+            var arm = db.Find("Arm")!;
+            var f = arm.Find("animData")!;
             Assert.True(f.Elems[0].I == 1 /* Snd1 index */ && f.Elems[0].I3 == 0x5 && f.Elems[0].I4 == 5);
             Assert.True(f.Elems[1].I == -1 && f.Elems[1].I3 == 0xf);
         }
@@ -238,7 +236,7 @@ public class DataBlocksTests
 
         // 6.2 network identity: (group, index) in declaration order per group; 8 getItemData.
         {
-            Block? weird = db.Find("weird");
+            var weird = db.Find("weird");
             Assert.True(weird != null && weird.Group == 5 && db.At(5, weird.Index) == weird);
             Assert.True(db.At(5, 0) == db.Find("I1") && db.At(5, 1) == db.Find("Blaster") && db.At(5, 2) == weird);
             Assert.True(db.Find("Snd0")!.Index == 0 && db.Find("Snd14")!.Index == 14 && db.GroupSize(1) == 15);
@@ -262,7 +260,7 @@ public class DataBlocksTests
         // 7 preload: validation lines in group order, then index order; a ShapeBase name gets ".dts", projectile and
         // explosion names print as written.
         var w2 = new Fixtures.World(root);
-        DataBlockManager db2 = w2.Sim.DataBlocks();
+        var db2 = w2.Sim.DataBlocks();
         w2.Run("ItemData FlagItem { shapeFile = \"flag\"; validateShape = true; };" +
                "PlayerData LightArmor { shapeFile = \"larmor\"; validateShape = true; };" +
                "StaticShapeData PadA { shapeFile = \"pad\"; validateShape = false; };" +
@@ -280,13 +278,13 @@ public class DataBlocksTests
         c.Check(w2, "echo(preloadServerDataBlocks(1));", "False");
         // 7.1 CRC: shape bytes, then each texture material when validateMaterials.
         {
-            byte[] larmor = { (byte)'a', (byte)'b', (byte)'c' };
+            byte[] larmor = [(byte)'a', (byte)'b', (byte)'c'];
             Assert.True(db2.Find("LightArmor")!.ValidationCrc == SpecCrc(larmor, 0xffffffffu));
-            Assert.True(db2.Find("LightArmor")!.ValidationCrc == 0xcadbbe3du);
-            List<byte> shape = ShapeWithMaterials();
-            byte[] t1 = ByteString.ToBytes("texture one");
+            Assert.Equal(0xcadbbe3du, db2.Find("LightArmor")!.ValidationCrc);
+            var shape = ShapeWithMaterials();
+            var t1 = ByteString.ToBytes("texture one");
             Assert.True(db2.Find("MatItem")!.ValidationCrc == SpecCrc(t1, SpecCrc(shape, 0xffffffffu)));
-            Assert.True(db2.Find("PadA")!.ValidationCrc == 0); // not validated
+            Assert.Equal(0u, db2.Find("PadA")!.ValidationCrc); // not validated
         }
         // Failures print and the loop continues; the command returns False.
         const string kModel = ".dts.  The server has new art data you are missing.  Check server info for possible download locations.";
@@ -302,6 +300,6 @@ public class DataBlocksTests
                 "Unable to load ProjectileData shape: nobul.dts\nServer: Validation required for e.dts\n" +
                 "Unable to load ExplosionData shape: missingex\nFalse");
 
-        Assert.True(c.Failures == 0);
+        Assert.Equal(0, c.Failures);
     }
 }

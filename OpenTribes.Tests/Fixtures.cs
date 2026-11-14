@@ -1,14 +1,14 @@
 // Port of tests/fixtures.hpp: shared helpers for the game-layer unit tests: synthetic files and a server world set up
 // like the dedicated start-up (tools/scriptrun.cpp). One function to one; the float arithmetic of the builders follows
 // the mode of Fpu like the C++ (the test programs run in the script FPU mode).
+namespace OpenTribes.Tests;
+
 using System.Buffers.Binary;
 using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Script;
 using OpenTribes.Sim;
 using static OpenTribes.Core.Fpu;
-
-namespace OpenTribes.Tests;
 
 internal static class Fixtures
 {
@@ -25,7 +25,7 @@ internal static class Fixtures
     // fixtures::putU32.
     public static void PutU32(List<byte> b, uint v)
     {
-        for (int i = 0; i < 4; ++i)
+        for (var i = 0; i < 4; ++i)
             b.Add((byte)(v >> (i * 8)));
     }
 
@@ -38,7 +38,7 @@ internal static class Fixtures
     // fixtures::setU32.
     public static void SetU32(List<byte> b, int at, uint v)
     {
-        for (int i = 0; i < 4; ++i)
+        for (var i = 0; i < 4; ++i)
             b[at + i] = (byte)(v >> (i * 8));
     }
 
@@ -62,11 +62,11 @@ internal static class Fixtures
     public static void PutFile(string p, List<byte> data)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(p)!);
-        File.WriteAllBytes(p, data.ToArray());
+        File.WriteAllBytes(p, [.. data]);
     }
 
     // fixtures::putFile (text).
-    public static void PutFile(string p, string text) => PutFile(p, new List<byte>(ByteString.ToBytes(text)));
+    public static void PutFile(string p, string text) => PutFile(p, [.. ByteString.ToBytes(text)]);
 
     // fixtures::PackedEntry: compression 1 (RLE) entries are given as {name, packed bytes, uncompressed size}: the VBLK
     // size field is the uncompressed length (docs/resources.md 7).
@@ -100,7 +100,7 @@ internal static class Fixtures
             kinds.Add(0);
             nameList.Add(name);
         }
-        foreach (PackedEntry e in packed ?? Array.Empty<PackedEntry>())
+        foreach (var e in packed ?? [])
         {
             offsets.Add((uint)b.Count);
             PutStr(b, "VBLK");
@@ -113,9 +113,9 @@ internal static class Fixtures
             nameList.Add(e.Name);
         }
         SetU32(b, 4, (uint)b.Count);
-        string names = "";
+        var names = "";
         var nameOffsets = new List<uint>();
-        foreach (string n in nameList)
+        foreach (var n in nameList)
         {
             nameOffsets.Add((uint)names.Length);
             names += n + '\0';
@@ -127,7 +127,7 @@ internal static class Fixtures
             b.Add(0);
         PutStr(b, "voli");
         PutU32(b, (uint)(17 * nameList.Count));
-        for (int i = 0; i < nameList.Count; ++i)
+        for (var i = 0; i < nameList.Count; ++i)
         {
             PutU32(b, 0);
             PutU32(b, nameOffsets[i]);
@@ -143,10 +143,14 @@ internal static class Fixtures
     // fixtures::TerrainSpec: one block of n x n squares (detail = log2(n) + 1), raw heights (version 0 block).
     public sealed class TerrainSpec
     {
-        public int N = 4, Detail = 3, Scale = 3, Width = 2, Height = 1;
-        public List<float> Heights = new();  // (n+1)^2, row major
-        public List<byte> Squares = new();   // n^2 x {flags, material}
-        public string MaterialList = "t.dml";
+        public int N { get; set; } = 4;
+        public int Detail { get; set; } = 3;
+        public int Scale { get; set; } = 3;
+        public int Width { get; set; } = 2;
+        public int Height { get; set; } = 1;
+        public List<float> Heights { get; set; } = [];  // (n+1)^2, row major
+        public List<byte> Squares { get; set; } = [];   // n^2 x {flags, material}
+        public string MaterialList { get; set; } = "t.dml";
     }
 
     // fixtures::dtfFile.
@@ -167,7 +171,7 @@ internal static class Fixtures
         PutU32(b, (uint)t.Width);
         PutU32(b, (uint)t.Height);
         PutU32(b, 0); // version 1 field
-        for (int i = 0; i < t.Width * t.Height; ++i)
+        for (var i = 0; i < t.Width * t.Height; ++i)
             PutU32(b, 0); // every map cell is block 0
         PutU32(b, 1);     // block list: (0, no name)
         PutU32(b, 0);
@@ -192,7 +196,7 @@ internal static class Fixtures
         PutF32(b, hmax);
         PutU32(b, (uint)t.N);
         PutU32(b, (uint)t.N);
-        foreach (float h in t.Heights)
+        foreach (var h in t.Heights)
             PutF32(b, h);
         b.AddRange(t.Squares);
         SetU32(b, 4, (uint)(b.Count - 8));
@@ -211,21 +215,21 @@ internal static class Fixtures
         var b = new List<byte>();
         PutU32(b, buildId);
         PutF32(b, 1.0f); // textureScale
-        for (int i = 0; i < 6; ++i)
+        for (var i = 0; i < 6; ++i)
             PutF32(b, box[i]);
-        uint[] counts = { 0, (uint)nodes.Count, nSolid, nEmpty, 0, 0, 0, 0, (uint)planes.Count };
-        foreach (uint c in counts)
+        uint[] counts = [0, (uint)nodes.Count, nSolid, nEmpty, 0, 0, 0, 0, (uint)planes.Count];
+        foreach (var c in counts)
             PutU32(b, c);
-        foreach (Node n in nodes)
+        foreach (var n in nodes)
         {
             PutU16(b, n.Plane);
             PutU16(b, (ushort)n.Front);
             PutU16(b, (ushort)n.Back);
             PutU16(b, 0);
         }
-        b.AddRange(new byte[nSolid * 12 + nEmpty * 44]);
-        foreach (float[] p in planes)
-            foreach (float f in p)
+        b.AddRange(new byte[(nSolid * 12) + (nEmpty * 44)]);
+        foreach (var p in planes)
+            foreach (var f in p)
                 PutF32(b, f);
         PutU32(b, 0); // highestMipLevel
         PutU32(b, 0); // flags
@@ -235,10 +239,10 @@ internal static class Fixtures
     // fixtures::disFile: ITRs shape with one state and one LOD.
     public static List<byte> DisFile(string geometry, string lighting)
     {
-        string names = "";
+        var names = "";
         uint AddName(string s)
         {
-            uint off = (uint)names.Length;
+            var off = (uint)names.Length;
             names += s + '\0';
             return off;
         }
@@ -284,7 +288,7 @@ internal static class Fixtures
         PutU32(b, (uint)lights.Count);
         PutU32(b, 0); // light states
         PutU32(b, (uint)map.Count);
-        foreach (LightRec l in lights)
+        foreach (var l in lights)
         {
             var rec = new byte[24];
             BinaryPrimitives.WriteSingleLittleEndian(rec.AsSpan(0x10), l.Intensity);
@@ -315,15 +319,15 @@ internal static class Fixtures
         PutU32(b, (uint)lights.Count);
         PutU32(b, 0); // light states
         PutU32(b, 0); // map bytes
-        foreach (StateDef s in states)
+        foreach (var s in states)
         {
             var rec = new byte[16];
-            for (int k = 0; k < 4; ++k)
+            for (var k = 0; k < 4; ++k)
                 BinaryPrimitives.WriteUInt16LittleEndian(rec.AsSpan(2 * k), s.Color[k]);
             BinaryPrimitives.WriteSingleLittleEndian(rec.AsSpan(8), s.Time);
             b.AddRange(rec);
         }
-        foreach (LightDef l in lights)
+        foreach (var l in lights)
         {
             var rec = new byte[24];
             BinaryPrimitives.WriteInt32LittleEndian(rec.AsSpan(0), l.Id);
@@ -347,19 +351,19 @@ internal static class Fixtures
     public static List<byte> DtsCollisionFile(ReadOnlySpan<float> box)
     {
         var body = new List<byte>();
-        int[] counts = { 2, 0, 0, 0, 0, 2, 1, 1, 1, 0, 0 };
-        foreach (int c in counts)
+        int[] counts = [2, 0, 0, 0, 0, 2, 1, 1, 1, 0, 0];
+        foreach (var c in counts)
             PutU32(body, (uint)c);
         PutF32(body, 3.0f); // radius
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             PutF32(body, 0);
-        for (int i = 0; i < 6; ++i)
+        for (var i = 0; i < 6; ++i)
             PutF32(body, box[i]); // shape box
-        short[][] nodes = { new short[] { 0, -1, 0, 0, 0 }, new short[] { 1, 0, 0, 0, 0 } };
-        foreach (short[] n in nodes)
-            foreach (short v in n)
+        short[][] nodes = [[0, -1, 0, 0, 0], [1, 0, 0, 0, 0]];
+        foreach (var n in nodes)
+            foreach (var v in n)
                 PutU16(body, (ushort)v);
-        foreach (string name in new[] { "bounds", "Collision" })
+        foreach (var name in new[] { "bounds", "Collision" })
         {
             var text = new byte[24];
             ByteString.ToBytes(name).CopyTo(text, 0);
@@ -370,7 +374,7 @@ internal static class Fixtures
         PutU32(body, 0);
         PutU16(body, 1);
         PutU16(body, 0);
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             PutF32(body, 0);
         PutU32(body, 0);
         PutU32(body, 1); // detail: root node 1, size
@@ -378,7 +382,7 @@ internal static class Fixtures
         PutU32(body, 0); // v >= 5, v >= 6 words
         PutU32(body, 0);
         // A box mesh with faces: the sphere test runs on the faces (docs/collision.md T4.1).
-        List<byte> block = DtsBoxMesh(box);
+        var block = DtsBoxMesh(box);
         body.AddRange(block);
         PutU32(body, 0); // no materials
         return Pers("TS::Shape", 8, body);
@@ -395,18 +399,18 @@ internal static class Fixtures
         public readonly record struct Obj(short Name, ushort Flags, int Mesh, short NodeIndex, float[] Offset, short NumSub, short FirstSub);
         public readonly record struct Detail(int Root, float Size);
 
-        public List<NodeRec> Nodes = new();
-        public List<Seq> Sequences = new();
-        public List<Sub> Subs = new();
-        public List<Key> Keys = new();
-        public List<Xform> Transforms = new();
-        public List<string> Names = new();
-        public List<Obj> Objects = new();
-        public List<Detail> Details = new();
-        public List<List<byte>> Meshes = new(); // PERS TS::CelAnimMesh blocks
-        public float Radius = 3.0f;
-        public float[] Box = { -1, -1, -1, 1, 1, 1 };
-        public int AlwaysNode = -1;
+        public List<NodeRec> Nodes { get; set; } = [];
+        public List<Seq> Sequences { get; set; } = [];
+        public List<Sub> Subs { get; set; } = [];
+        public List<Key> Keys { get; set; } = [];
+        public List<Xform> Transforms { get; set; } = [];
+        public List<string> Names { get; set; } = [];
+        public List<Obj> Objects { get; set; } = [];
+        public List<Detail> Details { get; set; } = [];
+        public List<List<byte>> Meshes { get; set; } = []; // PERS TS::CelAnimMesh blocks
+        public float Radius { get; set; } = 3.0f;
+        public float[] Box { get; set; } = [-1, -1, -1, 1, 1, 1];
+        public int AlwaysNode { get; set; } = -1;
     }
 
     // fixtures::dtsBoxMesh: CelAnimMesh v3, one frame, a box min..max. Vertices 0 and 1 are the frame box corners, 2..9
@@ -414,10 +418,10 @@ internal static class Fixtures
     // N = (B - C) x (A - C).
     public static List<byte> DtsBoxMesh(ReadOnlySpan<float> box)
     {
-        ReadOnlySpan<float> scale = stackalloc float[3]
-        {
+        ReadOnlySpan<float> scale =
+        [
             DivF(SubF(box[3], box[0]), 255.0f), DivF(SubF(box[4], box[1]), 255.0f), DivF(SubF(box[5], box[2]), 255.0f),
-        };
+        ];
         return DtsBoxMeshFrame(scale, box);
     }
 
@@ -426,21 +430,21 @@ internal static class Fixtures
     public static List<byte> DtsBoxMeshFrame(ReadOnlySpan<float> scale, ReadOnlySpan<float> origin)
     {
         var mesh = new List<byte>();
-        foreach (uint v in new uint[] { 10, 10, 0, 12, 1, 0 })
+        foreach (var v in new uint[] { 10, 10, 0, 12, 1, 0 })
             PutU32(mesh, v);
         PutF32(mesh, 3.0f);
-        foreach (byte v in new byte[] { 0, 0, 0, 0, 255, 255, 255, 0 })
+        foreach (var v in new byte[] { 0, 0, 0, 0, 255, 255, 255, 0 })
             mesh.Add(v);
-        for (int c = 0; c < 8; ++c)
-            foreach (byte v in new byte[] { (byte)((c & 1) != 0 ? 255 : 0), (byte)((c & 2) != 0 ? 255 : 0), (byte)((c & 4) != 0 ? 255 : 0), 0 })
+        for (var c = 0; c < 8; ++c)
+            foreach (var v in new byte[] { (byte)((c & 1) != 0 ? 255 : 0), (byte)((c & 2) != 0 ? 255 : 0), (byte)((c & 4) != 0 ? 255 : 0), 0 })
                 mesh.Add(v);
         // Quads as corner indices, counter-clockwise seen from outside.
-        int[][] quads = { new[] { 0, 2, 6, 4 }, new[] { 1, 5, 7, 3 }, new[] { 0, 1, 3, 2 }, new[] { 4, 6, 7, 5 }, new[] { 0, 4, 5, 1 }, new[] { 2, 3, 7, 6 } };
-        foreach (int[] q in quads)
-            foreach (int[] tri in new[] { new[] { q[0], q[1], q[2] }, new[] { q[0], q[2], q[3] } })
+        int[][] quads = [[0, 2, 6, 4], [1, 5, 7, 3], [0, 1, 3, 2], [4, 6, 7, 5], [0, 4, 5, 1], [2, 3, 7, 6]];
+        foreach (var q in quads)
+            foreach (var tri in new[] { new[] { q[0], q[1], q[2] }, [q[0], q[2], q[3]] })
             {
                 // (B - C) x (A - C) points outward for A, B, C in this order.
-                foreach (int k in tri)
+                foreach (var k in tri)
                 {
                     PutU32(mesh, (uint)(k + 2));
                     PutU32(mesh, 0);
@@ -448,9 +452,9 @@ internal static class Fixtures
                 PutU32(mesh, 7); // material
             }
         PutU32(mesh, 0);
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             PutF32(mesh, scale[i]);
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             PutF32(mesh, origin[i]);
         return Pers("TS::CelAnimMesh", 3, mesh);
     }
@@ -459,17 +463,17 @@ internal static class Fixtures
     public static List<byte> DtsModelFile(DtsSpec s)
     {
         var body = new List<byte>();
-        int[] counts = { s.Nodes.Count, s.Sequences.Count, s.Subs.Count, s.Keys.Count, s.Transforms.Count,
-                         s.Names.Count, s.Objects.Count, s.Details.Count, s.Meshes.Count, 0, 0 };
-        foreach (int c in counts)
+        int[] counts = [ s.Nodes.Count, s.Sequences.Count, s.Subs.Count, s.Keys.Count, s.Transforms.Count,
+                         s.Names.Count, s.Objects.Count, s.Details.Count, s.Meshes.Count, 0, 0 ];
+        foreach (var c in counts)
             PutU32(body, (uint)c);
         PutF32(body, s.Radius);
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             PutF32(body, 0);
-        foreach (float b in s.Box)
+        foreach (var b in s.Box)
             PutF32(body, b);
         foreach (var n in s.Nodes)
-            foreach (short v in new[] { n.Name, n.Parent, n.NumSub, n.FirstSub, n.DefaultTransform })
+            foreach (var v in new[] { n.Name, n.Parent, n.NumSub, n.FirstSub, n.DefaultTransform })
                 PutU16(body, (ushort)v);
         foreach (var q in s.Sequences)
         {
@@ -480,7 +484,7 @@ internal static class Fixtures
             body.AddRange(new byte[16]);
         }
         foreach (var q in s.Subs)
-            foreach (short v in new[] { q.Sequence, q.NumKeys, q.FirstKey })
+            foreach (var v in new[] { q.Sequence, q.NumKeys, q.FirstKey })
                 PutU16(body, (ushort)v);
         foreach (var k in s.Keys)
         {
@@ -490,15 +494,15 @@ internal static class Fixtures
         }
         foreach (var t in s.Transforms)
         {
-            foreach (short v in t.Q)
+            foreach (var v in t.Q)
                 PutU16(body, (ushort)v);
-            foreach (float v in t.T)
+            foreach (var v in t.T)
                 PutF32(body, v);
         }
-        foreach (string name in s.Names)
+        foreach (var name in s.Names)
         {
             var text = new byte[24];
-            byte[] nb = ByteString.ToBytes(name);
+            var nb = ByteString.ToBytes(name);
             Array.Copy(nb, text, Math.Min(nb.Length, 23));
             body.AddRange(text);
         }
@@ -509,7 +513,7 @@ internal static class Fixtures
             PutU32(body, (uint)o.Mesh);
             PutU16(body, (ushort)o.NodeIndex);
             PutU16(body, 0);
-            foreach (float v in o.Offset)
+            foreach (var v in o.Offset)
                 PutF32(body, v);
             PutU16(body, (ushort)o.NumSub);
             PutU16(body, (ushort)o.FirstSub);
@@ -521,7 +525,7 @@ internal static class Fixtures
         }
         PutU32(body, 0);
         PutU32(body, (uint)s.AlwaysNode);
-        foreach (List<byte> m in s.Meshes)
+        foreach (var m in s.Meshes)
             body.AddRange(m);
         PutU32(body, 0);
         return Pers("TS::Shape", 8, body);
@@ -531,14 +535,14 @@ internal static class Fixtures
     // `root` with search path "base". Mission classes are registered once.
     public sealed class World
     {
-        public readonly Interpreter In = new();
-        public readonly ResourceManager Res;
-        public readonly ClassContext Ctx = new();
-        public readonly SimConsole Sim;
-        public readonly GameState Game = new();
-        private static bool sClasses;
-        public string Out = "";
-        public int Lines;
+        public Interpreter In { get; } = new();
+        public ResourceManager Res { get; }
+        public ClassContext Ctx { get; } = new();
+        public SimConsole Sim { get; }
+        public GameState Game { get; } = new();
+        private static bool _classes;
+        public string Out { get; set; } = "";
+        public int Lines { get; set; }
 
         public World(string root)
         {
@@ -554,16 +558,13 @@ internal static class Fixtures
             Game.Console = In;
             Game.Resources = Res;
             Ctx.Game = Game;
-            if (!sClasses)
+            if (!_classes)
             {
                 MissionClasses.Register();
-                sClasses = true;
+                _classes = true;
             }
             GameCommands.Register(In, Game);
-            In.SetOutput(l =>
-            {
-                Out += (Lines++ != 0 ? "\n" : "") + l;
-            });
+            In.SetOutput(l => Out += (Lines++ != 0 ? "\n" : "") + l);
             Run("newServer(); focusServer(); newObject(ConsoleScheduler, SimConsoleScheduler);");
         }
 
@@ -581,11 +582,11 @@ internal static class Fixtures
     // fixtures::Cases: runs (script, expected output) pairs and reports every mismatch.
     public sealed class Cases
     {
-        public int Failures;
+        public int Failures { get; set; }
 
         public void Check(World w, string src, string want)
         {
-            string got = w.Run(src);
+            var got = w.Run(src);
             if (got != want)
             {
                 Console.Error.WriteLine("FAIL " + src + "\n  want: " + want + "\n  got:  " + got);

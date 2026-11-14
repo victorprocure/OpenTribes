@@ -1,3 +1,5 @@
+namespace OpenTribes.ClientNet;
+
 using System.Globalization;
 using OpenTribes.Core;
 using OpenTribes.Game;
@@ -5,20 +7,18 @@ using OpenTribes.Script;
 using OpenTribes.Server;
 using OpenTribes.Sim;
 
-namespace OpenTribes.ClientNet;
-
 /// <summary>The prediction world of the headless client (docs/client-net.md 4.4): the mission's terrain, interiors and shapes that the client copy of the control object collides with.</summary>
 /// <remarks>tribes-netclient builds it the way the server does: the stock start-up (<c>console.cs</c> with <c>-dedicated MISSION</c>) runs in-process with the network off, on a virtual clock, until the mission is loaded. The world is never advanced after that, and only the copy of the control object is stepped. The datablock indices match the server's when both run the same scripts (stock base, our server or the reference).</remarks>
 public sealed class PredictionWorld
 {
     /// <summary>The script interpreter of the world.</summary>
-    public readonly Interpreter Console = new();
+    public Interpreter Console { get; } = new();
     /// <summary>The sim console of the world.</summary>
-    public readonly SimConsole Sim;
+    public SimConsole Sim { get; }
     /// <summary>The game state of the world.</summary>
-    public readonly GameState Game = new();
+    public GameState Game { get; } = new();
     /// <summary>The console output, at most 2000 lines.</summary>
-    public readonly List<string> Output = new();
+    public List<string> Output { get; } = [];
 
     /// <summary>Builds the world and runs the stock start-up until the mission is loaded. The mission load runs from scheduled script, so frames run on the virtual clock until the terrain exists, then two more seconds for objects the mission scripts add after the load.</summary>
     /// <param name="root">The game directory.</param>
@@ -42,12 +42,12 @@ public sealed class PredictionWorld
         Game.Sim = Sim;
         Game.Console = Console;
         ctx.Game = Game;
-        ctx.ServerCreated = m => Game.Players.StartPingTimer(m);
+        ctx.ServerCreated = Game.Players.StartPingTimer;
         ServerClasses.EnsureRegistered();
         Game.Resources = resources;
         GameCommands.Register(Console, Game);
         var net = new NetServer(new ServerConfig { Port = 0 });
-        SimConsole simOps = Sim;
+        var simOps = Sim;
         ServerCommands.RegisterServerCommands(Console, new ServerCommandContext
         {
             Net = net,
@@ -56,19 +56,19 @@ public sealed class PredictionWorld
             Quit = () => { },
         });
         new MasterHeartbeat(Console, net, false).RegisterCommands();
-        Console.BindVariable("$ConsoleWorld::DefaultSearchPath", path => resources.SetSearchPath(path));
+        Console.BindVariable("$ConsoleWorld::DefaultSearchPath", resources.SetSearchPath);
         Console.SetVariable("$CPU::estimatedSpeed", "0");
         Console.SetVariable("$cargv0", "Tribes.exe");
-        for (int i = 0; i < args.Count; ++i)
+        for (var i = 0; i < args.Count; ++i)
             Console.SetVariable("$cargv" + (i + 1).ToString(CultureInfo.InvariantCulture), ByteString.FromHost(args[i]));
         Console.Evaluate(ByteString.FromBytes(File.ReadAllBytes(Path.Combine(root, "console.cs"))), "console.cs");
         var gameServer = new GameServer(Game, Console, net, claimGlobals: false);
         gameServer.RegisterCommands();
         // The mission load runs from scheduled script: frames on the virtual clock until the terrain exists.
-        int frames = 0;
-        for (int ms = 0; ms < 20000 && !Loaded(); ms += 32, ++frames)
+        var frames = 0;
+        for (var ms = 0; ms < 20000 && !Loaded(); ms += 32, ++frames)
             Sim.AdvanceRealTime(32);
-        for (int k = 0; k < 64; ++k)   // two more seconds: objects the mission scripts add after the load
+        for (var k = 0; k < 64; ++k)   // two more seconds: objects the mission scripts add after the load
             Sim.AdvanceRealTime(32);
         log?.Invoke("prediction world: " + (Loaded() ? "mission " + Console.PeekVariable("$missionName") + " loaded after " + frames + " frames" : "no mission") + ", " +
                     Output.Count + " console lines");
@@ -84,24 +84,24 @@ public sealed class PredictionWorld
     /// <returns>The object, or null when the datablock or the creation fails.</returns>
     public GameBase? Create(ClientGhost g, ClientPsc psc)
     {
-        if (!g.State.TryGetValue("datablock", out object? dbv) || dbv is not long db)
+        if (!g.State.TryGetValue("datablock", out var dbv) || dbv is not long db)
             return null;
-        int group = g.Class == "Player" ? 3 : 10;
-        DataBlockManager.Block? b = Sim.DataBlocks().At(group, (int)db);
+        var group = g.Class == "Player" ? 3 : 10;
+        var b = Sim.DataBlocks().At(group, (int)db);
         if (b == null)
             return null;
-        string pos = "0 0 0";
-        if (psc.ControlState.TryGetValue("pos", out object? pv) && pv is double[] p)
+        var pos = "0 0 0";
+        if (psc.ControlState.TryGetValue("pos", out var pv) && pv is double[] p)
             pos = string.Join(" ", p.Select(v => Numbers.FormatFloat((float)v)));
-        string id = g.Class == "Player"
-            ? Console.CallFunction("spawnPlayer", new[] { b.Name, pos, "0 0 0" })
-            : Console.CallFunction("newObject", new[] { "", "Flier", b.Name, "true" });
-        if (!int.TryParse(id, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n))
+        var id = g.Class == "Player"
+            ? Console.CallFunction("spawnPlayer", [b.Name, pos, "0 0 0"])
+            : Console.CallFunction("newObject", ["", "Flier", b.Name, "true"]);
+        if (!int.TryParse(id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n))
             return null;
-        GameBase? o = Sim.Server()?.FindById(n) as GameBase;
+        var o = Sim.Server()?.FindById(n) as GameBase;
         if (o is Flier f)
         {
-            float[] q = pos.Split(' ').Select(s => float.Parse(s, CultureInfo.InvariantCulture)).ToArray();
+            var q = pos.Split(' ').Select(s => float.Parse(s, CultureInfo.InvariantCulture)).ToArray();
             f.SetPosition(q);
         }
         return o;
@@ -113,22 +113,22 @@ public sealed class PredictionWorld
     /// <returns>The object, or null when the datablock or the creation fails.</returns>
     public GameBase? CreateRemote(ClientGhost g, float[] position)
     {
-        if (!g.State.TryGetValue("datablock", out object? dbv) || dbv is not long db)
+        if (!g.State.TryGetValue("datablock", out var dbv) || dbv is not long db)
             return null;
-        int group = g.Class switch { "Player" => 3, "Flier" => 10, "Vehicle" => 9, _ => -1 };
-        DataBlockManager.Block? b = group < 0 ? null : Sim.DataBlocks().At(group, (int)db);
+        var group = g.Class switch { "Player" => 3, "Flier" => 10, "Vehicle" => 9, _ => -1 };
+        var b = group < 0 ? null : Sim.DataBlocks().At(group, (int)db);
         if (b == null)
             return null;
-        string pos = string.Join(" ", position.Select(v => Numbers.FormatFloat(v)));
-        string id = g.Class switch
+        var pos = string.Join(" ", position.Select(v => Numbers.FormatFloat(v)));
+        var id = g.Class switch
         {
-            "Player" => Console.CallFunction("spawnPlayer", new[] { b.Name, pos, "0 0 0" }),
-            "Flier" => Console.CallFunction("newObject", new[] { "", "Flier", b.Name, "true" }),
-            _ => Console.CallFunction("newObject", new[] { "", "Vehicle", b.Name, "true" }),
+            "Player" => Console.CallFunction("spawnPlayer", [b.Name, pos, "0 0 0"]),
+            "Flier" => Console.CallFunction("newObject", ["", "Flier", b.Name, "true"]),
+            _ => Console.CallFunction("newObject", ["", "Vehicle", b.Name, "true"]),
         };
-        if (!int.TryParse(id, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n))
+        if (!int.TryParse(id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n))
             return null;
-        GameBase? o = Sim.Server()?.FindById(n) as GameBase;
+        var o = Sim.Server()?.FindById(n) as GameBase;
         if (o is Vehicle v)
             v.SetPosition(position);
         return o;

@@ -1,15 +1,14 @@
 // Tests of the joystick path (docs/client-app.md 3.2, 3.3, 3.6): object numbering (0050ed5c), axis normalisation, POV angle
 // to events (0050f658) and the stock config\joystick.cs bindings through the dispatcher. No device is needed.
-using OpenTribes.Core;
-using OpenTribes.Script;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Script;
 
 public sealed class JoystickTests
 {
     private sealed class Sink : IActionConsumer
     {
-        public readonly List<(int Action, int Kind, float Value)> Got = new();
+        public List<(int Action, int Kind, float Value)> Got { get; } = [];
         public bool Removing => false;
         public bool OnAction(int action, int kind, float value)
         {
@@ -22,11 +21,9 @@ public sealed class JoystickTests
     [InlineData(-32768, 0f)]
     [InlineData(32767, 1f)]
     [InlineData(0, 32768f / 65535f)]
-    public void AxisValueIsPositionInRange(int raw, float expect)
-    {
+    public void AxisValueIsPositionInRange(int raw, float expect) =>
         // 0050f658: (raw - min) / (max - min) for an axis of a device that is not a mouse.
         Assert.Equal(expect, JoystickEvents.AxisValue(raw), 6);
-    }
 
     [Theory]
     [InlineData(0, 11, 0)]
@@ -37,11 +34,9 @@ public sealed class JoystickTests
     [InlineData(5, 16, 0)]
     [InlineData(6, 17, 0)]
     [InlineData(7, 17, 1)]
-    public void AxesAreNumberedPerObjectType(int axis, int type, int inst)
-    {
+    public void AxesAreNumberedPerObjectType(int axis, int type, int inst) =>
         // 0050ed5c: object type codes 0x0b..0x10 for x..rz, 0x11 for sliders, each type counted from 0.
         Assert.Equal(((byte)type, (byte)inst), JoystickEvents.AxisObject(axis));
-    }
 
     [Theory]
     [InlineData(0, 0xffff)]
@@ -54,10 +49,7 @@ public sealed class JoystickTests
     [InlineData(8, 27000)]
     [InlineData(9, 31500)]
     [InlineData(5, 0xffff)]
-    public void HatBitsGiveTheAngle(int hat, int angle)
-    {
-        Assert.Equal(angle, JoystickEvents.HatAngle(hat));
-    }
+    public void HatBitsGiveTheAngle(int hat, int angle) => Assert.Equal(angle, JoystickEvents.HatAngle(hat));
 
     [Theory]
     [InlineData(0, 0)]
@@ -69,11 +61,9 @@ public sealed class JoystickTests
     [InlineData(27000, 3)]
     [InlineData(31500, 0)]
     [InlineData(0xffff, 5)]
-    public void PovSectorFollowsTheStockFormula(int angle, int sector)
-    {
+    public void PovSectorFollowsTheStockFormula(int angle, int sector) =>
         // 0050f658: ((angle + 31500) / 9000 - 3) & 3, 0 up, 1 right, 2 down, 3 left; 5 when centred.
         Assert.Equal(sector, JoystickEvents.PovSector(angle));
-    }
 
     [Fact]
     public void CentredPovMakesTwoHalfMoves()
@@ -123,7 +113,7 @@ public sealed class JoystickTests
     private static (InputDispatcher D, Sink S) StockJoystickMap()
     {
         var i = new Interpreter();
-        ClientState s = Builtins.RegisterBuiltins(i, null, ".");
+        var s = Builtins.RegisterBuiltins(i, null, ".");
         i.SetOutput(_ => { });
         // The two movement lines of the stock config\joystick.cs.
         i.Evaluate("newActionMap(\"playMap.sae\");" +
@@ -186,7 +176,7 @@ public sealed class JoystickTests
     public void PovEventsKindIsTen()
     {
         var i = new Interpreter();
-        ClientState s = Builtins.RegisterBuiltins(i, null, ".");
+        var s = Builtins.RegisterBuiltins(i, null, ".");
         i.SetOutput(_ => { });
         i.Evaluate("newActionMap(\"p.sae\"); bindAction(joystick0, xpov0, TO, 220010);");
         var sink = new Sink();

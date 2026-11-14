@@ -1,7 +1,7 @@
+namespace OpenTribes.Tests;
+
 using OpenTribes.Platform;
 using OpenTribes.Script;
-
-namespace OpenTribes.Tests;
 
 // ROADMAP M9 C9: platform-dependent choices of OpenTribes.Platform and the case rules on case-sensitive file systems.
 public class PlatformPathsTests
@@ -64,21 +64,21 @@ public class PlatformPathsTests
     [Fact]
     public void GamePathResolvesMixedCase()
     {
-        string root = Path.Combine(TestPaths.TmpDir("platform"), "case_root");
+        var root = Path.Combine(TestPaths.TmpDir("platform"), "case_root");
         if (Directory.Exists(root))
             Directory.Delete(root, true);
         Directory.CreateDirectory(Path.Combine(root, "Base", "Missions"));
         File.WriteAllText(Path.Combine(root, "Base", "Missions", "Broadside.MIS"), "x");
-        string host = Builtins.ResolveGamePath(root, "base\\missions\\broadside.mis");
+        var host = Builtins.ResolveGamePath(root, "base\\missions\\broadside.mis");
         Assert.True(File.Exists(host), host);
     }
 
     [Fact]
     public void ReadOnlyRootGetsOverlay()
     {
-        string dir = TestPaths.TmpDir("platform");
+        var dir = TestPaths.TmpDir("platform");
         string root = Path.Combine(dir, "ro_root"), overlay = Path.Combine(dir, "ro_overlay");
-        foreach (string d in new[] { root, overlay })
+        foreach (var d in new[] { root, overlay })
             if (Directory.Exists(d))
                 Directory.Delete(d, true);
         Directory.CreateDirectory(Path.Combine(root, "base"));
@@ -92,7 +92,7 @@ public class PlatformPathsTests
             File.SetUnixFileMode(root, UnixFileMode.UserRead | UnixFileMode.UserExecute);
             try
             {
-                Assert.Equal(overlay, PlatformPaths.EnsureWritableRoot(root, overlay, out string err));
+                Assert.Equal(overlay, PlatformPaths.EnsureWritableRoot(root, overlay, out var err));
                 Assert.Equal("", err);
                 Assert.True(File.Exists(Path.Combine(overlay, "console.cs")));
                 Assert.True(Directory.Exists(Path.Combine(overlay, "base")));

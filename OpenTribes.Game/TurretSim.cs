@@ -1,12 +1,9 @@
 // Port of src/game/turret_sim.cpp: the Turret tick (docs/static-sim.md 4) and the Trigger (docs/static-sim.md 6). The
 // turret activation of this file, the target search, aim, sustained fire and the shape bind (turret_fire.cpp,
 // turret_control.cpp) are TurretFire.cs.
-using OpenTribes.Script;
-using OpenTribes.Sim;
-using OpenTribes.World;
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 public partial class GameBase
 {
@@ -21,7 +18,7 @@ public partial class GameBase
         const float dt = 0.032f;
         if (!TurretData.Sustained)
         {
-            if (ControlClient == 0 && DamageState == kEnabled && Active)
+            if (ControlClient == 0 && DamageState == Enabled && Active)
                 TurretSearchStep();
             if (ControlClient == 0)
                 TurretUpdateAim(null, dt);
@@ -35,7 +32,7 @@ public partial class GameBase
                 case 0:
                 {
                     // 0x00457db0: ready again after reloadDelay.
-                    uint ms = unchecked((uint)(int)Mul(TurretData.ReloadDelay, 1000.0f));
+                    var ms = unchecked((uint)(int)Mul(TurretData.ReloadDelay, 1000.0f));
                     if (TurretTickMs >= unchecked(ms + TurretStamp))
                     {
                         TurretStamp = TurretTickMs;
@@ -45,7 +42,7 @@ public partial class GameBase
                 }
                 case 1: // 0x00457cc0: the common tick runs a second time, then the search
                     StaticTick(0.03f);
-                    if (ControlClient == 0 && DamageState == kEnabled && Active)
+                    if (ControlClient == 0 && DamageState == Enabled && Active)
                         TurretSearchStep();
                     if (ControlClient == 0)
                         TurretUpdateAim(null, dt);
@@ -61,7 +58,7 @@ public partial class GameBase
             if (TurretBarrelState == 2)
             {
                 // The beam drains energyRate * 0.032 (f64 constant) per tick.
-                float e = Store(Sub(Energy, Mul(TurretData.EnergyRate, 0.032)));
+                var e = Store(Sub(Energy, Mul(TurretData.EnergyRate, 0.032)));
                 if (e < 0.0f)
                 {
                     TurretStopBeam();
@@ -76,31 +73,21 @@ public partial class GameBase
 
     /// <summary>Returns the object type bits (+0x48).</summary>
     /// <returns>The type bits.</returns>
-    public uint TypeBits()
+    public uint TypeBits() => _shapeClass switch
     {
-        switch (mShapeClass)
+        ShapeKind.StaticShape or ShapeKind.Sensor or ShapeKind.Turret => ObjectType.StaticType,
+        ShapeKind.Moveable => ObjectType.MoveableType,
+        ShapeKind.Item => ObjectType.ItemType,
+        ShapeKind.Mine => ObjectType.MineType,
+        ShapeKind.Vehicle => ObjectType.VehicleType,
+        ShapeKind.NoShape or _ => _kind switch
         {
-            case ShapeKind.StaticShape:
-            case ShapeKind.Sensor:
-            case ShapeKind.Turret:
-                return ObjectType.kStaticType;
-            case ShapeKind.Moveable:
-                return ObjectType.kMoveableType;
-            case ShapeKind.Item:
-                return ObjectType.kItemType;
-            case ShapeKind.Mine:
-                return ObjectType.kMineType;
-            case ShapeKind.Vehicle:
-                return ObjectType.kVehicleType;
-        }
-        return mKind switch
-        {
-            Kind.Trigger => ObjectType.kTriggerType,
-            Kind.Marker => ObjectType.kMarkerType,
-            Kind.Interior => ObjectType.kInteriorType,
-            _ => GameUtil.EqualsNoCase(ClassName(), "Player") ? ObjectType.kPlayerType : 0u,
-        };
-    }
+            Kind.Trigger => ObjectType.TriggerType,
+            Kind.Marker => ObjectType.MarkerType,
+            Kind.Interior => ObjectType.InteriorType,
+            Kind.ShapeBase or _ => GameUtil.EqualsNoCase(ClassName(), "Player") ? ObjectType.PlayerType : 0u,
+        },
+    };
 
     /// <summary>Handles a trigger collide event from an object.</summary>
     /// <param name="source">The colliding object.</param>
@@ -109,38 +96,38 @@ public partial class GameBase
     {
         if (!TriggerActive || Manager() == null || (source.TypeBits() & 0x24400180u) == 0)
             return;
-        float now = Manager()!.Time();
-        for (int i = 0; i < Occupants.Count; ++i)
-            if (Occupants[i].Object == source.Id())
+        var now = Manager()!.Time();
+        for (var i = 0; i < Occupants.Count; ++i)
+            if (Occupants[i].ObjectId == source.Id())
             {
-                Occupant o = Occupants[i];
+                var o = Occupants[i];
                 o.Expiry = Store(Add(now, 0.25f));
                 Occupants[i] = o;
                 return;
             }
         using var chop = ChopScope();
-        Occupants.Add(new Occupant { Object = source.Id(), Expiry = Store(Add(now, 0.25f)), NextContact = Store(Add(now, TriggerInterval)) });
-        mCtx.Game?.ScriptCallback(this, "onEnter", new[] { Numbers.FormatInt(source.Id()) });
-        if (Occupants.Count == 1 && mCtx.Game != null)
-            mCtx.Game.JoinSet(this, 12); // SimTimerSet: event 0x40a every tick
+        Occupants.Add(new Occupant { ObjectId = source.Id(), Expiry = Store(Add(now, 0.25f)), NextContact = Store(Add(now, TriggerInterval)) });
+        _ctx.Game?.ScriptCallback(this, "onEnter", [Numbers.FormatInt(source.Id())]);
+        if (Occupants.Count == 1 && _ctx.Game != null)
+            _ctx.Game.JoinSet(this, 12); // SimTimerSet: event 0x40a every tick
     }
 
     // src/game/turret_sim.cpp GameBase::triggerTimer: 0x0048762c, per occupant in list order. An occupant that was
     // deleted leaves without a callback, and an emptied list leaves set 12 (0x004872e0).
     private void TriggerTimer()
     {
-        if (Manager() == null || mCtx.Game == null)
+        if (Manager() == null || _ctx.Game == null)
             return;
-        float now = Manager()!.Time();
+        var now = Manager()!.Time();
         using var chop = ChopScope();
-        for (int i = 0; i < Occupants.Count;)
+        for (var i = 0; i < Occupants.Count;)
         {
-            Occupant o = Occupants[i];
-            if (Manager()!.FindById(o.Object) == null)
+            var o = Occupants[i];
+            if (Manager()!.FindById(o.ObjectId) == null)
             {
                 Occupants.RemoveAt(i);
                 if (Occupants.Count == 0)
-                    mCtx.Game.LeaveSet(this, 12);
+                    _ctx.Game.LeaveSet(this, 12);
                 continue;
             }
             if (now < o.Expiry)
@@ -149,14 +136,14 @@ public partial class GameBase
                 {
                     o.NextContact = Store(Add(now, TriggerInterval));
                     Occupants[i] = o;
-                    mCtx.Game.ScriptCallback(this, "onContact", new[] { Numbers.FormatInt(o.Object) });
+                    _ctx.Game.ScriptCallback(this, "onContact", [Numbers.FormatInt(o.ObjectId)]);
                 }
                 ++i;
             }
             else
             {
                 Occupants.RemoveAt(i);
-                mCtx.Game.ScriptCallback(this, "onLeave", new[] { Numbers.FormatInt(o.Object) });
+                _ctx.Game.ScriptCallback(this, "onLeave", [Numbers.FormatInt(o.ObjectId)]);
             }
         }
     }
@@ -172,25 +159,25 @@ public partial class GameBase
         TriggerActive = on;
         // An occupant that was deleted has left the list through its delete notify (0x004872e0).
         if (Manager() != null)
-            Occupants.RemoveAll(o => Manager()!.FindById(o.Object) == null);
+            Occupants.RemoveAll(o => Manager()!.FindById(o.ObjectId) == null);
         if (!on && Occupants.Count != 0)
         {
             while (Occupants.Count != 0)
             {
-                int obj = Occupants[^1].Object;
+                var obj = Occupants[^1].ObjectId;
                 Occupants.RemoveAt(Occupants.Count - 1);
-                mCtx.Game?.ScriptCallback(this, "onLeave", new[] { Numbers.FormatInt(obj) });
+                _ctx.Game?.ScriptCallback(this, "onLeave", [Numbers.FormatInt(obj)]);
             }
-            mCtx.Game?.LeaveSet(this, 12);
+            _ctx.Game?.LeaveSet(this, 12);
         }
-        mCtx.Game?.ScriptCallback(this, on ? "onActivate" : "onDeactivate", Array.Empty<string>());
+        _ctx.Game?.ScriptCallback(this, on ? "onActivate" : "onDeactivate", []);
         return true;
     }
 
     /// <inheritdoc/>
     public override void OnTimerEvent(float time, int timerId, float interval)
     {
-        if (mKind == Kind.Trigger)
+        if (_kind == Kind.Trigger)
             TriggerTimer();
     }
 }

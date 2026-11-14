@@ -1,11 +1,10 @@
-using OpenTribes.Platform.Gl;
-using Xunit;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Platform.Gl;
 
 public class FullscreenPlanTests
 {
-    private static readonly (int W, int H)[] Modes = { (640, 480), (800, 600), (1024, 768), (1920, 1080) };
+    private static readonly (int W, int H)[] Modes = [(640, 480), (800, 600), (1024, 768), (1920, 1080)];
 
     [Theory]
     [InlineData("640x480", 640, 480)]
@@ -27,7 +26,7 @@ public class FullscreenPlanTests
     public void NearestModeWhenNoExactOne() => Assert.Equal((1024, 768), FullscreenPlan.NearestMode(Modes, 1000, 700));
 
     [Fact]
-    public void NoModesGivesNull() => Assert.Null(FullscreenPlan.NearestMode(System.Array.Empty<(int, int)>(), 640, 480));
+    public void NoModesGivesNull() => Assert.Null(FullscreenPlan.NearestMode([], 640, 480));
 
     [Fact]
     public void FullscreenCanvasIsTheModeNotTheDesktop()
@@ -67,7 +66,7 @@ public class FullscreenPlanTests
     [Fact]
     public void CommandLineOption()
     {
-        Assert.True(OpenTribes.Client.App.ClientOptions.Parse(new[] { "--fullscreen-windowed" }, out _)!.FullscreenWindowed);
-        Assert.False(OpenTribes.Client.App.ClientOptions.Parse(System.Array.Empty<string>(), out _)!.FullscreenWindowed);
+        Assert.True(Client.App.ClientOptions.Parse(["--fullscreen-windowed"], out _)!.FullscreenWindowed);
+        Assert.False(Client.App.ClientOptions.Parse([], out _)!.FullscreenWindowed);
     }
 }

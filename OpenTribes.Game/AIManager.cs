@@ -1,9 +1,9 @@
 // Port of src/game/ai_manager.hpp (AIManager, aiSolveAim) and src/game/ai_manager.cpp: the AI manager (object 726) and
 // the pre-tick, post-tick and engage routines of the AI object (docs/ai-sim.md 1.6, 3.4, 3.7, 3.8, 4). The Chop class of
 // the file is X87.Chop; world::x87::f32 is X87.F32, the long double arithmetic the Fpu double operations in C++ order.
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 public sealed partial class AIObject
 {
@@ -38,13 +38,13 @@ public sealed partial class AIObject
     public void PostTick()
     {
         ++ErrorPhase;
-        Player? p = Player();
+        var p = Player();
         if (p != null && p.Dead && (Flags & 1) == 0)
         {
             Flags |= 1;
             Callback(null, 0);
             RemoveVariables();
-            string buf = "Corpse" + CorpseCounterNext().ToString(System.Globalization.CultureInfo.InvariantCulture) + " " + AiName;
+            var buf = "Corpse" + CorpseCounterNext().ToString(System.Globalization.CultureInfo.InvariantCulture) + " " + AiName;
             if (buf.Length > 159)
                 buf = buf[..159]; // snprintf into 160 bytes
             AiName = buf.Length > 31 ? buf[..31] : buf;
@@ -60,11 +60,11 @@ public sealed partial class AIObject
     }
 
     // src/game/ai_manager.cpp corpseCounter: 0x006640f4, never reset.
-    private static uint sCorpseCounter;
+    private static uint _corpseCounter;
 
     /// <summary>Returns the next corpse counter value and advances it.</summary>
     /// <returns>The counter value.</returns>
-    public static uint CorpseCounterNext() => sCorpseCounter++;
+    public static uint CorpseCounterNext() => _corpseCounter++;
 
     // ---- engage (3.4, 3.7, 3.8) ----
 
@@ -74,7 +74,7 @@ public sealed partial class AIObject
     // src/game/ai_manager.cpp AIObject::engagePlayer: 0x0043c8bc.
     private void EngagePlayer(Player target)
     {
-        Player? self = Player();
+        var self = Player();
         if (self == null)
             return;
         float[] aim = new float[3], tp = new float[3];
@@ -82,14 +82,14 @@ public sealed partial class AIObject
         if (WeaponSpeed())
         {
             Span<float> rel = stackalloc float[3];
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 rel[i] = X87.F32(Sub(target.Velocity[i], self.Velocity[i]));
             PointOf(Game, target, tp);
-            float dist = Dist3(Frame.Own, tp);
-            float t = X87.F32(Div(dist, ProjectileSpeed));
-            for (int i = 0; i < 3; ++i)
+            var dist = Dist3(Frame.Own, tp);
+            var t = X87.F32(Div(dist, ProjectileSpeed));
+            for (var i = 0; i < 3; ++i)
             {
-                float r = X87.F32(Mul(rel[i], t));
+                var r = X87.F32(Mul(rel[i], t));
                 aim[i] = X87.F32(Add(r, tp[i]));
             }
         }
@@ -99,12 +99,12 @@ public sealed partial class AIObject
         }
         Span<float> err = stackalloc float[3];
         AimError(target, null, err);
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             aim[i] = X87.F32(Add(err[i], aim[i]));
-        YawError ye = SteerYaw(aim);
+        var ye = SteerYaw(aim);
         if (ye.Abs < 0.08f)
         {
-            YawError pe = SteerPitch(aim);
+            var pe = SteerPitch(aim);
             if (pe.Abs < 0.08f && !target.Dead)
                 Move.Fire = TriggerPull();
         }
@@ -119,36 +119,36 @@ public sealed partial class AIObject
         }
         else if (AttackMode == 0)
         {
-            float[] P = new float[3];
-            PointOf(Game, target, P);
-            if (Dist2(P, Frame.Own) < 17.0f)
+            var p3 = new float[3];
+            PointOf(Game, target, p3);
+            if (Dist2(p3, Frame.Own) < 17.0f)
             {
-                float[] v = new float[3];
-                for (int i = 0; i < 3; ++i)
-                    v[i] = X87.F32(Sub(P[i], Frame.Own[i]));
-                float len = X87.F32(X87.Len(v));
-                float k = X87.F32(Div(1.0f, len));
-                for (int i = 0; i < 3; ++i)
+                var v = new float[3];
+                for (var i = 0; i < 3; ++i)
+                    v[i] = X87.F32(Sub(p3[i], Frame.Own[i]));
+                var len = X87.F32(X87.Len(v));
+                var k = X87.F32(Div(1.0f, len));
+                for (var i = 0; i < 3; ++i)
                     v[i] = X87.F32(Mul(k, v[i]));
                 const float neg = -17.0f;
-                for (int i = 0; i < 3; ++i)
+                for (var i = 0; i < 3; ++i)
                     v[i] = X87.F32(Mul(neg, v[i]));
-                Span<float> P2 = stackalloc float[3];
-                PointOf(Game, target, P2);
-                for (int i = 0; i < 3; ++i)
-                    P[i] = X87.F32(Add(P2[i], v[i]));
+                Span<float> p22 = stackalloc float[3];
+                PointOf(Game, target, p22);
+                for (var i = 0; i < 3; ++i)
+                    p3[i] = X87.F32(Add(p22[i], v[i]));
             }
-            MoveTowardKeepTurn(P);
+            MoveTowardKeepTurn(p3);
         }
     }
 
     // src/game/ai_manager.cpp AIObject::engagePoint: 0x0043d068.
     private void EngagePoint(AIDirective d)
     {
-        YawError ye = SteerYaw(d.Point);
+        var ye = SteerYaw(d.Point);
         if (ye.Abs < 0.08f)
         {
-            YawError pe = SteerPitch(d.Point);
+            var pe = SteerPitch(d.Point);
             if (pe.Abs < 0.08f)
                 Move.Fire = TriggerPull();
         }
@@ -160,55 +160,55 @@ public sealed partial class AIObject
     // eye plus 50 m of the direction.
     private void EngageLaser(AIDirective d)
     {
-        SimManager? m = Game.Sim?.Server();
-        bool moveAfter = AttackMode == 1 && Frame.HasMoveTarget;
-        bool aimed = false;
-        Player? owner = AIMath.PlayerOfRep(Game, d.Client);
-        Player? self = Player();
+        var m = Game.Sim?.Server();
+        var moveAfter = AttackMode == 1 && Frame.HasMoveTarget;
+        var aimed = false;
+        var owner = AIMath.PlayerOfRep(Game, d.Client);
+        var self = Player();
         if (m != null && self != null && WeaponSpeed())
         {
-            Player.ImageSlot slot = self.Images[0];
-            DataBlockManager.Block? block = slot.Info.ProjGroup == -1 ? null : Game.Sim!.DataBlocks().At(slot.Info.ProjGroup, slot.Info.ProjIndex);
-            SimObject? set = m.FindById(725);
-            SimSet? members = set?.AsSet();
+            var slot = self.Images[0];
+            var block = slot.Info.ProjGroup == -1 ? null : Game.Sim!.DataBlocks().At(slot.Info.ProjGroup, slot.Info.ProjIndex);
+            var set = m.FindById(725);
+            var members = set?.AsSet();
             if (block != null && owner != null && members != null)
             {
-                int group = slot.Info.ProjGroup;
-                float totalTime = Pj.Real(block, "totalTime", 10000.0f);
-                for (int i = 0; i < members.Members().Count; ++i)
+                var group = slot.Info.ProjGroup;
+                var totalTime = Pj.Real(block, "totalTime", 10000.0f);
+                for (var i = 0; i < members.Members().Count; ++i)
                 {
-                    Projectile? pr = Projectile.From(members.Members()[i]);
+                    var pr = Projectile.From(members.Members()[i]);
                     if (pr == null || pr.Shooter() != owner)
                         continue;
-                    float[] point = new float[3];
+                    var point = new float[3];
                     if (!pr.BeamTargetPoint(point, out _))
                         continue;
-                    float g = 0.0f;
-                    foreach (Player.Force f in self.Forces())
+                    var g = 0.0f;
+                    foreach (var f in self.Forces())
                         if (f.Type == 1)
                         {
                             g = X87.F32(-X87.Len(f.V));
                             break;
                         }
-                    Transform eye = self.EyeTransform();
+                    var eye = self.EyeTransform();
                     bool ok1 = false, ok2 = false;
                     float[] low = new float[3], high = new float[3];
                     if (!AIAim.AiSolveAim(group, ProjectileSpeed, totalTime, eye.P, point, false, g, ref ok1, low))
                         continue;
-                    float[] use = high;
+                    var use = high;
                     if (!AIAim.AiSolveAim(group, ProjectileSpeed, totalTime, eye.P, point, true, g, ref ok2, high) || !ok2)
                     {
                         if (!ok1)
                             break;
                         use = low;
                     }
-                    float[] aim = new float[3];
+                    var aim = new float[3];
                     AIAim.LaserAimPoint(eye.P, use, aim);
                     Flags |= 4;
-                    YawError ye = SteerYaw(aim);
+                    var ye = SteerYaw(aim);
                     if (ye.Abs < 0.001f)
                     {
-                        YawError pe = SteerPitch(aim);
+                        var pe = SteerPitch(aim);
                         if (pe.Abs < 0.001f && TriggerPull())
                             Move.Fire = true;
                     }
@@ -231,7 +231,7 @@ public static class AIAim
     /// <remarks>Follows 0x0043cec0 to 0x0043cf13 (docs/ai-sim.md 12.5). <c>dir x 50</c> is stored as a Point3F first, then the eye is added, so each component is rounded twice.</remarks>
     public static void LaserAimPoint(ReadOnlySpan<float> eye, ReadOnlySpan<float> dir, Span<float> aim)
     {
-        for (int k = 0; k < 3; ++k)
+        for (var k = 0; k < 3; ++k)
             aim[k] = X87.F32(Add(eye[k], X87.F32(Mul(dir[k], 50.0f))));
     }
 
@@ -250,80 +250,80 @@ public static class AIAim
     public static bool AiSolveAim(int group, float speed, float totalTime, ReadOnlySpan<float> s, ReadOnlySpan<float> t,
                                   bool high, float g, ref bool ok, Span<float> dir)
     {
-        if (high && group != Projectile.kGrenadeGroup)
+        if (high && group != Projectile.GrenadeGroup)
             return false;
         static float Straight(ReadOnlySpan<float> s, ReadOnlySpan<float> t, Span<float> dir)
         {
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 dir[i] = X87.F32(Sub(t[i], s[i]));
-            float len = X87.F32(X87.Len(dir));
-            float k = X87.F32(Div(1.0f, X87.F32(X87.Len(dir))));
-            for (int i = 0; i < 3; ++i)
+            var len = X87.F32(X87.Len(dir));
+            var k = X87.F32(Div(1.0f, X87.F32(X87.Len(dir))));
+            for (var i = 0; i < 3; ++i)
                 dir[i] = X87.F32(Mul(k, dir[i]));
             return len;
         }
         float len;
-        if (group != Projectile.kGrenadeGroup)
+        if (group != Projectile.GrenadeGroup)
         {
             len = Straight(s, t, dir);
-            ok = group == Projectile.kBulletGroup || group == Projectile.kRocketGroup ? Mul(speed, totalTime) > len : true;
+            ok = group is not Projectile.BulletGroup and not Projectile.RocketGroup || Mul(speed, totalTime) > len;
             return true;
         }
         // 0x0045ed40 (fastcall: datablock, start, target; arc, ok, dir, force on the stack).
-        float dz = X87.F32(Sub(t[2], s[2]));
+        var dz = X87.F32(Sub(t[2], s[2]));
         double dx = Sub(t[0], s[0]), dy = Sub(t[1], s[1]);
-        float h2 = X87.F32(Add(Mul(dx, dx), Mul(dy, dy)));
-        float v2 = X87.F32(Mul(speed, speed));
-        double A = Add(Mul(dz, g), v2);
-        double B = Add(Div(Mul(dz, dz), h2), 1.0);
-        double t1 = Mul(B, g);
+        var h2 = X87.F32(Add(Mul(dx, dx), Mul(dy, dy)));
+        var v2 = X87.F32(Mul(speed, speed));
+        var a2 = Add(Mul(dz, g), v2);
+        var b2 = Add(Div(Mul(dz, dz), h2), 1.0);
+        var t1 = Mul(b2, g);
         t1 = Mul(t1, g);
         t1 = Mul(t1, h2);
-        float D = X87.F32(Sub(Mul(A, A), t1));
-        if (D < 0.0f)
+        var d2 = X87.F32(Sub(Mul(a2, a2), t1));
+        if (d2 < 0.0f)
         {
             Straight(s, t, dir);
             ok = false;
             return true;
         }
-        if (D < 1.0f && high)
+        if (d2 < 1.0f && high)
             return false;
-        float S = high ? -1.0f : 1.0f;
-        double root = Sqrt(D);
-        double num = Mul(S, root);
+        var s2 = high ? -1.0f : 1.0f;
+        var root = Sqrt(d2);
+        var num = Mul(s2, root);
         num = Add(Add(Mul(dz, g), v2), num);
-        float Q = X87.F32(Div(num, Mul(Add(Div(Mul(dz, dz), h2), 1.0), 2.0)));
-        if (Q < 0.0f)
+        var q = X87.F32(Div(num, Mul(Add(Div(Mul(dz, dz), h2), 1.0), 2.0)));
+        if (q < 0.0f)
         {
             Straight(s, t, dir);
             ok = false;
             return true;
         }
-        float w = X87.F32(Sqrt(Sub(v2, Q)));
-        Q = X87.F32(Sqrt(Q));
-        float r = X87.F32(Div(Sqrt(h2), Q));
-        double half = Mul(0.5f, g);
+        var w = X87.F32(Sqrt(Sub(v2, q)));
+        q = X87.F32(Sqrt(q));
+        var r = X87.F32(Div(Sqrt(h2), q));
+        var half = Mul(0.5f, g);
         half = Mul(half, r);
         half = Mul(half, r);
-        float p1 = X87.F32(Sub(Add(half, Mul(r, w)), dz));
-        float p2 = X87.F32(Sub(Sub(half, Mul(r, w)), dz));
+        var p1 = X87.F32(Sub(Add(half, Mul(r, w)), dz));
+        var p2 = X87.F32(Sub(Sub(half, Mul(r, w)), dz));
         int i2 = unchecked((int)Pj.Ftol(p2)), i1 = unchecked((int)Pj.Ftol(p1));
         i2 = i2 < 0 ? -i2 : i2;
         i1 = i1 < 0 ? -i1 : i1;
         if (i2 < i1)
             w = X87.F32(Mul(-1.0f, w));
-        float[] h = { X87.F32(Sub(t[0], s[0])), X87.F32(Sub(t[1], s[1])), 0.0f };
+        float[] h = [X87.F32(Sub(t[0], s[0])), X87.F32(Sub(t[1], s[1])), 0.0f];
         {
-            float k = X87.F32(Div(1.0f, X87.F32(X87.Len(h))));
-            for (int i = 0; i < 3; ++i)
+            var k = X87.F32(Div(1.0f, X87.F32(X87.Len(h))));
+            for (var i = 0; i < 3; ++i)
                 h[i] = X87.F32(Mul(k, h[i]));
         }
-        float[] sum = new float[3];
-        float[] b = { X87.F32(Mul(0.0f, w)), X87.F32(Mul(0.0f, w)), X87.F32(Mul(1.0f, w)) };
-        for (int i = 0; i < 3; ++i)
-            sum[i] = X87.F32(Add(X87.F32(Mul(h[i], Q)), b[i]));
-        float k2 = X87.F32(Div(1.0f, X87.F32(X87.Len(sum))));
-        for (int i = 0; i < 3; ++i)
+        var sum = new float[3];
+        float[] b = [X87.F32(Mul(0.0f, w)), X87.F32(Mul(0.0f, w)), X87.F32(Mul(1.0f, w))];
+        for (var i = 0; i < 3; ++i)
+            sum[i] = X87.F32(Add(X87.F32(Mul(h[i], q)), b[i]));
+        var k2 = X87.F32(Div(1.0f, X87.F32(X87.Len(sum))));
+        for (var i = 0; i < 3; ++i)
             dir[i] = X87.F32(Mul(k2, sum[i]));
         ok = true;
         return true;
@@ -335,15 +335,15 @@ public static class AIAim
 public sealed class AIManager : SimObject
 {
     /// <summary>The game state.</summary>
-    public readonly GameState Game;
+    public GameState Game { get; }
     /// <summary>The AI objects in spawn order.</summary>
-    public readonly List<AIObject> Ais = new();
+    public List<AIObject> Ais { get; } = [];
     /// <summary>True when the AI must recompute (0x00617ddc).</summary>
-    public bool Recompute = true;
+    public bool Recompute { get; set; } = true;
     /// <summary>The tick count (+0x4c).</summary>
-    public int TickCount;
+    public int TickCount { get; set; }
     /// <summary>The counter (+0x50).</summary>
-    public int Counter;
+    public int Counter { get; set; }
 
     /// <summary>Creates the manager.</summary>
     /// <param name="g">The game state.</param>
@@ -379,7 +379,7 @@ public sealed class AIManager : SimObject
     /// <returns>The object, or null.</returns>
     public AIObject? FindByName(string n)
     {
-        foreach (AIObject a in Ais)
+        foreach (var a in Ais)
             if (GameUtil.EqualsNoCase(a.AiName, n))
                 return a;
         return null;
@@ -390,7 +390,7 @@ public sealed class AIManager : SimObject
     /// <returns>The object, or null.</returns>
     public AIObject? FindByRep(int rep)
     {
-        foreach (AIObject a in Ais)
+        foreach (var a in Ais)
             if (a.RepId == rep)
                 return a;
         return null;
@@ -400,14 +400,14 @@ public sealed class AIManager : SimObject
     /// <remarks>Follows 0x0043dd3c, which runs between sets 718 and 719.</remarks>
     public override void ServerTick(uint tickMs)
     {
-        SimManager? m = Game.Sim?.Server();
+        var m = Game.Sim?.Server();
         if (m == null)
             return;
         using var chop = X87.Chop();
         List<(AIObject Ai, int Id)> Snapshot()
         {
             var v = new List<(AIObject, int)>();
-            foreach (AIObject a in Ais)
+            foreach (var a in Ais)
                 v.Add((a, a.Id()));
             return v;
         }
@@ -426,13 +426,13 @@ public sealed class AIManager : SimObject
         }
         // 2. deletion (0x0043dbf8), from the last collected AI to the first (reference: the record of the AI collected
         // first is freed last and handed out first).
-        for (int i = remove.Count; i-- > 0;)
+        for (var i = remove.Count; i-- > 0;)
             if (Alive(remove[i]))
                 m.DeleteObject(remove[i].Ai);
         // 3. one AI refreshes its automatic targets
         if (Ais.Count != 0)
         {
-            AIObject a = Ais[(int)((uint)Counter % (uint)Ais.Count)];
+            var a = Ais[(int)((uint)Counter % (uint)Ais.Count)];
             Counter = (Counter + 1) & 0x7fff;
             if (a.Valid())
                 a.RefreshAutoTargets();
@@ -465,14 +465,14 @@ public sealed class AIManager : SimObject
     {
         if (game.Ai != null)
             return game.Ai;
-        SimManager? m = game.Sim?.Server();
+        var m = game.Sim?.Server();
         if (m == null)
         {
             game.Console!.Print(1, "No server manager yet, can't install AI manager thus, cannot execute command " + commandName + ".");
             return null;
         }
-        SimObject? cleanup = m.Find("MissionCleanup");
-        SimSet? set = cleanup?.AsSet();
+        var cleanup = m.Find("MissionCleanup");
+        var set = cleanup?.AsSet();
         if (set == null)
         {
             game.Console!.Print(1, "No cleanup group yet, can't install AI manager and, therefore, cannot execute command " + commandName);

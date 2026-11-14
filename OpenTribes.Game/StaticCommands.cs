@@ -1,9 +1,9 @@
 // Port of src/game/static_commands.cpp: script commands of the non-player objects (docs/static-sim.md 8): GameBase
 // state, power, damage, energy, threads, Moveable, targets, Item and fade. Argument-count texts and the failure returns
 // are those of the registered handlers. The projectile commands are ProjectileFire.RegisterCommands.
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>The script commands of the non-player objects: GameBase state, power, damage, energy, threads, Moveable, targets, Item and fade.</summary>
 /// <remarks>Argument-count texts and failure returns are those of the registered handlers (docs/static-sim.md 8). The projectile commands are in <see cref="ProjectileFire"/>.</remarks>
@@ -33,7 +33,7 @@ public static class StaticCommands
                 {
                     if (usage.Length != 0)
                     {
-                        int at = usage.IndexOf("%s", StringComparison.Ordinal);
+                        var at = usage.IndexOf("%s", StringComparison.Ordinal);
                         inr.Print(1, at >= 0 ? usage[..at] + a[0] + usage[(at + 2)..] : usage);
                     }
                     return bad;
@@ -67,7 +67,7 @@ public static class StaticCommands
         {
             if (FindST(a[1]) is GameBase gb)
             {
-                bool on = Numbers.ParseBool(a[2]);
+                var on = Numbers.ParseBool(a[2]);
                 gb.SetIsTarget(on);
                 if (on)
                     return "True";
@@ -138,14 +138,14 @@ public static class StaticCommands
             FindSB(a[1]) is GameBase gb ? Numbers.FormatFloat(gb.RechargeRate) : r);
         interp.AddCommand("GameBase::activateShield", (inr, a) =>
         {
-            if (a.Length != 3 && a.Length != 4)
+            if (a.Length is not 3 and not 4)
             {
                 inr.Print(1, "wrong argcount to activateShield(object,vec,[zOffset])");
                 return "False";
             }
             if (FindSB(a[1]) is GameBase gb)
             {
-                float[] v = new float[3];
+                var v = new float[3];
                 GameUtil.Scan3(a[2], v);
                 gb.ActivateShield(v, a.Length == 4 ? Store(Numbers.BorlandAtof(a[3])) : 0.0f);
                 return "True";
@@ -159,7 +159,7 @@ public static class StaticCommands
                 : r);
         interp.AddCommand("activateGroup", (inr, a) =>
         {
-            if (a.Length != 2 && a.Length != 3)
+            if (a.Length is not 2 and not 3)
             {
                 // The usage text is a printf format with "%o" in "%object1": the original prints the octal of a stale
                 // stack slot there. It read 212652310 in every context tried [live]; D12 applies.
@@ -168,15 +168,15 @@ public static class StaticCommands
             }
             // Event 0x420 with the value (default 0) goes to every member of the set, or of the group the object is in,
             // except the object itself (0x0041e704). Only SimLight handles it.
-            SimObject? obj = FindPlain(a[1]);
+            var obj = FindPlain(a[1]);
             if (obj == null)
                 return "False";
-            SimSet? set = obj.AsSet() ?? obj.Group();
+            var set = obj.AsSet() ?? obj.Group();
             if (set == null)
                 return "True";
-            float value = a.Length > 2 ? Store(Numbers.BorlandAtof(a[2])) : 0.0f;
+            var value = a.Length > 2 ? Store(Numbers.BorlandAtof(a[2])) : 0.0f;
             var members = new List<SimObject>(set.Members());
-            foreach (SimObject m in members)
+            foreach (var m in members)
                 if (m != obj)
                     m.OnActivateEvent(value);
             return "True";
@@ -186,21 +186,21 @@ public static class StaticCommands
         static bool SlotOf(string s, out int slot)
         {
             slot = Numbers.BorlandAtoi(s);
-            return slot >= 0 && slot < 3;
+            return slot is >= 0 and < 3;
         }
         interp.AddCommand("GameBase::playSequence", (inr, a) =>
         {
-            if (a.Length != 3 && a.Length != 4)
+            if (a.Length is not 3 and not 4)
             {
                 inr.Print(1, "wrong argcount to playSequence(object, thread, <sequence>)");
                 return "False";
             }
-            GameBase? gb = FindSB(a[1]);
-            if (gb == null || !SlotOf(a[2], out int slot))
+            var gb = FindSB(a[1]);
+            if (gb == null || !SlotOf(a[2], out var slot))
                 return "False";
             if (a.Length == 4)
             {
-                int seq = gb.Anim != null ? gb.Anim.FindSequence(a[3]) : -1;
+                var seq = gb.Anim != null ? gb.Anim.FindSequence(a[3]) : -1;
                 if (seq != -1 && gb.PlayThread(slot, seq, true))
                     return "True";
             }
@@ -211,21 +211,21 @@ public static class StaticCommands
             return "False";
         });
         Def("GameBase::stopSequence", 3, "wrong argcount to stopSequence(object, thread)", "False", "False", (_, a, r) =>
-            FindSB(a[1]) is GameBase gb && SlotOf(a[2], out int slot) && gb.StopThread(slot) ? "True" : r);
+            FindSB(a[1]) is GameBase gb && SlotOf(a[2], out var slot) && gb.StopThread(slot) ? "True" : r);
         Def("GameBase::pauseSequence", 3, "wrong argcount to pauseSequence(object, thread)", "False", "False", (_, a, r) =>
-            FindSB(a[1]) is GameBase gb && SlotOf(a[2], out int slot) && gb.PauseThread(slot) ? "True" : r);
+            FindSB(a[1]) is GameBase gb && SlotOf(a[2], out var slot) && gb.PauseThread(slot) ? "True" : r);
         Def("GameBase::setSequenceDirection", 4, "wrong argcount to setSequenceDirection(object, thread, bool forward)", "False",
             "False", (_, a, r) =>
-                FindSB(a[1]) is GameBase gb && SlotOf(a[2], out int slot) && gb.SetThreadDirection(slot, Numbers.ParseBool(a[3])) ? "True" : r);
+                FindSB(a[1]) is GameBase gb && SlotOf(a[2], out var slot) && gb.SetThreadDirection(slot, Numbers.ParseBool(a[3])) ? "True" : r);
 
         // ---- Moveable (2.6, 8.2) ----
         GameBase? MoveableOf(string s) => FindPlain(s) is GameBase gb && gb.ShapeClass() == GameBase.ShapeKind.Moveable ? gb : null;
         Def("Moveable::moveToWaypoint", 3, "wrong argcount to %s(object,waypoint)", "False", "False", (_, a, r) =>
             MoveableOf(a[1]) is GameBase gb && gb.MoveToWaypoint(Numbers.BorlandAtoi(a[2])) ? "True" : r);
-        foreach ((string name, int state) in new[]
+        foreach ((var name, var state) in new[]
                  {
-                     ("Moveable::moveForward", GameBase.kMoveForward), ("Moveable::moveBackward", GameBase.kMoveBackward),
-                     ("Moveable::stop", GameBase.kMoveStopped),
+                     ("Moveable::moveForward", GameBase.MoveForwardType), ("Moveable::moveBackward", GameBase.MoveBackward),
+                     ("Moveable::stop", GameBase.MoveStopped),
                  })
             Def(name, 2, "wrong argcount to %s(object)", "False", "False", (_, a, r) =>
             {
@@ -240,8 +240,8 @@ public static class StaticCommands
         {
             if (MoveableOf(a[1]) is GameBase gb)
             {
-                string[] kStates = { "Undefined", "MoveForward", "MoveBackward", "Stop" };
-                return gb.MoveState >= 0 && gb.MoveState <= 3 ? kStates[gb.MoveState] : "";
+                string[] kStates = ["Undefined", "MoveForward", "MoveBackward", "Stop"];
+                return gb.MoveState is >= 0 and <= 3 ? kStates[gb.MoveState] : "";
             }
             return r;
         });
@@ -269,8 +269,8 @@ public static class StaticCommands
                 inr.Print(1, "wrong argcount to setTarget (Turret, Player)");
                 return "False";
             }
-            GameBase? turret = game.Players.FindServerObject(a[1]);
-            GameBase? player = game.Players.FindServerObject(a[2]);
+            var turret = game.Players.FindServerObject(a[1]);
+            var player = game.Players.FindServerObject(a[2]);
             if (turret != null && turret.ShapeClass() == GameBase.ShapeKind.Turret && player != null && Player.From(player) != null)
             {
                 turret.TurretPreferred = player.Id();
@@ -282,7 +282,7 @@ public static class StaticCommands
         // ---- Item and fade (5, 8.4) ----
         Def("Item::getCount", 2, "wrong argcount to getObjectItemCount(item)", "-1", "-1", (inr, a, r) =>
         {
-            GameBase? gb = FindItem(a[1]);
+            var gb = FindItem(a[1]);
             if (gb == null)
             {
                 inr.Print(1, a[0] + ": could not find item");
@@ -292,7 +292,7 @@ public static class StaticCommands
         });
         Def("Item::isRotating", 2, "wrong argcount to isRotatingItem(item)", "False", "False", (inr, a, r) =>
         {
-            GameBase? gb = FindItem(a[1]);
+            var gb = FindItem(a[1]);
             if (gb == null)
                 inr.Print(1, a[0] + ": could not find item");
             else if (gb.ItemRotates)
@@ -301,7 +301,7 @@ public static class StaticCommands
         });
         Def("Item::hide", 3, "wrong argcount to hideItem(item,bool)", "False", "False", (inr, a, r) =>
         {
-            GameBase? gb = FindItem(a[1]);
+            var gb = FindItem(a[1]);
             if (gb == null)
             {
                 inr.Print(1, a[0] + ": could not find item (" + a[1] + ")");
@@ -330,24 +330,24 @@ public static class StaticCommands
         });
         Def("GameBase::throw", 5, "wrong argcount to throwObject(item,object,vel,bool random)", "False", "False", (inr, a, r) =>
         {
-            GameBase? item = FindGB(a[1]);
+            var item = FindGB(a[1]);
             if (item == null)
             {
                 inr.Print(1, a[0] + ": could not find item to throw");
                 return r;
             }
-            GameBase? thrower = FindGB(a[2]);
+            var thrower = FindGB(a[2]);
             if (thrower == null)
             {
                 inr.Print(1, a[0] + ": could not find object");
                 return r;
             }
-            if (item.ShapeClass() == GameBase.ShapeKind.Item || item.ShapeClass() == GameBase.ShapeKind.Mine)
+            if (item.ShapeClass() is GameBase.ShapeKind.Item or GameBase.ShapeKind.Mine)
                 item.ItemThrow(thrower, Store(Numbers.BorlandAtof(a[3])), Numbers.ParseBool(a[4]));
             // The join counter of the throwing client's record is stored with it (0x00451284, read at 0x004524f8).
-            if (item.ShapeClass() == GameBase.ShapeKind.Mine || item.ShapeClass() == GameBase.ShapeKind.Item)
+            if (item.ShapeClass() is GameBase.ShapeKind.Mine or GameBase.ShapeKind.Item)
             {
-                ClientRecord? rec = item.ItemThrowerClient > 0 ? game.Players.Find(item.ItemThrowerClient) : null;
+                var rec = item.ItemThrowerClient > 0 ? game.Players.Find(item.ItemThrowerClient) : null;
                 item.ItemThrowerJoin = rec != null ? rec.JoinOrder : -1;
             }
             return "True";
@@ -358,15 +358,15 @@ public static class StaticCommands
         {
             if (FindGB(a[1]) is not GameBase gb)
                 return r;
-            float[] p = new float[3];
+            var p = new float[3];
             GameUtil.Scan3(a[2], p);
             if (Player.From(gb) is Player pl)
                 return pl.TestPositionAt(p) ? "True" : r;
             return gb.TestPosition(p) ? "True" : r;
         });
-        foreach (string name in new[] { "GameBase::startFadeOut", "GameBase::startFadeIn" })
+        foreach (var name in new[] { "GameBase::startFadeOut", "GameBase::startFadeIn" })
         {
-            bool fadeOut = name == "GameBase::startFadeOut";
+            var fadeOut = name == "GameBase::startFadeOut";
             interp.AddCommand(name, (_, a) =>
             {
                 if (a.Length != 2)

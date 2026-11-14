@@ -1,21 +1,21 @@
 // Port of tests/test_lasthope.cpp: LastHope 1.30 script mode (docs/lasthope-1.30.md L1, L5, L8, L9, L15). Vectors
 // confirmed on a 1.30 server (reference instance 8, tools/reftest.py lasthope).
+namespace OpenTribes.Tests;
+
 using OpenTribes.Script;
 using OpenTribes.Server;
 
-namespace OpenTribes.Tests;
-
 public class LastHopeTests
 {
-    private static readonly string sTmp = TestPaths.TmpDir("lasthope");
+    private static readonly string Tmp = TestPaths.TmpDir("lasthope");
 
     [Fact]
     public void LastHope()
     {
         var interp = new Interpreter();
-        string output = "";
+        var output = "";
         interp.SetOutput(line => output += (output.Length == 0 ? "" : "\n") + line);
-        Builtins.RegisterBuiltins(interp, null, sTmp);
+        Builtins.RegisterBuiltins(interp, null, Tmp);
         string Run(string line)
         {
             output = "";
@@ -49,18 +49,18 @@ public class LastHopeTests
         };
         foreach (var (line, want) in cases)
         {
-            string got = Run(line);
+            var got = Run(line);
             Assert.True(got == want, line + "\n  want " + want + "\n  got  " + got);
         }
 
         // L6: wall-clock timeStamp, e.g. "2026/10/10 07:58:38.546".
         {
-            string t = Run("echo(timeStamp());");
+            var t = Run("echo(timeStamp());");
             Assert.True(t.Length == 23 && t[4] == '/' && t[7] == '/' && t[10] == ' ' && t[13] == ':' && t[16] == ':' && t[19] == '.');
         }
 
         // L15: the log session header has no zero padding and ends "\n\r".
-        string path = Path.Combine(sTmp, "lasthope-console.log");
+        var path = Path.Combine(Tmp, "lasthope-console.log");
         File.Delete(path);
         {
             var when = new DateTime(2026, 10, 9, 7, 5, 3);

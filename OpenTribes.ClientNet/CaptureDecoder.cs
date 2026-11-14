@@ -1,29 +1,29 @@
+namespace OpenTribes.ClientNet;
+
 using System.Text.Json;
 using OpenTribes.Game;
-
-namespace OpenTribes.ClientNet;
 
 /// <summary>The totals of a capture decode.</summary>
 public sealed class CaptureTotals
 {
     /// <summary>The packets decoded.</summary>
-    public long Packets;
+    public long Packets { get; set; }
     /// <summary>The payload bits seen.</summary>
-    public long Bits;
+    public long Bits { get; set; }
     /// <summary>The bits the decoder understood.</summary>
-    public long Known;
+    public long Known { get; set; }
     /// <summary>The bits the decoder could not interpret.</summary>
-    public long Unknown;
+    public long Unknown { get; set; }
     /// <summary>The padding bits.</summary>
-    public long Pad;
+    public long Pad { get; set; }
     /// <summary>The duplicate packets skipped.</summary>
-    public long Duplicates;
+    public long Duplicates { get; set; }
     /// <summary>The packets that overran their payload.</summary>
-    public long Overruns;
+    public long Overruns { get; set; }
     /// <summary>The event counts by name.</summary>
-    public readonly SortedDictionary<string, long> Events = new();
+    public SortedDictionary<string, long> Events { get; } = [];
     /// <summary>The ghost update counts by class, deletes excluded.</summary>
-    public readonly SortedDictionary<string, long> Ghosts = new();
+    public SortedDictionary<string, long> Ghosts { get; } = [];
 }
 
 /// <summary>Decodes a capture file in the format <c>tools/stream_decode.py</c> reads: JSON lines <c>{t, dir: c2s|s2c, client, hex}</c>.</summary>
@@ -34,11 +34,11 @@ public static class CaptureDecoder
     public sealed class VcHeader
     {
         /// <summary>The 9 bit sequence number.</summary>
-        public int Seq;
+        public int Seq { get; set; }
         /// <summary>The packet type with its flags.</summary>
-        public int Type;
+        public int Type { get; set; }
         /// <summary>The bytes after the header.</summary>
-        public byte[] Payload = Array.Empty<byte>();
+        public byte[] Payload { get; set; } = [];
     }
 
     /// <summary>Parses the VC header (net-protocol.md 3.2). The payload starts at the next byte.</summary>
@@ -46,7 +46,7 @@ public static class CaptureDecoder
     /// <returns>The header, or null when it is malformed.</returns>
     public static VcHeader? ParseVc(byte[] data)
     {
-        var bs = new OpenTribes.Net.BitStream(data, data.Length);
+        var bs = new Net.BitBuffer(data, data.Length);
         bs.ReadInt(1);
         bs.ReadInt(1);
         var h = new VcHeader { Seq = (int)bs.ReadInt(9) };
@@ -62,17 +62,18 @@ public static class CaptureDecoder
             bs.ReadInt(32);
         if (bs.Error())
             return null;
-        int at = bs.BytePosition();
-        h.Payload = at < data.Length ? data[at..] : Array.Empty<byte>();
+        var at = bs.BytePosition();
+        h.Payload = at < data.Length ? data[at..] : [];
         return h;
     }
 
     private sealed class ClientCtx
     {
-        public readonly ClientWorld World = new();
-        public readonly ClientGameConnection S2c;
-        public readonly ClientGameConnection C2s;
-        public readonly List<int> SeenS2c = new(), SeenC2s = new();
+        public ClientWorld World { get; } = new();
+        public ClientGameConnection S2c { get; }
+        public ClientGameConnection C2s { get; }
+        public List<int> SeenS2c { get; } = [];
+        public List<int> SeenC2s { get; } = [];
 
         public ClientCtx()
         {
@@ -91,31 +92,31 @@ public static class CaptureDecoder
     {
         var tot = new CaptureTotals();
         var ctxs = new Dictionary<string, ClientCtx>();
-        foreach (string line in File.ReadLines(path))
+        foreach (var line in File.ReadLines(path))
         {
             if (line.Length == 0)
                 continue;
-            using JsonDocument doc = JsonDocument.Parse(line);
-            JsonElement root = doc.RootElement;
-            if (!root.TryGetProperty("hex", out JsonElement hexEl))
+            using var doc = JsonDocument.Parse(line);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("hex", out var hexEl))
                 continue;
-            string client = root.GetProperty("client").GetString() ?? "";
+            var client = root.GetProperty("client").GetString() ?? "";
             if (onlyClient != null && client != onlyClient)
                 continue;
-            string dir = root.GetProperty("dir").GetString() ?? "s2c";
-            double t = root.GetProperty("t").GetDouble();
-            byte[] data = Convert.FromHexString(hexEl.GetString() ?? "");
+            var dir = root.GetProperty("dir").GetString() ?? "s2c";
+            var t = root.GetProperty("t").GetDouble();
+            var data = Convert.FromHexString(hexEl.GetString() ?? "");
             if (data.Length == 0 || (data[0] & 1) == 0)
                 continue;
-            VcHeader? h = ParseVc(data);
+            var h = ParseVc(data);
             if (h == null)
                 continue;
-            int ty = h.Type;
+            var ty = h.Type;
             if ((ty & ~0x18) != 0 || h.Payload.Length == 0 || ((ty & 0x10) != 0 && (ty & 0x08) == 0))
                 continue;
-            if (!ctxs.TryGetValue(client, out ClientCtx? ctx))
+            if (!ctxs.TryGetValue(client, out var ctx))
                 ctxs[client] = ctx = new ClientCtx();
-            List<int> seen = dir == "c2s" ? ctx.SeenC2s : ctx.SeenS2c;
+            var seen = dir == "c2s" ? ctx.SeenC2s : ctx.SeenS2c;
             if (seen.Contains(h.Seq))
             {
                 ++tot.Duplicates;
@@ -125,7 +126,7 @@ public static class CaptureDecoder
             seen.Add(h.Seq);
             if (seen.Count > 32)
                 seen.RemoveAt(0);
-            DecodedPacket p = (dir == "c2s" ? ctx.C2s : ctx.S2c).Receive(h.Payload, dir);
+            var p = (dir == "c2s" ? ctx.C2s : ctx.S2c).Receive(h.Payload, dir);
             ++tot.Packets;
             tot.Bits += h.Payload.Length * 8L;
             tot.Known += p.BitsRead;
@@ -133,10 +134,10 @@ public static class CaptureDecoder
             tot.Pad += p.PaddingBits;
             if (p.Overrun)
                 ++tot.Overruns;
-            foreach (DecodedEvent e in p.Events)
+            foreach (var e in p.Events)
                 tot.Events[e.Name] = tot.Events.GetValueOrDefault(e.Name) + 1;
             if (p.Ghosts != null)
-                foreach (DecodedGhost g in p.Ghosts.Updates)
+                foreach (var g in p.Ghosts.Updates)
                     if (g.Op != "delete")
                         tot.Ghosts[g.Class] = tot.Ghosts.GetValueOrDefault(g.Class) + 1;
             dump.Write(p, t, client, h.Seq);

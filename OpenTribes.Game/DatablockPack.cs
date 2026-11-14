@@ -1,12 +1,11 @@
 // Port of src/game/datablock_pack.hpp and src/game/datablock_pack.cpp: the datablock pack routines
 // (docs/game-stream.md 4.2), the body of a DataBlockEvent. The original packs under round toward zero (its crt_ftol
 // 0x0048813c leaves that mode): the RoundTowardZero guard is Fpu.ChopScope.
+namespace OpenTribes.Game;
+
 using static OpenTribes.Core.Fpu;
 using Block = OpenTribes.Game.DataBlockManager.Block;
-using Field = OpenTribes.Game.DataBlockManager.Field;
 using Value = OpenTribes.Game.DataBlockManager.Value;
-
-namespace OpenTribes.Game;
 
 /// <summary>The datablock pack routines, the body of a DataBlockEvent (docs/game-stream.md 4.2).</summary>
 /// <remarks>The original packs under round toward zero, which its crt_ftol (0x0048813c) leaves set. The guard here is <c>Fpu.ChopScope</c>.</remarks>
@@ -15,7 +14,7 @@ public static class DatablockPack
     // src/game/datablock_pack.cpp ftol: crt_ftol: fistp to 32 bits; out of range and NaN give the integer indefinite.
     private static int Ftol(double v)
     {
-        if (!(v > -2147483649.0 && v < 2147483648.0))
+        if (v is not (> (-2147483649.0) and < 2147483648.0))
             return int.MinValue;
         return (int)v;
     }
@@ -23,8 +22,8 @@ public static class DatablockPack
     // C atoi.
     private static int Atoi(string s)
     {
-        int v = 0;
-        CScan.Int(s, ref v);
+        var v = 0;
+        CScan.ScanInt(s, ref v);
         return v;
     }
 
@@ -33,21 +32,21 @@ public static class DatablockPack
     // value given as `absent`.
     private sealed class Reader
     {
-        private readonly Block mBlock;
+        private readonly Block _block;
 
-        public Reader(Block b) => mBlock = b;
-        public Block BlockOf() => mBlock;
-        public bool Has(string name) => mBlock.Find(name) != null;
+        public Reader(Block b) => _block = b;
+        public Block BlockOf() => _block;
+        public bool Has(string name) => _block.Find(name) != null;
 
         public Value? ValueOf(string name, int k = 0)
         {
-            Field? f = mBlock.Find(name);
+            var f = _block.Find(name);
             return f != null && f.Elems[k].Set ? f.Elems[k] : null;
         }
 
         public int I(string name, int absent, int k = 0)
         {
-            Field? f = mBlock.Find(name);
+            var f = _block.Find(name);
             if (f == null)
                 return absent;
             if (f.Elems[k].Set)
@@ -57,7 +56,7 @@ public static class DatablockPack
 
         public bool B(string name, bool absent)
         {
-            Field? f = mBlock.Find(name);
+            var f = _block.Find(name);
             if (f == null)
                 return absent;
             if (f.Elems[0].Set)
@@ -67,7 +66,7 @@ public static class DatablockPack
 
         public float F(string name, float absent, int k = 0)
         {
-            Field? f = mBlock.Find(name);
+            var f = _block.Find(name);
             if (f == null)
                 return absent;
             if (f.Elems[k].Set)
@@ -78,19 +77,19 @@ public static class DatablockPack
         // Component c of a point3F, colorF or normal.
         public float V3(string name, int c, float absent)
         {
-            Field? f = mBlock.Find(name);
+            var f = _block.Find(name);
             if (f == null)
                 return absent;
             if (f.Elems[0].Set)
                 return f.Elems[0].F[c];
             if (f.Def.Uninit)
                 return 0.0f;
-            string p = f.Def.DefaultText;
-            int at = 0;
+            var p = f.Def.DefaultText;
+            var at = 0;
             float v = 0;
-            for (int k = 0; k <= c; ++k)
+            for (var k = 0; k <= c; ++k)
             {
-                v = DataBlockManager.CtorFloat(p, at, out int end);
+                v = DataBlockManager.CtorFloat(p, at, out var end);
                 at = end;
             }
             return v;
@@ -99,7 +98,7 @@ public static class DatablockPack
         // Single-group reference index: unset is -1, or 0 for explosionTag (RF4).
         public int Ref(string name, int absent, int k = 0)
         {
-            Field? f = mBlock.Find(name);
+            var f = _block.Find(name);
             if (f == null)
                 return absent;
             if (f.Elems[k].Set)
@@ -110,7 +109,7 @@ public static class DatablockPack
         // String as stored; a null pointer is sent as "".
         public string S(string name, string? absent)
         {
-            Field? f = mBlock.Find(name);
+            var f = _block.Find(name);
             if (f == null)
                 return absent ?? "";
             if (f.Elems[0].Set)
@@ -124,13 +123,13 @@ public static class DatablockPack
 
     // src/game/datablock_pack.cpp putUnit: writeFloat (0x00582fb0): ftol(f * (2^bits - 1)).
     private static void PutUnit(EventWriter w, float f, uint bits) =>
-        w.PutInt((uint)Ftol(Mul(f, (double)((1u << (int)bits) - 1))), bits);
+        w.PutInt((uint)Ftol(Mul(f, (1u << (int)bits) - 1)), bits);
 
     // src/game/datablock_pack.cpp putSignedUnit: writeSignedFloat (0x00583018): ftol((f + 1) * 0.5 * (2^bits - 1)).
     private static void PutSignedUnit(EventWriter w, float f, uint bits)
     {
-        double v = Mul(Add(f, 1.0), 0.5);
-        w.PutInt((uint)Ftol(Mul(v, (double)((1u << (int)bits) - 1))), bits);
+        var v = Mul(Add(f, 1.0), 0.5);
+        w.PutInt((uint)Ftol(Mul(v, (1u << (int)bits) - 1)), bits);
     }
 
     // src/game/datablock_pack.cpp putNormal: writeNormalVector (0x00583140): x and y as signed units, then the sign of z.
@@ -174,7 +173,7 @@ public static class DatablockPack
             w.PutString(name);
             return;
         }
-        char prefix = r.B("validateMaterials", false) ? '\xfe' : '\xff';
+        var prefix = r.B("validateMaterials", false) ? '\xfe' : '\xff';
         w.PutString(prefix + name);
         PutU32(w, r.BlockOf().ValidationCrc);
     }
@@ -191,10 +190,10 @@ public static class DatablockPack
         PutIndex(w, r.Ref("damageSkinData", -1));
         PutU32(w, (uint)r.Ref("debrisId", -1));
         PutF32(w, r.F("maxEnergy", 0));
-        for (int k = 0; k < 16; ++k)
+        for (var k = 0; k < 16; ++k)
         {
-            Value? v = r.ValueOf("sequenceSound", k);
-            bool present = v?.Str != null;
+            var v = r.ValueOf("sequenceSound", k);
+            var present = v?.Str != null;
             w.PutFlag(present);
             if (present)
             {
@@ -218,7 +217,7 @@ public static class DatablockPack
     // unset.
     private static void PackProjectileRef(Reader r, EventWriter w, string name)
     {
-        Value? v = r.ValueOf(name);
+        var v = r.ValueOf(name);
         PutU32(w, (uint)(v != null ? v.I : -1));
         PutU32(w, (uint)(v != null ? v.I2 : -1));
     }
@@ -226,7 +225,7 @@ public static class DatablockPack
     // src/game/datablock_pack.cpp slotFloat: a storage slot the projectile classes register under different names.
     private static float SlotFloat(Reader r, string[] names, float absent)
     {
-        foreach (string n in names)
+        foreach (var n in names)
             if (r.Has(n))
                 return r.F(n, absent);
         return absent;
@@ -244,17 +243,17 @@ public static class DatablockPack
         PutU32(w, (uint)r.I("ownerGraceMS", 1000));
         PutF32(w, r.F("collisionRadius", 0));
         PutF32(w, r.F("mass", 1));
-        PutF32(w, SlotFloat(r, new[] { "muzzleVelocity", "maxLevelFlightDist" }, 0)); // +0x68
+        PutF32(w, SlotFloat(r, ["muzzleVelocity", "maxLevelFlightDist"], 0)); // +0x68
         PutF32(w, r.F("terminalVelocity", 0));                                        // +0x6c
         PutF32(w, r.F("acceleration", 0));                                            // +0x70
         PutF32(w, r.F("totalTime", 10000));
-        PutF32(w, SlotFloat(r, new[] { "liveTime", "beamTime" }, 10000));                          // +0x78
-        PutF32(w, SlotFloat(r, new[] { "tracerPercentage", "projSpecialTime", "smokeDist" }, 0));  // +0x7c
+        PutF32(w, SlotFloat(r, ["liveTime", "beamTime"], 10000));                          // +0x78
+        PutF32(w, SlotFloat(r, ["tracerPercentage", "projSpecialTime", "smokeDist"], 0));  // +0x7c
         // +0x80: only BulletData registers isVisible. No constructor writes it; the reference server sends it set for
         // every other class, so they are sent visible.
         w.PutFlag(r.B("isVisible", true));
         PutF32(w, r.F("lightRange", 0));
-        for (int c = 0; c < 3; ++c)
+        for (var c = 0; c < 3; ++c)
             PutF32(w, r.V3("lightColor", c, 0));
         PutU32(w, (uint)(r.Has("hitSoundId") ? r.Ref("hitSoundId", -1) : r.Ref("soundId", -1))); // +0x98
         PutF32(w, r.F("explosionRadius", 0));
@@ -262,7 +261,7 @@ public static class DatablockPack
 
     // ---- groups ----
 
-    private static readonly double kInv360 = Math.ScaleB((double)0xb60bb60bb60bb60bUL, -72);
+    private static readonly double Inv360 = Math.ScaleB(0xb60bb60bb60bb60bUL, -72);
 
     // src/game/datablock_pack.cpp packSoundProfile: SoundProfileData 0x00485124: the optional fields are sent when they
     // differ from a default-constructed profile (0x004850ac).
@@ -272,26 +271,26 @@ public static class DatablockPack
         PutUnit(w, r.F("baseVolume", 0), 10);
         // The constructor stores the cone angles as the integers 90 and 180; a script set stores float bits. Both are
         // compared and scaled as the raw 32-bit integer times 1/360 (an 80-bit constant), stored to a float.
-        string[] angles = { "coneInsideAngle", "coneOutsideAngle" };
-        uint[] angleDefaults = { 90, 180 };
-        for (int k = 0; k < 2; ++k)
+        string[] angles = ["coneInsideAngle", "coneOutsideAngle"];
+        uint[] angleDefaults = [90, 180];
+        for (var k = 0; k < 2; ++k)
         {
-            Value? v = r.ValueOf(angles[k]);
-            uint raw = v != null ? BitConverter.SingleToUInt32Bits(v.F[0]) : angleDefaults[k];
+            var v = r.ValueOf(angles[k]);
+            var raw = v != null ? BitConverter.SingleToUInt32Bits(v.F[0]) : angleDefaults[k];
             w.PutFlag(raw != angleDefaults[k]);
             if (raw != angleDefaults[k])
-                PutUnit(w, Store(Mul(raw, kInv360)), 10);
+                PutUnit(w, Store(Mul(raw, Inv360)), 10);
         }
-        float[] cone = { r.V3("coneVector", 0, 0), r.V3("coneVector", 1, -1), r.V3("coneVector", 2, 0) };
-        bool coneSet = Differs(cone[0], 0) || Differs(cone[1], -1) || Differs(cone[2], 0);
+        float[] cone = [r.V3("coneVector", 0, 0), r.V3("coneVector", 1, -1), r.V3("coneVector", 2, 0)];
+        var coneSet = Differs(cone[0], 0) || Differs(cone[1], -1) || Differs(cone[2], 0);
         w.PutFlag(coneSet);
         if (coneSet)
             PutNormal(w, cone, 10);
-        string[] tail = { "coneOutsideVolume", "minDistance", "maxDistance" };
-        float[] tailDefaults = { 0, 30, 300 };
-        for (int k = 0; k < 3; ++k)
+        string[] tail = ["coneOutsideVolume", "minDistance", "maxDistance"];
+        float[] tailDefaults = [0, 30, 300];
+        for (var k = 0; k < 3; ++k)
         {
-            float v = r.F(tail[k], tailDefaults[k]);
+            var v = r.F(tail[k], tailDefaults[k]);
             w.PutFlag(Differs(v, tailDefaults[k]));
             if (Differs(v, tailDefaults[k]))
                 PutF32(w, v);
@@ -309,9 +308,9 @@ public static class DatablockPack
     // src/game/datablock_pack.cpp packDamageSkin: DamageSkinData 0x00449ee8.
     private static void PackDamageSkin(Reader r, EventWriter w)
     {
-        for (int k = 0; k < 10; ++k)
+        for (var k = 0; k < 10; ++k)
         {
-            Value? v = r.ValueOf("bmpName", k);
+            var v = r.ValueOf("bmpName", k);
             w.PutString(v?.Str ?? "");
         }
     }
@@ -322,9 +321,9 @@ public static class DatablockPack
         PackShapeBase(r, w);
         w.PutString(r.S("flameShapeName", null));
         var zero = new Value(); // animData is uninitialized storage until set (D11)
-        for (int k = 0; k < 51; ++k)
+        for (var k = 0; k < 51; ++k)
         {
-            Value v = r.ValueOf("animData", k) ?? zero;
+            var v = r.ValueOf("animData", k) ?? zero;
             w.PutString(v.Str ?? "");
             w.PutFlag(v.I != -1); // sound
             if (v.I != -1)
@@ -335,24 +334,24 @@ public static class DatablockPack
         }
         PutF32(w, r.F("minDamageSpeed", 0));
         PutF32(w, r.F("jetEnergyDrain", 0));
-        foreach (string n in new[] { "maxForwardSpeed", "maxBackwardSpeed", "maxSideSpeed" })
+        foreach (var n in new[] { "maxForwardSpeed", "maxBackwardSpeed", "maxSideSpeed" })
             PutUnit(w, MulF(r.F(n, 0), 1.0f / 64.0f), 10);
         w.PutFlag(r.B("canCrouch", false));
         PutUnit(w, r.F("maxJetSideForceFactor", 0), 8);
-        foreach (string n in new[] { "groundForce", "groundTraction", "maxJetForwardVelocity" })
+        foreach (var n in new[] { "groundForce", "groundTraction", "maxJetForwardVelocity" })
             PutF32(w, r.F(n, 0));
         PutUnit(w, r.F("jumpSurfaceMinDot", 0), 8);
-        foreach (string n in new[] { "jumpImpulse", "mass", "drag", "horzVelClamp", "jetForce" })
+        foreach (var n in new[] { "jumpImpulse", "mass", "drag", "horzVelClamp", "jetForce" })
             PutF32(w, r.F(n, 0));
         PutIndex(w, r.Ref("jetSound", -1));
-        for (int k = 0; k < 15; ++k)
+        for (var k = 0; k < 15; ++k)
         {
             PutIndex(w, r.Ref("rFootSounds", -1, k));
             PutIndex(w, r.Ref("lFootSounds", -1, k));
         }
         PutU32(w, (uint)r.I("footPrints", 0, 0));
         PutU32(w, (uint)r.I("footPrints", 0, 1));
-        foreach (string n in new[] { "boxWidth", "boxDepth", "boxNormalHeight", "boxCrouchHeight" })
+        foreach (var n in new[] { "boxWidth", "boxDepth", "boxNormalHeight", "boxCrouchHeight" })
             PutF32(w, r.F(n, 0));
     }
 
@@ -362,16 +361,16 @@ public static class DatablockPack
         PackShapeBase(r, w);
         PutU32(w, (uint)r.Ref("imageType", -1));
         PutU32(w, (uint)r.I("price", 0));
-        foreach (string n in new[] { "mass", "drag", "density", "friction", "elasticity" })
+        foreach (var n in new[] { "mass", "drag", "density", "friction", "elasticity" })
             PutF32(w, r.F(n, 0));
         w.PutString(r.S("hudIcon", null));
-        foreach (string n in new[] { "showInventory", "showWeaponBar", "hiliteOnActive" })
+        foreach (var n in new[] { "showInventory", "showWeaponBar", "hiliteOnActive" })
             w.PutFlag(r.B(n, false));
         w.PutString(r.S("heading", null));
         PutU32(w, (uint)r.I("lightType", 0));
         PutF32(w, r.F("lightRadius", 0));
         PutF32(w, r.F("lightTime", 0));
-        for (int c = 0; c < 3; ++c)
+        for (var c = 0; c < 3; ++c)
             PutF32(w, r.V3("lightColor", c, 0));
     }
 
@@ -382,20 +381,20 @@ public static class DatablockPack
         w.PutString(r.S("shapeFile", null));
         PackProjectileRef(r, w, "projectileType");
         PutU32(w, (uint)r.I("mountPoint", 0));
-        foreach (string n in new[] { "mountOffset", "mountRotation" })
-            for (int c = 0; c < 3; ++c)
+        foreach (var n in new[] { "mountOffset", "mountRotation" })
+            for (var c = 0; c < 3; ++c)
                 PutF32(w, r.V3(n, c, 0));
         w.PutFlag(r.B("firstPerson", false));
         PutU32(w, (uint)r.I("weaponType", 0));
         PutU32(w, (uint)r.Ref("ammoType", -1));
-        foreach (string n in new[] { "activateTime", "fireTime", "reloadTime", "spinUpTime", "spinDownTime", "mass" })
+        foreach (var n in new[] { "activateTime", "fireTime", "reloadTime", "spinUpTime", "spinDownTime", "mass" })
             PutF32(w, r.F(n, 0));
-        foreach (string n in new[] { "sfxActivate", "sfxFire", "sfxReady", "sfxReload", "sfxSpinUp", "sfxSpinDown" })
+        foreach (var n in new[] { "sfxActivate", "sfxFire", "sfxReady", "sfxReload", "sfxSpinUp", "sfxSpinDown" })
             PutIndex(w, r.Ref(n, -1));
         PutU32(w, (uint)r.I("lightType", 0));
         PutF32(w, r.F("lightRadius", 0));
         PutF32(w, r.F("lightTime", 0));
-        for (int c = 0; c < 3; ++c)
+        for (var c = 0; c < 3; ++c)
             PutF32(w, r.V3("lightColor", c, 0));
         PutF32(w, r.F("minEnergy", 0));
         PutF32(w, r.F("maxEnergy", 0));
@@ -405,9 +404,9 @@ public static class DatablockPack
     private static void PackMoveable(Reader r, EventWriter w)
     {
         PackStaticBase(r, w);
-        foreach (string n in new[] { "displace", "blockForward", "blockBackward" })
+        foreach (var n in new[] { "displace", "blockForward", "blockBackward" })
             w.PutFlag(r.B(n, false));
-        foreach (string n in new[] { "sfxStart", "sfxStop", "sfxRun", "sfxBlocked" })
+        foreach (var n in new[] { "sfxStart", "sfxStop", "sfxRun", "sfxBlocked" })
             PutIndex(w, r.Ref(n, -1));
         PutF32(w, r.F("speed", 0));
     }
@@ -426,17 +425,17 @@ public static class DatablockPack
     private static void PackVehicle(Reader r, EventWriter w)
     {
         PackStaticBase(r, w);
-        foreach (string n in new[] { "mass", "drag", "density", "maxSpeed", "minSpeed" })
+        foreach (var n in new[] { "mass", "drag", "density", "maxSpeed", "minSpeed" })
             PutF32(w, r.F(n, 0));
         w.PutInt(r.B("visibleDriver", false) ? 1u : 0u, 8); // the bool byte, raw
         PutU32(w, (uint)r.I("driverPose", 0));
-        foreach (string n in new[] { "fireSound", "damageSound", "mountSound", "dismountSound", "idleSound", "moveSound" })
+        foreach (var n in new[] { "fireSound", "damageSound", "mountSound", "dismountSound", "idleSound", "moveSound" })
             PutIndex(w, r.Ref(n, -1));
         // suspension (+0x140) is a TankData field: other vehicle classes send uninitialized storage, zero here (D11).
-        for (int k = 0; k < 4; ++k)
+        for (var k = 0; k < 4; ++k)
         {
-            Value? v = r.ValueOf("suspension", k);
-            for (int c = 0; c < 3; ++c)
+            var v = r.ValueOf("suspension", k);
+            for (var c = 0; c < 3; ++c)
                 PutF32(w, v != null ? v.F[c] : 0.0f);
         }
     }
@@ -445,7 +444,7 @@ public static class DatablockPack
     private static void PackFlier(Reader r, EventWriter w)
     {
         PackVehicle(r, w);
-        foreach (string n in new[] { "maxBank", "maxPitch", "lift", "maxAlt", "maxVertical", "accel", "groundDamageScale" })
+        foreach (var n in new[] { "maxBank", "maxPitch", "lift", "maxAlt", "maxVertical", "accel", "groundDamageScale" })
             PutF32(w, r.F(n, 0));
     }
 
@@ -490,9 +489,9 @@ public static class DatablockPack
     {
         PackSensor(r, w);
         PackProjectileRef(r, w, "projectileType");
-        foreach (string n in new[] { "gunRange", "speed", "speedModifier", "FOV" })
+        foreach (var n in new[] { "gunRange", "speed", "speedModifier", "FOV" })
             PutF32(w, r.F(n, 0));
-        foreach (string n in new[] { "fireSound", "activationSound", "deactivateSound", "whirSound" })
+        foreach (var n in new[] { "fireSound", "activationSound", "deactivateSound", "whirSound" })
             PutIndex(w, r.Ref(n, -1));
         w.PutFlag(r.B("isSustained", false));
     }
@@ -506,19 +505,19 @@ public static class DatablockPack
         PutF32(w, r.F("timeScale", 1));
         w.PutFlag(r.B("faceCamera", false));
         w.PutFlag(r.B("randomSpin", false));
-        bool light = r.B("hasLight", false);
+        var light = r.B("hasLight", false);
         w.PutFlag(light);
         if (light)
         {
-            foreach (string n in new[] { "lightRange", "timeZero", "timeOne" })
+            foreach (var n in new[] { "lightRange", "timeZero", "timeOne" })
                 PutF32(w, r.F(n, 0));
-            for (int k = 0; k < 3; ++k)
+            for (var k = 0; k < 3; ++k)
             {
-                Value? v = r.ValueOf("colors", k);
-                for (int c = 0; c < 3; ++c)
+                var v = r.ValueOf("colors", k);
+                for (var c = 0; c < 3; ++c)
                     PutF32(w, v != null ? v.F[c] : 0.0f);
             }
-            for (int k = 0; k < 3; ++k)
+            for (var k = 0; k < 3; ++k)
                 PutF32(w, r.F("radFactors", 0, k));
         }
         w.PutFlag(r.B("shiftPosition", false));
@@ -539,13 +538,13 @@ public static class DatablockPack
         w.PutString(r.S("pShapeName", null));
         PutU32(w, (uint)r.I("imageType", 0));
         PutU32(w, (uint)r.I("imageSortValue", 0));
-        foreach (string n in new[] { "mass", "elasticity", "friction" })
+        foreach (var n in new[] { "mass", "elasticity", "friction" })
             PutF32(w, r.F(n, 0));
-        for (int k = 0; k < 3; ++k)
+        for (var k = 0; k < 3; ++k)
             PutF32(w, r.F("center", 0, k));
-        foreach (string n in new[] { "collisionMask", "knockMask", "animationSequence" })
+        foreach (var n in new[] { "collisionMask", "knockMask", "animationSequence" })
             PutU32(w, (uint)r.I(n, 0));
-        foreach (string n in new[] { "animRestartTime", "minTimeout", "maxTimeout", "explodeOnBounce", "damage", "damageThreshold" })
+        foreach (var n in new[] { "animRestartTime", "minTimeout", "maxTimeout", "explodeOnBounce", "damage", "damageThreshold" })
             PutF32(w, r.F(n, 0));
         PutU32(w, (uint)r.I("spawnedDebrisMask", 0));
         PutF32(w, r.F("spawnedDebrisStrength", 0));
@@ -590,30 +589,81 @@ public static class DatablockPack
         var r = new Reader(block);
         switch (block.Group)
         {
-            case 0: PackSoundProfile(r, w); return true;
-            case 1: PackSound(r, w); return true;
-            case 2: PackDamageSkin(r, w); return true;
-            case 3: PackPlayer(r, w); return true;
-            case 4: PackStaticBase(r, w); return true;
-            case 5: case 23: PackItem(r, w); return true;
-            case 6: PackItemImage(r, w); return true;
-            case 7: PackMoveable(r, w); return true;
-            case 8: PackSensor(r, w); return true;
-            case 9: PackVehicle(r, w); return true;
-            case 10: PackFlier(r, w); return true;
-            case 13: PackProjectile(r, w); return true;
-            case 14: PackBullet(r, w); return true;
-            case 15: PackGrenade(r, w); return true;
-            case 16: PackRocket(r, w); return true;
-            case 17: case 24: PackLaser(r, w); return true;
-            case 19: PackTurret(r, w); return true;
-            case 20: PackExplosion(r, w); return true;
-            case 21: PackMarker(r, w); return true;
-            case 22: PackDebris(r, w); return true;
-            case 25: PackSeekingMissile(r, w); return true;
-            case 26: case 30: PackGameBase(r, w); return true;
-            case 28: case 29: PackLightning(r, w); return true;
-            default: return false; // 11, 12, 18, 27: the factory has no case, never sent
+            case 0:
+                PackSoundProfile(r, w);
+                return true;
+            case 1:
+                PackSound(r, w);
+                return true;
+            case 2:
+                PackDamageSkin(r, w);
+                return true;
+            case 3:
+                PackPlayer(r, w);
+                return true;
+            case 4:
+                PackStaticBase(r, w);
+                return true;
+            case 5:
+            case 23:
+                PackItem(r, w);
+                return true;
+            case 6:
+                PackItemImage(r, w);
+                return true;
+            case 7:
+                PackMoveable(r, w);
+                return true;
+            case 8:
+                PackSensor(r, w);
+                return true;
+            case 9:
+                PackVehicle(r, w);
+                return true;
+            case 10:
+                PackFlier(r, w);
+                return true;
+            case 13:
+                PackProjectile(r, w);
+                return true;
+            case 14:
+                PackBullet(r, w);
+                return true;
+            case 15:
+                PackGrenade(r, w);
+                return true;
+            case 16:
+                PackRocket(r, w);
+                return true;
+            case 17:
+            case 24:
+                PackLaser(r, w);
+                return true;
+            case 19:
+                PackTurret(r, w);
+                return true;
+            case 20:
+                PackExplosion(r, w);
+                return true;
+            case 21:
+                PackMarker(r, w);
+                return true;
+            case 22:
+                PackDebris(r, w);
+                return true;
+            case 25:
+                PackSeekingMissile(r, w);
+                return true;
+            case 26:
+            case 30:
+                PackGameBase(r, w);
+                return true;
+            case 28:
+            case 29:
+                PackLightning(r, w);
+                return true;
+            default:
+                return false; // 11, 12, 18, 27: the factory has no case, never sent
         }
     }
 }

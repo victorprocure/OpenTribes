@@ -1,20 +1,20 @@
 // Port of tests/test_timing.cpp: frame, tick and event timing (docs/sim.md 8.1-8.3: EV, TM, TK rules). The C++ main
 // enters the script FPU mode first; every test here starts in it.
+namespace OpenTribes.Tests;
+
 using System.Globalization;
 using OpenTribes.Core;
 using OpenTribes.Script;
 using OpenTribes.Sim;
 
-namespace OpenTribes.Tests;
-
 public class TimingTests
 {
     private sealed class Ticker : SimObject
     {
-        public readonly string TickerName;
-        public List<string>? Log;
-        public Action? OnTick;
-        public readonly List<float> Timers = new();
+        public string TickerName { get; }
+        public List<string>? Log { get; set; }
+        public Action? OnTick { get; set; }
+        public List<float> Timers { get; } = [];
 
         public Ticker(string n) => TickerName = n;
         public override string ClassName() => "Ticker";
@@ -34,13 +34,13 @@ public class TimingTests
 
     private sealed class Fx
     {
-        public readonly StringTable Strings = new();
-        public readonly Interpreter In;
-        public readonly ClassContext Ctx = new();
-        public readonly SimConsole Sim;
-        public string Out = "";
-        public double Clock; // seconds
-        public readonly List<string> Ticks = new();
+        public StringTable Strings { get; } = new();
+        public Interpreter In { get; }
+        public ClassContext Ctx { get; } = new();
+        public SimConsole Sim { get; }
+        public string Out { get; set; } = "";
+        public double Clock { get; set; } // seconds
+        public List<string> Ticks { get; } = [];
 
         public Fx()
         {
@@ -101,12 +101,12 @@ public class TimingTests
         m.PostEvent(m, 0.5f, Note("d"));
         Assert.True(m.AdvanceTo(0.125f) == 0 && m.Time() == 0.125f);
         Assert.True(m.AdvanceTo(0.75f) == 5 && m.Time() == 0.75f);
-        Assert.True(log.SequenceEqual(new[] { "b0.25", "a0.5", "c0.5", "d0.5", "n0.5" }));
+        Assert.True(log.SequenceEqual(["b0.25", "a0.5", "c0.5", "d0.5", "n0.5"]));
         // TM6: an event posted at or before the current target waits for a new target.
         m.PostEvent(m, 0.5f, Note("p"));
         Assert.True(m.AdvanceTo(0.75f) == 0 && log.Count == 5);
         Assert.True(m.AdvanceTo(1.0f) == 1 && log[^1] == "p0.75"); // queue time never goes back
-        Assert.True(m.PendingEvents() == 1);
+        Assert.Equal(1, m.PendingEvents());
     }
 
     // TM3: rebase on the first event; nothing is dispatched by the reset itself; a reset inside an event continues the
@@ -125,8 +125,8 @@ public class TimingTests
         m.PostEvent(m, 11.0f, Note("c"));
         m.ResetTime();
         Assert.True(log.Count == 0 && m.Time() == 0.0f && m.PendingEvents() == 3);
-        Assert.True(m.AdvanceTo(0.0f) == 0); // equal target: not even events at 0 run
-        Assert.True(m.AdvanceTo(0.5f) == 2 && log.SequenceEqual(new[] { "a0", "b0" }));
+        Assert.Equal(0, m.AdvanceTo(0.0f)); // equal target: not even events at 0 run
+        Assert.True(m.AdvanceTo(0.5f) == 2 && log.SequenceEqual(["a0", "b0"]));
         log.Clear();
         // Inside an event: "r" at 0.625 resets; "s" (0.625) becomes the first event at 0 and runs in the same advance;
         // "c" moves from 0.75 to 0.125 and waits.
@@ -137,8 +137,8 @@ public class TimingTests
             Note("R")();
         });
         m.PostEvent(m, 0.625f, Note("s"));
-        Assert.True(m.AdvanceTo(2.0f) == 2);
-        Assert.True(log.SequenceEqual(new[] { "r0.625", "R0", "s0" }));
+        Assert.Equal(2, m.AdvanceTo(2.0f));
+        Assert.True(log.SequenceEqual(["r0.625", "R0", "s0"]));
         Assert.True(m.Time() == 0.0f && m.PendingEvents() == 1);
         Assert.True(m.AdvanceTo(0.25f) == 1 && log[^1] == "c0.125");
         // An empty queue: only the clocks reset.
@@ -153,7 +153,7 @@ public class TimingTests
         Start();
         var strings = new StringTable();
         var m = new SimManager(strings);
-        int runs = 0;
+        var runs = 0;
         var s = new SimSet();
         m.AddToRoot(s);
         m.PostEvent(s, 0.5f, () => ++runs);
@@ -170,14 +170,14 @@ public class TimingTests
         Start();
         var fx = new Fx();
         Assert.True(fx.Frame(0.031) == 0 && fx.Frame(0.0325) == 1 && fx.Sim.TickMs() == 32);
-        Assert.True(fx.Run("echo(getSimTime());") == "0.0319999");
+        Assert.Equal("0.0319999", fx.Run("echo(getSimTime());"));
         Assert.True(fx.Frame(0.0639) == 0 && fx.Frame(0.1) == 2 && fx.Sim.TickMs() == 96);
         // A stalled frame runs every missed tick: 3 s is 93 more ticks, each with its events.
         fx.Run("schedule(\"echo(a, getSimTime());\", 1); schedule(\"echo(b, getSimTime());\", 2.5);");
         fx.Out = "";
         Assert.True(fx.Frame(3.1) == 93 && fx.Sim.TickMs() == 3072);
-        Assert.True(fx.Out == "a1.09599\nb2.59599"); // float(0.096 + delay), printed truncated (EV2)
-        Assert.True(fx.Run("echo(getSimTime());") == "3.07199");
+        Assert.Equal("a1.09599\nb2.59599", fx.Out); // float(0.096 + delay), printed truncated (EV2)
+        Assert.Equal("3.07199", fx.Run("echo(getSimTime());"));
         // The clock never moves the tick count back.
         Assert.True(fx.Frame(1.0) == 0 && fx.Sim.TickMs() == 3072);
 
@@ -188,9 +188,9 @@ public class TimingTests
         fx.Run("schedule(\"echo(ev);\", 0);");
         fx.Out = "";
         fx.Ticks.Clear();
-        Ticker a2 = fx.MakeTicker("a2", 718);
+        var a2 = fx.MakeTicker("a2", 718);
         a2.OnTick = () => fx.Ticks.Add("out=" + fx.Out);
-        Assert.True(fx.Frame(3.17) == 3);
+        Assert.Equal(3, fx.Frame(3.17));
         Assert.True(fx.Ticks.Count == 15 && fx.Ticks[0] == "a@3104" && fx.Ticks[1] == "a2@3104" && fx.Ticks[2] == "out=ev" &&
                     fx.Ticks[3] == "b@3104" && fx.Ticks[4] == "c@3104" && fx.Ticks[5] == "a@3136");
     }
@@ -201,12 +201,12 @@ public class TimingTests
     {
         Start();
         var fx = new Fx();
-        Ticker t1 = fx.MakeTicker("t1", 718);
-        Ticker t2 = fx.MakeTicker("t2", 718);
-        Ticker t3 = fx.MakeTicker("t3", 718);
+        var t1 = fx.MakeTicker("t1", 718);
+        var t2 = fx.MakeTicker("t2", 718);
+        var t3 = fx.MakeTicker("t3", 718);
         fx.MakeTicker("t4", 718);
         // A member added during the pass is ticked in the same pass.
-        bool added = false;
+        var added = false;
         t2.OnTick = () =>
         {
             if (!added)
@@ -216,25 +216,25 @@ public class TimingTests
             }
         };
         fx.Frame(0.033);
-        Assert.True(fx.Ticks.SequenceEqual(new[] { "t1@32", "t2@32", "t3@32", "t4@32", "new@32" }));
+        Assert.True(fx.Ticks.SequenceEqual(["t1@32", "t2@32", "t3@32", "t4@32", "new@32"]));
         // Removing the current member moves the last one into its slot: that one is skipped in this pass (GS4), the
         // order changes for the next ones.
-        SimSet set = fx.M().FindById(718)!.AsSet()!;
+        var set = fx.M().FindById(718)!.AsSet()!;
         fx.Ticks.Clear();
         t2.OnTick = () => set.RemoveObject(t2);
         fx.Frame(0.065);
-        Assert.True(fx.Ticks.SequenceEqual(new[] { "t1@64", "t2@64", "t3@64", "t4@64" }));
+        Assert.True(fx.Ticks.SequenceEqual(["t1@64", "t2@64", "t3@64", "t4@64"]));
         fx.Ticks.Clear();
         fx.Frame(0.097);
-        Assert.True(fx.Ticks.SequenceEqual(new[] { "t1@96", "new@96", "t3@96", "t4@96" }));
+        Assert.True(fx.Ticks.SequenceEqual(["t1@96", "new@96", "t3@96", "t4@96"]));
         // Removing an earlier member also skips the moved one.
         fx.Ticks.Clear();
         t3.OnTick = () => set.RemoveObject(t1);
         fx.Frame(0.129);
-        Assert.True(fx.Ticks.SequenceEqual(new[] { "t1@128", "new@128", "t3@128" }));
+        Assert.True(fx.Ticks.SequenceEqual(["t1@128", "new@128", "t3@128"]));
         fx.Ticks.Clear();
         fx.Frame(0.161);
-        Assert.True(fx.Ticks.SequenceEqual(new[] { "t4@160", "new@160", "t3@160" }));
+        Assert.True(fx.Ticks.SequenceEqual(["t4@160", "new@160", "t3@160"]));
     }
 
     // TK6: the SimTimerSet event every 0.03 s of sim time, times accumulated in float.
@@ -243,14 +243,14 @@ public class TimingTests
     {
         Start();
         var fx = new Fx();
-        Assert.True(fx.Run("listObjects(12);") == "   720: SensorManager ");
+        Assert.Equal("   720: SensorManager ", fx.Run("listObjects(12);"));
         var t = new Ticker("timer") { Log = fx.Ticks };
         fx.M().AddToRoot(t);
         fx.M().FindById(12)!.AsSet()!.AddObject(t);
         fx.Frame(0.2); // ticks up to 0.192: timer events at 0.03 .. 0.18
-        Assert.True(t.Timers.Count == 6);
+        Assert.Equal(6, t.Timers.Count);
         float expect = 0, step = 0.03f; // run-time float sums in round-toward-zero mode
-        foreach (float v in t.Timers)
+        foreach (var v in t.Timers)
         {
             expect = Fpu.AddF(expect, step);
             Assert.True(v == expect);
@@ -260,7 +260,7 @@ public class TimingTests
         fx.Out = "";
         fx.Frame(0.8);
         Assert.True(t.Timers[6] == 0.0f && t.Timers[7] == 0.03f);
-        Assert.True(fx.Out == "x0.482"); // 0.192 + 0.5 - 0.21
+        Assert.Equal("x0.482", fx.Out); // 0.192 + 0.5 - 0.21
     }
 
     // TM4: the scale applies from the assignment on, the clock stays continuous, minimum 0.0001.
@@ -269,16 +269,16 @@ public class TimingTests
     {
         Start();
         var fx = new Fx();
-        Assert.True(fx.Run("echo($SimGame::TimeScale);") == "1.0");
+        Assert.Equal("1.0", fx.Run("echo($SimGame::TimeScale);"));
         fx.Frame(1.0);
-        Assert.True(fx.Sim.TickMs() == 992);
+        Assert.Equal(992u, fx.Sim.TickMs());
         fx.Clock = 1.5;
         fx.Run("$SimGame::TimeScale = 2;");
         fx.Frame(2.5); // 1.5 + 2 * 1.0
         Assert.True(fx.Sim.ClockSeconds() == 3.5 && fx.Sim.TickMs() == 3488);
-        Assert.True(fx.Run("$SimGame::TimeScale = 0; echo($SimGame::TimeScale);") == "0");
+        Assert.Equal("0", fx.Run("$SimGame::TimeScale = 0; echo($SimGame::TimeScale);"));
         fx.Frame(1002.5); // 1000 s at 0.0001
-        Assert.True(fx.Sim.TickMs() == 3584);
+        Assert.Equal(3584u, fx.Sim.TickMs());
     }
 
     // TK8: a new server starts its tick clock at the scaled clock; sim time restarts at 0.
@@ -294,9 +294,9 @@ public class TimingTests
         // resetSimTime (TM3): base = the current tick.
         fx.Frame(6.0);
         fx.Run("resetSimTime();");
-        Assert.True(fx.Run("echo(getSimTime());") == "0");
+        Assert.Equal("0", fx.Run("echo(getSimTime());"));
         fx.Frame(6.04);
-        Assert.True(fx.Run("echo(getSimTime());") == "0.0319999");
+        Assert.Equal("0.0319999", fx.Run("echo(getSimTime());"));
     }
 
     // TK9: Game::EndFrame runs every frame; an undefined one prints the unknown-command line.
@@ -304,18 +304,20 @@ public class TimingTests
     public void TestEndFrame()
     {
         Start();
-        var fx = new Fx();
-        fx.Out = "";
+        var fx = new Fx
+        {
+            Out = ""
+        };
         fx.Sim.EndFrame();
-        Assert.True(fx.Out == "Game::EndFrame: Unknown command.");
+        Assert.Equal("Game::EndFrame: Unknown command.", fx.Out);
         fx.Run("function Game::EndFrame() { $n++; }");
-        for (int i = 0; i < 40; ++i)
+        for (var i = 0; i < 40; ++i)
         {
             fx.Frame(Fpu.Mul(0.001, i));
             fx.Clock = Fpu.Add(fx.Clock, 0.0005);
             fx.Sim.EndFrame();
         }
-        Assert.True(fx.Run("echo($n);") == "40");
-        Assert.True(fx.Run("echo($ConsoleWorld::msecsPerFrame != \"\", $ConsoleWorld::FrameRate != \"\");") == "11");
+        Assert.Equal("40", fx.Run("echo($n);"));
+        Assert.Equal("11", fx.Run("echo($ConsoleWorld::msecsPerFrame != \"\", $ConsoleWorld::FrameRate != \"\");"));
     }
 }

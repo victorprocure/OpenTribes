@@ -1,6 +1,3 @@
-using OpenTribes.Sim;
-using OpenTribes.World;
-
 namespace OpenTribes.Game;
 
 /// <summary>The eye and muzzle transforms of a vehicle, flier or turret control object, in world space.</summary>
@@ -11,7 +8,7 @@ public static class ControlAim
     {
         var a = new TMat3 { Flags = local.Flags, M = local.M, P = local.P };
         var b = new TMat3 { Flags = obj.Flags, M = obj.M, P = obj.P };
-        Shape.TmatMul(a, b, out TMat3 w);
+        Shape.TmatMul(a, b, out var w);
         return new Transform { Flags = w.Flags, M = w.M, P = w.P };
     }
 
@@ -23,13 +20,13 @@ public static class ControlAim
     public static Transform VehicleEye(in Transform obj, in Transform? eyeNode) => eyeNode is { } n ? TimesObject(n, obj) : obj;
 
     /// <summary>Picks the node index the vehicle muzzle uses.</summary>
-    /// <param name="single">The index of the single <c>dummy muzzle</c> node (+0x86c), or -1.</param>
+    /// <param name="fallbackNode">The index of the single <c>dummy muzzle</c> node (+0x86c), or -1.</param>
     /// <param name="table">The indices of the <c>dummy muzzle%d</c> nodes (+0x874, count +0x8a4).</param>
     /// <param name="fireCount">The fire counter.</param>
-    /// <returns>The table entry <c>fireCount % count</c> when the table is not empty, else <paramref name="single"/>.</returns>
+    /// <returns>The table entry <c>fireCount % count</c> when the table is not empty, else <paramref name="fallbackNode"/>.</returns>
     /// <remarks>Follows Vehicle_getMuzzleTransform (00445cd8).</remarks>
-    public static int VehicleMuzzleNode(int single, IReadOnlyList<int> table, int fireCount) =>
-        table.Count != 0 ? table[(int)((uint)fireCount % (uint)table.Count)] : single;
+    public static int VehicleMuzzleNode(int fallbackNode, IReadOnlyList<int> table, int fireCount) =>
+        table.Count != 0 ? table[(int)((uint)fireCount % (uint)table.Count)] : fallbackNode;
 
     /// <summary>Computes the muzzle transform of a vehicle.</summary>
     /// <param name="obj">The object transform.</param>
@@ -60,9 +57,9 @@ public static class ControlAim
         if (node is not { } n)
             return obj;
         var local = new Transform();
-        MissionTransform.EulerToMatrix(new[] { elevation, 0.0f, rotation }, ref local);
+        MissionTransform.EulerToMatrix([elevation, 0.0f, rotation], ref local);
         local.Flags |= 2u;
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             local.P[i] = n.P[i];
         return TimesObject(local, obj);
     }

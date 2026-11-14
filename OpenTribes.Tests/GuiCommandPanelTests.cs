@@ -1,16 +1,17 @@
 // The command screen panels (docs/gui.md 3.6): FGCommandPanel [004a159c], FGChatMenu [004a7934], CommandTeamCtrl [004a8638]. Synthetic data only.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Game;
 using OpenTribes.Gui;
 using OpenTribes.Platform.Gfx;
-using OpenTribes.Platform.Gl;
-
-namespace OpenTribes.Tests;
 
 public class GuiCommandPanelTests
 {
+    private static readonly string[] Values1 = ["text w6 10,10 'Menu inactive'"];
+    private static readonly string[] Values2 = ["text w6 10,10 'Root Menu:'", "text w6 10,20 'a: Attack'", "text w6 10,30 'd: Defend'"];
     private sealed class CallDev : IGfxDevice
     {
-        public readonly List<string> Calls = new();
+        public List<string> Calls { get; } = [];
         public int Width => 640;
         public int Height => 480;
         public void Dispose() { }
@@ -30,7 +31,7 @@ public class GuiCommandPanelTests
         public void BlitRegion(PbmpBitmap bitmap, GfxRect source, int x, int y, BlitFlip flip = BlitFlip.None) { }
         public void BlitStretch(PbmpBitmap bitmap, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) { }
         public void BlitRegionStretch(PbmpBitmap bitmap, GfxRect source, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) { }
-        public byte[] ReadPixels() => Array.Empty<byte>();
+        public byte[] ReadPixels() => [];
         public IGfxTexture CreateTexture3D(ReadOnlySpan<byte> rgba, int width, int height, TextureOptions options) => throw new NotSupportedException();
         public void BeginScene3D(in Camera3D camera, float hazeR, float hazeG, float hazeB) { }
         public void SetCamera3D(in Camera3D camera) { }
@@ -40,7 +41,7 @@ public class GuiCommandPanelTests
 
     private static GuiControl Root(GuiControl child)
     {
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
         root.AddChild(child);
         return root;
     }
@@ -75,19 +76,19 @@ public class GuiCommandPanelTests
         var fx = new GuiFixture();
         fx.Host.SetFont("sf_Orange255_10.pft", Font(6));
         fx.Host.SetFont("sf_white_10.pft", Font(5));
-        ChatMenuState? state = new(false, "", Array.Empty<string>());
+        ChatMenuState? state = new(false, "", []);
         fx.Host.Hud = new ClientHudSource(new ClientWorld()) { NamedMenuSource = n => n == "CommandChatMenu" ? state : null };
         fx.Content(Root(GuiFixture.Make("FearGui::FGChatMenu", 7, 9, 100, 60, ("menuName", "CommandChatMenu"))));
         var dev = new CallDev();
         fx.Canvas.Render(dev);
-        Assert.Equal(new[] { "text w6 10,10 'Menu inactive'" }, dev.Calls);
+        Assert.Equal(Values1, dev.Calls);
 
-        state = new ChatMenuState(true, "", new[] { "a: Attack", "d: Defend" });
+        state = new ChatMenuState(true, "", ["a: Attack", "d: Defend"]);
         dev = new CallDev();
         fx.Canvas.Render(dev);
-        Assert.Equal(new[] { "text w6 10,10 'Root Menu:'", "text w6 10,20 'a: Attack'", "text w6 10,30 'd: Defend'" }, dev.Calls);
+        Assert.Equal(Values2, dev.Calls);
 
-        state = new ChatMenuState(true, "Orders", new[] { "a: Attack" });
+        state = new ChatMenuState(true, "Orders", ["a: Attack"]);
         dev = new CallDev();
         fx.Canvas.Render(dev);
         Assert.Equal("text w6 10,10 'Orders'", dev.Calls[0]);
@@ -115,13 +116,13 @@ public class GuiCommandPanelTests
     [Fact]
     public void TeamRowsFollowTheCommandTree()
     {
-        IReadOnlyList<CommandTeamRow> rows = new ClientHudSource(Team()).CommandTeam;
-        Assert.Equal(new[] { "Boss", "Rec", "Dan", "Eve", "Solo" }, rows.Select(r => r.Name));
-        Assert.Equal(new[] { 0, 1, 1, 2, 0 }, rows.Select(r => r.Depth));
-        Assert.Equal(new[] { true, false, true, false, false }, rows.Select(r => r.HasChildren));
-        Assert.Equal(new[] { true, true, false, false, false }, rows.Select(r => r.HasNext));
-        Assert.Equal(new[] { 1, 2, 1, 1, 1 }, rows.Select(r => r.Order)); // the record's command status + 1
-        Assert.Equal(new[] { (1, false), (0, true) }, rows[3].Ancestors);
+        var rows = new ClientHudSource(Team()).CommandTeam;
+        Assert.Equal(["Boss", "Rec", "Dan", "Eve", "Solo"], rows.Select(r => r.Name));
+        Assert.Equal([0, 1, 1, 2, 0], rows.Select(r => r.Depth));
+        Assert.Equal([true, false, true, false, false], rows.Select(r => r.HasChildren));
+        Assert.Equal([true, true, false, false, false], rows.Select(r => r.HasNext));
+        Assert.Equal([1, 2, 1, 1, 1], rows.Select(r => r.Order)); // the record's command status + 1
+        Assert.Equal([(1, false), (0, true)], rows[3].Ancestors);
         Assert.Empty(new ClientHudSource(new ClientWorld { PlayerId = 5 }).CommandTeam);
     }
 
@@ -130,7 +131,7 @@ public class GuiCommandPanelTests
     {
         var fx = new GuiFixture();
         var pieces = new PbmaArray { BitmapCount = 12 };
-        for (int i = 0; i < 12; i++)
+        for (var i = 0; i < 12; i++)
             pieces.Bitmaps.Add(new PbmpBitmap { Width = 4 + i, Height = 13 });
         fx.Host.SetArray("CmdListCtrl.pba", pieces);
         foreach (var (n, w) in new[] { ("CMD_DamageLow.bmp", 11), ("CMD_DamageMed.bmp", 11), ("CMD_DamageHigh.bmp", 11), ("CMD_OrderPending.bmp", 9), ("CMD_OrderAck.bmp", 9) })

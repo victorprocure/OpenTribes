@@ -1,22 +1,22 @@
 // Port of tests/test_master.cpp: master heartbeat and DNet master commands (docs/net-protocol.md 6.2 type 5; ROADMAP
 // 8.3, rule R6). [live]: the reference sends `10 05 ff 00 00 00 00 00` from its game port to $inet::Master1 at network
 // start. No socket is opened: datagrams go out through the send seam.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Net;
 using OpenTribes.Script;
 using OpenTribes.Server;
-
-namespace OpenTribes.Tests;
 
 public class MasterTests
 {
     private sealed class World
     {
-        public readonly Interpreter In = new();
-        public readonly ServerConfig Cfg = new();
-        public readonly NetServer Net;
-        public readonly List<(Address to, byte[] data)> Sent = new();
-        public string Out = "";
-        public readonly List<(float delay, Action action)> Scheduled = new();
+        public Interpreter In { get; } = new();
+        public ServerConfig Cfg { get; } = new();
+        public NetServer Net { get; }
+        public List<(Address to, byte[] data)> Sent { get; } = [];
+        public string Out { get; set; } = "";
+        public List<(float delay, Action action)> Scheduled { get; } = [];
 
         public World()
         {
@@ -35,12 +35,12 @@ public class MasterTests
         }
     }
 
-    private static readonly byte[] kBeat = { 0x10, 0x05, 0xff, 0, 0, 0, 0, 0 };
+    private static readonly byte[] Beat = [0x10, 0x05, 0xff, 0, 0, 0, 0, 0];
 
     [Fact]
     public void NetworkStartAnnouncesOnlyAnIpServerThatIsNotSinglePlayer() // SimNet_activate 0x0054e86c tail
     {
-        foreach ((string isServer, bool ip, string single, bool sent) in new[]
+        foreach ((var isServer, var ip, var single, var sent) in new[]
         {
             ("true", true, "false", true), ("T", true, "", true), ("1", true, "0", true), ("false", true, "false", false),
             ("", true, "false", false), ("true", false, "false", false), ("true", true, "true", false),
@@ -50,7 +50,7 @@ public class MasterTests
             var hb = new MasterHeartbeat(w.In, w.Net, false);
             w.Eval("$SinglePlayer = \"" + single + "\"; $Server::HostPublicGame = true; $inet::Master1 = \"IP:127.0.0.1:29000\"; " +
                    "function checkMasterTranslation() {}");
-            Assert.Equal(sent, hb.OnNetworkStart(new[] { isServer, ip ? "IP" : "ip", "28001" }, true, w.Schedule()));
+            Assert.Equal(sent, hb.OnNetworkStart([isServer, ip ? "IP" : "ip", "28001"], true, w.Schedule()));
             Assert.Equal(sent ? 1 : 0, w.Sent.Count);
         }
     }
@@ -59,11 +59,10 @@ public class MasterTests
     public void Master()
     {
         // Address text: "IP:a.b.c.d:port", prefix optional and case-insensitive.
-        Address a;
-        Assert.True(MasterHeartbeat.ParseMasterAddress("IP:127.0.0.1:29000", out a, false) && a.Ip == 0x7f000001 && a.Port == 29000);
+        Assert.True(MasterHeartbeat.ParseMasterAddress("IP:127.0.0.1:29000", out var a, false) && a.Ip == 0x7f000001 && a.Port == 29000);
         Assert.True(MasterHeartbeat.ParseMasterAddress("ip:10.1.2.3:28000", out a, false) && a.ToString() == "IP:10.1.2.3:28000");
         Assert.True(MasterHeartbeat.ParseMasterAddress("192.168.0.9:1", out a, false) && a.Port == 1);
-        foreach (string bad in new[] { "", "IP:", "IP:127.0.0.1", "IP:127.0.0.1:", "IP:127.0.0.1:0", "IP:127.0.0.1:70000",
+        foreach (var bad in new[] { "", "IP:", "IP:127.0.0.1", "IP:127.0.0.1:", "IP:127.0.0.1:0", "IP:127.0.0.1:70000",
                                        "IP:127.0.0.1:28x", ":28000", "IP:t1m1.masters.example:28000" })
             Assert.False(MasterHeartbeat.ParseMasterAddress(bad, out a, false)); // names are not looked up without the opt-in
 
@@ -78,7 +77,7 @@ public class MasterTests
             hb.Start(w.Schedule());
             Assert.Equal("TRUE", w.In.GetVariable("$Server::HostPublicGame"));
             Assert.Equal("1", w.In.GetVariable("$calls"));
-            Assert.True(w.Sent.Count == 2 && w.Sent[0].data.SequenceEqual(kBeat) && w.Sent[1].data.SequenceEqual(kBeat));
+            Assert.True(w.Sent.Count == 2 && w.Sent[0].data.SequenceEqual(Beat) && w.Sent[1].data.SequenceEqual(Beat));
             Assert.True(w.Sent[0].to.ToString() == "IP:127.0.0.1:29000" && w.Sent[1].to.ToString() == "IP:127.9.9.9:29001");
             Assert.True(w.Scheduled.Count == 1 && w.Scheduled[0].delay == 120.0f);
             w.Scheduled[0].action(); // the next round
@@ -97,7 +96,7 @@ public class MasterTests
         {
             // R6: without the opt-in only loopback masters are contacted; with it, any address.
             // The send seam captures every datagram: nothing reaches a socket.
-            foreach (bool allow in new[] { false, true })
+            foreach (var allow in new[] { false, true })
             {
                 var w = new World();
                 var hb = new MasterHeartbeat(w.In, w.Net, allow);
@@ -123,8 +122,8 @@ public class MasterTests
             Assert.Equal("False|\n", w.Eval("echo(DNet::resolveMasters(), \"|\");")); // null result
             // A host name stays unresolved without the opt-in (no lookup leaves the machine).
             Assert.Equal("1|\n", w.Eval("echo(DNet::resolveMasters(\"t1m1.masters.example:28000\"), DNet::getResolvedMaster(0), \"|\");"));
-            string eleven = "echo(DNet::resolveMasters(";
-            for (int i = 0; i < 12; ++i)
+            var eleven = "echo(DNet::resolveMasters(";
+            for (var i = 0; i < 12; ++i)
                 eleven += (i != 0 ? ", " : "") + "\"IP:127.0.0.1:" + (100 + i) + "\"";
             Assert.Equal("10\n", w.Eval(eleven + "));"));
         }

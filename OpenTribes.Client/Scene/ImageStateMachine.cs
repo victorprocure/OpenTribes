@@ -1,24 +1,24 @@
-using OpenTribes.Client.Shapes;
-
 namespace OpenTribes.Client.Scene;
+
+using OpenTribes.Client.Shapes;
 
 /// <summary>The weapon data the state machine of an image needs.</summary>
 public sealed class ImageStateData
 {
     /// <summary>The weapon type of the image, -1 for none.</summary>
-    public int WeaponType = -1;
+    public int WeaponType { get; set; } = -1;
     /// <summary>The ammo type of the image, -1 for none.</summary>
-    public int AmmoType = -1;
+    public int AmmoType { get; set; } = -1;
     /// <summary>The activate state time in seconds.</summary>
-    public double ActivateTime;
+    public double ActivateTime { get; set; }
     /// <summary>The fire state time in seconds.</summary>
-    public double FireTime;
+    public double FireTime { get; set; }
     /// <summary>The reload state time in seconds.</summary>
-    public double ReloadTime;
+    public double ReloadTime { get; set; }
     /// <summary>The spin up state time in seconds.</summary>
-    public double SpinUpTime;
+    public double SpinUpTime { get; set; }
     /// <summary>The spin down state time in seconds.</summary>
-    public double SpinDownTime;
+    public double SpinDownTime { get; set; }
 }
 
 /// <summary>The client side item image state machine of a Player ghost.</summary>
@@ -47,38 +47,38 @@ public sealed class ImageStateMachine
     public const double Step = 0.032;
 
     /// <summary>The current state.</summary>
-    public int State;
+    public int State { get; set; }
     /// <summary>The time left in the current state, in seconds.</summary>
-    public double Timer;
+    public double Timer { get; set; }
     /// <summary>True while the trigger is held.</summary>
-    public bool Triggered;
+    public bool Triggered { get; set; }
     /// <summary>True when the weapon has ammo.</summary>
-    public bool Ammo;
+    public bool Ammo { get; set; }
     /// <summary>The fire count of the ghost stream.</summary>
-    public int FireCount;
+    public int FireCount { get; set; }
     /// <summary>The weapon data.</summary>
-    public readonly ImageStateData Data;
+    public ImageStateData Data { get; }
     /// <summary>The thread of the state sequence, or null when the shape has no activation sequence.</summary>
-    public RenderThread? StateThread;
+    public RenderThread? StateThread { get; set; }
     /// <summary>The ambient thread, or null.</summary>
-    public RenderThread? Ambient;
+    public RenderThread? Ambient { get; set; }
     /// <summary>The spin thread, or null.</summary>
-    public RenderThread? Spin;
+    public RenderThread? Spin { get; set; }
 
-    private readonly RenderInstance? mInst;
-    private readonly int mSeqActivation = -1, mSeqFire = -1, mSeqReload = -1, mSeqNoAmmo = -1, mSeqReady = -1;
-    private double mAccum;
+    private readonly RenderInstance? _inst;
+    private readonly int _seqActivation = -1, _seqFire = -1, _seqReload = -1, _seqNoAmmo = -1, _seqReady = -1;
+    private double _accum;
 
     /// <summary>True when the state updates run per prediction step instead of per 0.032 s of time.</summary>
     /// <remarks>The control object runs its state update with the moves of the client prediction (<c>Player_updateMove</c> is called for every step of the prediction, replays after a server block included, and runs <c>Player_updateImageState</c> with 0.032 s), not once per 0.032 s of time. When set, <see cref="Advance"/> only moves the image threads and <see cref="StepMoves"/> runs the updates.</remarks>
-    public bool Stepped;
+    public bool Stepped { get; set; }
 
     /// <summary>Called when the state is left, so a looping state sound stops.</summary>
-    public Action? StopLoopingSound;
+    public Action? StopLoopingSound { get; set; }
     /// <summary>Called when a state plays its sound, with the field name of the datablock.</summary>
-    public Action<string>? PlaySound;
+    public Action<string>? PlaySound { get; set; }
     /// <summary>Called when a shot is fired: state Fire entered, or fired again while a spinning weapon keeps firing.</summary>
-    public Action? Fired;
+    public Action? Fired { get; set; }
 
     /// <summary>Creates the state machine and its threads.</summary>
     /// <param name="data">The weapon data.</param>
@@ -86,19 +86,19 @@ public sealed class ImageStateMachine
     public ImageStateMachine(ImageStateData data, RenderInstance? inst)
     {
         Data = data;
-        mInst = inst;
+        _inst = inst;
         if (inst == null)
             return;
-        RenderShape sh = inst.Shape;
-        mSeqActivation = sh.FindSequence("activation");
-        mSeqFire = sh.FindSequence("fire");
-        mSeqReload = sh.FindSequence("reload");
-        mSeqNoAmmo = sh.FindSequence("noammo");
-        mSeqReady = sh.FindSequence("ready");
+        var sh = inst.Shape;
+        _seqActivation = sh.FindSequence("activation");
+        _seqFire = sh.FindSequence("fire");
+        _seqReload = sh.FindSequence("reload");
+        _seqNoAmmo = sh.FindSequence("noammo");
+        _seqReady = sh.FindSequence("ready");
         int amb = sh.FindSequence("ambient"), spin = sh.FindSequence("spin");
         // `Player_setImage`: the state thread exists only when the shape has an activation sequence.
-        if (mSeqActivation >= 0)
-            StateThread = Make(mSeqActivation, 1);
+        if (_seqActivation >= 0)
+            StateThread = Make(_seqActivation, 1);
         if (amb >= 0)
             Ambient = Make(amb, 1);
         if (spin >= 0)
@@ -107,7 +107,7 @@ public sealed class ImageStateMachine
 
     private RenderThread Make(int seq, double scale)
     {
-        RenderThread t = mInst!.AddThread(seq, 0, mInst.Shape.Sequences[seq].Priority);
+        var t = _inst!.AddThread(seq, 0, _inst.Shape.Sequences[seq].Priority);
         t.TimeScale = scale;
         return t;
     }
@@ -116,21 +116,21 @@ public sealed class ImageStateMachine
     /// <param name="dt">The frame time in seconds.</param>
     public void Advance(double dt)
     {
-        if (mInst != null)
+        if (_inst != null)
         {
             if (Ambient != null)
-                mInst.Advance(Ambient, dt);
+                _inst.Advance(Ambient, dt);
             if (StateThread != null)
-                mInst.Advance(StateThread, dt);
+                _inst.Advance(StateThread, dt);
             if (Spin != null)
-                mInst.Advance(Spin, dt);
+                _inst.Advance(Spin, dt);
         }
         if (Stepped)
             return;
-        mAccum += dt;
-        while (mAccum >= Step)
+        _accum += dt;
+        while (_accum >= Step)
         {
-            mAccum -= Step;
+            _accum -= Step;
             Update(Step);
         }
     }
@@ -139,7 +139,7 @@ public sealed class ImageStateMachine
     /// <param name="count">The number of steps.</param>
     public void StepMoves(int count)
     {
-        for (int i = 0; i < count; ++i)
+        for (var i = 0; i < count; ++i)
             Update(Step);
     }
 
@@ -176,8 +176,8 @@ public sealed class ImageStateMachine
     public void Update(double dt)
     {
         Timer -= dt;
-        int wt = Data.WeaponType;
-        bool expired = !(Timer > 0);
+        var wt = Data.WeaponType;
+        var expired = !(Timer > 0);
         switch (State)
         {
             case Reset:
@@ -241,8 +241,7 @@ public sealed class ImageStateMachine
                 }
                 if (Timer > 0)
                 {
-                    if (Spin != null)
-                        Spin.TimeScale = 1 - Timer / Data.SpinUpTime;
+                    Spin?.TimeScale = 1 - (Timer / Data.SpinUpTime);
                 }
                 else
                     SetState(Ready);
@@ -252,14 +251,15 @@ public sealed class ImageStateMachine
                 {
                     if (Timer > 0)
                     {
-                        if (Spin != null)
-                            Spin.TimeScale = Timer / Data.SpinDownTime;
+                        Spin?.TimeScale = Timer / Data.SpinDownTime;
                     }
                     else
                         SetState(Idle);
                 }
                 else
                     SetState(SpinUp);
+                break;
+            default:
                 break;
         }
     }
@@ -272,26 +272,22 @@ public sealed class ImageStateMachine
             StateThread.Sequence = seq;
             StateThread.Position = 0;
             StateThread.LastPosition = 0;
-            StateThread.Priority = mInst!.Shape.Sequences[seq].Priority;
+            StateThread.Priority = _inst!.Shape.Sequences[seq].Priority;
         }
     }
 
-    private void SpinScale(double v)
-    {
-        if (Spin != null)
-            Spin.TimeScale = v;
-    }
+    private void SpinScale(double v) => Spin?.TimeScale = v;
 
     /// <summary>Enters a state: stops the looping sound, sets the timer and plays the sound of the state.</summary>
     /// <param name="next">The state.</param>
     public void SetState(int next)
     {
-        int old = State;
-        double oldTimer = Timer;
+        var old = State;
+        var oldTimer = Timer;
         State = next;
         StopLoopingSound?.Invoke();
         // A cyclic state sequence is rewound and held when its state ends; a one shot keeps its end pose.
-        if (StateThread != null && mInst != null && StateThread.Sequence >= 0 && mInst.Shape.Sequences[StateThread.Sequence].Cyclic)
+        if (StateThread != null && _inst != null && StateThread.Sequence >= 0 && _inst.Shape.Sequences[StateThread.Sequence].Cyclic)
         {
             StateThread.Position = 0;
             StateThread.TimeScale = 0;
@@ -302,12 +298,12 @@ public sealed class ImageStateMachine
                 Timer = Data.FireTime;
                 Fired?.Invoke();
                 PlaySound?.Invoke("sfxFire");
-                StartState(mSeqFire);
+                StartState(_seqFire);
                 SpinScale(1);
                 break;
             case NoAmmo:
                 SpinScale(0);
-                StartState(mSeqNoAmmo);
+                StartState(_seqNoAmmo);
                 break;
             case Idle:
                 SpinScale(0);
@@ -315,7 +311,7 @@ public sealed class ImageStateMachine
             case Ready:
                 PlaySound?.Invoke("sfxReady");
                 SpinScale(1);
-                StartState(mSeqReady);
+                StartState(_seqReady);
                 break;
             case Reload:
                 if (Data.AmmoType == -1 || Ammo)
@@ -323,7 +319,7 @@ public sealed class ImageStateMachine
                     PlaySound?.Invoke("sfxReload");
                     Timer = Data.ReloadTime;
                     SpinScale(0);
-                    StartState(mSeqReload);
+                    StartState(_seqReload);
                     if (Data.ReloadTime == 0.0)
                         SetState(Ready);
                 }
@@ -332,16 +328,18 @@ public sealed class ImageStateMachine
                 break;
             case SpinUp:
                 PlaySound?.Invoke("sfxSpinUp");
-                Timer = old == SpinDown ? Data.SpinUpTime * (1 - oldTimer / Data.SpinDownTime) : Data.SpinUpTime;
+                Timer = old == SpinDown ? Data.SpinUpTime * (1 - (oldTimer / Data.SpinDownTime)) : Data.SpinUpTime;
                 break;
             case SpinDown:
                 PlaySound?.Invoke("sfxSpinDown");
-                Timer = old == SpinUp ? Data.SpinDownTime * (1 - oldTimer / Data.SpinUpTime) : Data.SpinDownTime;
+                Timer = old == SpinUp ? Data.SpinDownTime * (1 - (oldTimer / Data.SpinUpTime)) : Data.SpinDownTime;
                 break;
             case Activate:
                 Timer = Data.ActivateTime;
                 PlaySound?.Invoke("sfxActivate");
-                StartState(mSeqActivation);
+                StartState(_seqActivation);
+                break;
+            default:
                 break;
         }
     }

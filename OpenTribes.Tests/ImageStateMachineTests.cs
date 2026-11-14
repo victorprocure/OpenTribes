@@ -1,11 +1,14 @@
 // Unit tests of the client image state machine (docs/player-sim.md 7.5, docs/audio.md 3.2). Machine without a shape: states,
 // timers and sound names only.
-using OpenTribes.Client.Scene;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Client.Scene;
 
 public class ImageStateMachineTests
 {
+    private static readonly string[] Values1 = ["sfxReload", "sfxSpinUp", "sfxReady"];
+    private static readonly string[] Values2 = ["sfxFire", "sfxReload", "sfxSpinUp", "sfxReady"];
+    private static readonly string[] Values3 = ["sfxSpinUp", "sfxReady", "sfxFire", "sfxSpinDown"];
     private static ImageStateMachine Disc(List<string> sounds, bool ammo = true) =>
         new(new ImageStateData { WeaponType = 3, AmmoType = 5, ActivateTime = 0.5, FireTime = 1.25, ReloadTime = 0.25, SpinUpTime = 0.25, SpinDownTime = 0.25 }, null)
         { PlaySound = sounds.Add, Ammo = ammo };
@@ -20,7 +23,7 @@ public class ImageStateMachineTests
     public void ANewGhostOfTheDiscLauncherReloadsSpinsUpAndIsReady() // PS 7.5 wt 3: Reset, Reload, SpinUp, Ready
     {
         var sounds = new List<string>();
-        ImageStateMachine m = Disc(sounds);
+        var m = Disc(sounds);
         m.Unpack(false, true, 0, registered: false, initialFire: false);
         Assert.Equal(ImageStateMachine.Reset, m.State);
         m.Update(ImageStateMachine.Step);
@@ -29,14 +32,14 @@ public class ImageStateMachineTests
         Assert.Equal(ImageStateMachine.SpinUp, m.State);
         Run(m, 0.3);
         Assert.Equal(ImageStateMachine.Ready, m.State);
-        Assert.Equal(new[] { "sfxReload", "sfxSpinUp", "sfxReady" }, sounds);
+        Assert.Equal(Values1, sounds);
     }
 
     [Fact]
     public void AMountOnARegisteredPlayerPlaysActivateFirst() // PS 7.5 entry of state 8
     {
         var sounds = new List<string>();
-        ImageStateMachine m = Disc(sounds);
+        var m = Disc(sounds);
         m.Mount();
         Assert.Equal(ImageStateMachine.Activate, m.State);
         Assert.Equal(0.5, m.Timer);
@@ -49,12 +52,12 @@ public class ImageStateMachineTests
     public void AChangedFireCountEntersFireThenReloadsAfterTheFireTime() // client-net.md 3.4, PS 7.5 state 1
     {
         var sounds = new List<string>();
-        ImageStateMachine m = Disc(sounds);
+        var m = Disc(sounds);
         m.Unpack(false, true, 0, false, false);
         Run(m, 1.0);
         Assert.Equal(ImageStateMachine.Ready, m.State);
         sounds.Clear();
-        int fired = 0;
+        var fired = 0;
         m.Fired = () => ++fired;
         m.Unpack(false, true, 0, true, false);
         Assert.Equal(ImageStateMachine.Ready, m.State);
@@ -66,14 +69,14 @@ public class ImageStateMachineTests
         Assert.Equal(ImageStateMachine.Reload, m.State);
         Run(m, 0.6);
         Assert.Equal(ImageStateMachine.Ready, m.State);
-        Assert.Equal(new[] { "sfxFire", "sfxReload", "sfxSpinUp", "sfxReady" }, sounds);
+        Assert.Equal(Values2, sounds);
     }
 
     [Fact]
     public void AWeaponWithoutAmmoWaitsInNoAmmoUntilTheFlagReturns() // PS 7.5 states 2 and 5
     {
         var sounds = new List<string>();
-        ImageStateMachine m = Disc(sounds, ammo: false);
+        var m = Disc(sounds, ammo: false);
         m.Unpack(false, false, 0, false, false);
         m.Update(ImageStateMachine.Step);
         Assert.Equal(ImageStateMachine.NoAmmo, m.State);
@@ -100,14 +103,14 @@ public class ImageStateMachineTests
         m.Unpack(false, true, 1, true, false);
         Run(m, 0.3);
         Assert.Equal(ImageStateMachine.SpinDown, m.State);
-        Assert.Equal(new[] { "sfxSpinUp", "sfxReady", "sfxFire", "sfxSpinDown" }, sounds);
+        Assert.Equal(Values3, sounds);
     }
 
     [Fact]
     public void ALoopingSoundStopsWhenTheStateChanges() // audio.md 3.2
     {
-        ImageStateMachine m = Disc(new List<string>());
-        int stops = 0;
+        var m = Disc([]);
+        var stops = 0;
         m.StopLoopingSound = () => ++stops;
         m.Mount();
         m.SetState(ImageStateMachine.Ready);
@@ -117,7 +120,7 @@ public class ImageStateMachineTests
     [Fact]
     public void ASteppedMachineRunsOnePredictionStepPerUpdateAndIgnoresTime()
     {
-        ImageStateMachine m = Disc(new List<string>());
+        var m = Disc([]);
         m.Unpack(false, true, 0, false, false);
         m.StepMoves(40);
         Assert.Equal(ImageStateMachine.Ready, m.State);

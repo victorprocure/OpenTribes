@@ -1,9 +1,9 @@
 // Port of src/game/terrain_commands.hpp and src/game/terrain_commands.cpp: the terrain script commands (docs/terrain.md
 // 7, registered at 0x00528d3c): newTerrain, newTerrainParam, loadTerrain, saveTerrain, setTerrainDetail,
 // setTerrainVisibility, setTerrainContainer, lightTerrain.
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>The terrain script commands: newTerrain, newTerrainParam, loadTerrain, saveTerrain, setTerrainDetail, setTerrainVisibility, setTerrainContainer, lightTerrain.</summary>
 /// <remarks>Registered at 0x00528d3c (docs/terrain.md 7). Port of src/game/terrain_commands.cpp.</remarks>
@@ -18,7 +18,7 @@ public static class TerrainCommands
     private static float ScanFloat(string s) => Store(Numbers.BorlandAtof(s));
 
     // src/game/terrain_commands.cpp setFloat.
-    private static void SetFloat(TerrainObject t, string field, float v) => t.SetPersistField(field, new[] { PersistFloatText(v) });
+    private static void SetFloat(TerrainObject t, string field, float v) => t.SetPersistField(field, [PersistFloatText(v)]);
 
     /// <summary>Formats a float as <c>%.9g</c> text that the persist float parser reads back to the same value.</summary>
     /// <param name="v">The value.</param>
@@ -26,9 +26,9 @@ public static class TerrainCommands
     /// <remarks>The persist parser rounds toward zero, so the text has to be at or above the value after rounding to nearest. The digits grow until the parse gives <paramref name="v"/> back.</remarks>
     public static string PersistFloatText(float v)
     {
-        bool mode = TowardZero;
-        string output = "";
-        for (int digits = 9; digits <= 120; digits += digits < 17 ? 1 : 8)
+        var mode = TowardZero;
+        var output = "";
+        for (var digits = 9; digits <= 120; digits += digits < 17 ? 1 : 8)
         {
             TowardZero = false;
             output = CFormat.G(v, digits);
@@ -45,7 +45,7 @@ public static class TerrainCommands
     public static void Register(Interpreter interp, GameState game)
     {
         // Plugin ids 0-2 fall outside the callback's switch (0x00528e42): nothing, no message.
-        foreach (string name in new[] { "newTerrain", "newTerrainParam", "loadTerrain" })
+        foreach (var name in new[] { "newTerrain", "newTerrainParam", "loadTerrain" })
             interp.AddCommand(name, (_, _) => "False");
 
         // saveTerrain(terrain, volume) 0x00517aa4 writes the terrain into a new volume file; on the reference the call
@@ -66,7 +66,7 @@ public static class TerrainCommands
                 inr.Print(1, "setTerrainVisibility: objectName visibleDist hazeDist");
                 return "False";
             }
-            TerrainObject? t = FindTerrain(game, a[1]);
+            var t = FindTerrain(game, a[1]);
             if (t == null)
             {
                 inr.Print(1, "setTerrainVisibility: object not found or not a SimTerrain object");
@@ -86,7 +86,7 @@ public static class TerrainCommands
                 inr.Print(1, "setTerrainDetail: objectName perspectiveDist screenSquareSize");
                 return "False";
             }
-            TerrainObject? t = FindTerrain(game, a[1]);
+            var t = FindTerrain(game, a[1]);
             if (t == null)
             {
                 inr.Print(1, "setTerrainDetail: object not found or not a SimTerrain object");
@@ -107,15 +107,15 @@ public static class TerrainCommands
                 inr.Print(1, "setTerrainContainer NEEDS: objectName Gravity Drag Height");
                 return "False";
             }
-            TerrainObject? t = FindTerrain(game, a[1]);
+            var t = FindTerrain(game, a[1]);
             if (t == null)
             {
                 inr.Print(1, "setTerrainContainer: object not found or not a SimTerrain object");
                 return "False";
             }
-            float[] g = { 0, 0, 0 }; // components that do not parse are uninitialized in the original (D12)
+            float[] g = [0, 0, 0]; // components that do not parse are uninitialized in the original (D12)
             CScan.Floats(a[2], g);
-            t.SetPersistField("contGravity", new[] { PersistFloatText(g[0]) + " " + PersistFloatText(g[1]) + " " + PersistFloatText(g[2]) });
+            t.SetPersistField("contGravity", [PersistFloatText(g[0]) + " " + PersistFloatText(g[1]) + " " + PersistFloatText(g[2])]);
             SetFloat(t, "contDrag", ScanFloat(a[3]));
             SetFloat(t, "contHeight", ScanFloat(a[4]));
             // 0x005183d0 copies the five values and nothing else: the container box keeps its height, and a moving object
@@ -134,7 +134,7 @@ public static class TerrainCommands
         // client-side data and not modeled; the checks and messages are.
         interp.AddCommand("lightTerrain", (inr, a) =>
         {
-            if (a.Length != 2 && a.Length != 6)
+            if (a.Length is not 2 and not 6)
             {
                 inr.Print(1, "lightTerrain: objectName [minx miny maxx maxy]");
                 return "False";

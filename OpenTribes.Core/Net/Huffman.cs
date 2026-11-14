@@ -4,9 +4,9 @@ namespace OpenTribes.Net;
 public readonly struct HuffmanCode
 {
     /// <summary>The code bits, LSB first. Bit i is the i-th bit written.</summary>
-    public readonly ulong Bits;
+    public ulong Bits { get; }
     /// <summary>The code length in bits.</summary>
-    public readonly byte Length;
+    public byte Length { get; }
 
     /// <summary>Creates a code.</summary>
     /// <param name="bits">The code bits, LSB first.</param>
@@ -18,21 +18,21 @@ public readonly struct HuffmanCode
     }
 }
 
-/// <summary>The string Huffman coder used by <see cref="BitStream"/> strings.</summary>
+/// <summary>The string Huffman coder used by <see cref="BitBuffer"/> strings.</summary>
 /// <remarks>Port of src/net/huffman.cpp. The tree is built from the fixed character frequencies once at start-up.</remarks>
 public static class Huffman
 {
     // src/net/huffman.hpp detail::HuffNode.
     private struct HuffNode
     {
-        public short Child0; // < 0 encodes leaf -(index + 1)
-        public short Child1;
+        public short Child0 { get; set; } // < 0 encodes leaf -(index + 1)
+        public short Child1 { get; set; }
     }
 
     // src/net/huffman.cpp kCharFreqs: character frequencies. Identical to csm_charFreqs in Torque3D
     // (Engine/source/core/stream/bitStream.cpp), Copyright (c) 2012 GarageGames, LLC, MIT license.
-    private static readonly uint[] kCharFreqs =
-    {
+    private static readonly uint[] CharFreqs =
+    [
         0, 0, 0, 0, 0, 0, 0, 0, 0, 329, 21, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         2809, 68, 0, 27, 0, 58, 3, 62, 4, 7, 0, 0, 15, 65, 554, 3,
@@ -49,40 +49,40 @@ public static class Huffman
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    };
+    ];
 
     // src/net/huffman.cpp isAsciiAlnum.
     private static bool IsAsciiAlnum(int c) =>
-        (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+c is (>= '0' and <= '9') or (>= 'A' and <= 'Z') or (>= 'a' and <= 'z');
 
     // src/net/huffman.cpp struct Tables.
     private sealed class Tables
     {
-        public readonly HuffNode[] Nodes = new HuffNode[256];
-        public readonly global::OpenTribes.Net.HuffmanCode[] Codes = new global::OpenTribes.Net.HuffmanCode[256];
+        public HuffNode[] Nodes { get; } = new HuffNode[256];
+        public HuffmanCode[] Codes { get; } = new HuffmanCode[256];
 
         // A wrap is either a leaf (< 0, encoded like a child index) or a node index.
         private struct Wrap
         {
-            public short Index;
-            public uint Weight;
+            public short Index { get; set; }
+            public uint Weight { get; set; }
         }
 
         // src/net/huffman.cpp Tables::Tables.
         public Tables()
         {
             var wraps = new Wrap[256];
-            for (int i = 0; i < 256; ++i)
+            for (var i = 0; i < 256; ++i)
                 // Tribes adds 1 for alphanumerics on top of Torque's +1.
-                wraps[i] = new Wrap { Index = (short)-(i + 1), Weight = kCharFreqs[i] + 1 + (IsAsciiAlnum(i) ? 1u : 0u) };
+                wraps[i] = new Wrap { Index = (short)-(i + 1), Weight = CharFreqs[i] + 1 + (IsAsciiAlnum(i) ? 1u : 0u) };
 
-            int nodeCount = 1; // slot 0 is reserved for the root
-            int count = 256;
+            var nodeCount = 1; // slot 0 is reserved for the root
+            var count = 256;
             while (count != 1)
             {
                 uint min1 = 0xfffffffe, min2 = 0xffffffff;
                 int index1 = -1, index2 = -1;
-                for (int i = 0; i < count; ++i)
+                for (var i = 0; i < count; ++i)
                 {
                     if (wraps[i].Weight < min1)
                     {
@@ -97,12 +97,12 @@ public static class Huffman
                         index2 = i;
                     }
                 }
-                int node = nodeCount++;
+                var node = nodeCount++;
                 Nodes[node] = new HuffNode { Child0 = wraps[index1].Index, Child1 = wraps[index2].Index };
-                uint weight = wraps[index1].Weight + wraps[index2].Weight;
+                var weight = wraps[index1].Weight + wraps[index2].Weight;
 
-                int merge = index1 < index2 ? index1 : index2;
-                int nuke = index1 < index2 ? index2 : index1;
+                var merge = index1 < index2 ? index1 : index2;
+                var nuke = index1 < index2 ? index2 : index1;
                 wraps[merge] = new Wrap { Index = (short)node, Weight = weight };
                 if (index2 != count - 1)
                     wraps[nuke] = wraps[count - 1];
@@ -117,7 +117,7 @@ public static class Huffman
         {
             if (index < 0)
             {
-                Codes[-(index + 1)] = new global::OpenTribes.Net.HuffmanCode(bits, (byte)depth);
+                Codes[-(index + 1)] = new HuffmanCode(bits, (byte)depth);
                 return;
             }
             Assign(Nodes[index].Child0, bits, depth + 1);
@@ -125,20 +125,20 @@ public static class Huffman
         }
     }
 
-    private static readonly Tables sTables = new();
+    private static readonly Tables TableSet = new();
 
     /// <summary>Gets the code of a symbol.</summary>
     /// <param name="symbol">The byte value.</param>
     /// <returns>The code.</returns>
-    public static global::OpenTribes.Net.HuffmanCode HuffmanCode(byte symbol) => sTables.Codes[symbol];
+    public static HuffmanCode HuffmanCode(byte symbol) => TableSet.Codes[symbol];
 
     /// <summary>Decodes one symbol by walking the tree with bits from <paramref name="readBit"/> until a leaf.</summary>
     /// <param name="readBit">Supplies the next bit.</param>
     /// <returns>The symbol.</returns>
     public static byte HuffmanDecode(Func<bool> readBit)
     {
-        HuffNode[] nodes = sTables.Nodes;
-        int index = 0;
+        var nodes = TableSet.Nodes;
+        var index = 0;
         while (index >= 0)
             index = readBit() ? nodes[index].Child1 : nodes[index].Child0;
         return (byte)-(index + 1);

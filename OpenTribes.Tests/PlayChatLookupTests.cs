@@ -1,8 +1,4 @@
-using OpenTribes.Gui;
-using Xunit;
-
 namespace OpenTribes.Tests;
-
 // PlayerManager_message 0040dbfc: the chat display is child 140113 of the object named `playGui`, not any control with that id.
 public class PlayChatLookupTests
 {
@@ -10,17 +6,17 @@ public class PlayChatLookupTests
     public void ChatDisplayOfAnotherObjectIsNotThePlayGuiChild()
     {
         var f = new GuiFixture();
-        GuiControl command = GuiFixture.Make("SimGui::Control");
+        var command = GuiFixture.Make("SimGui::Control");
         command.Name = "commandGui";
-        GuiControl cmdChat = GuiFixture.Make("SimGui::Control");
+        var cmdChat = GuiFixture.Make("SimGui::Control");
         cmdChat.Id = 140113;
         command.Children.Add(cmdChat);
         f.Runtime.Named["commandGui"] = command;
         Assert.Null(f.Runtime.FindChildOf("playGui", 140113));
 
-        GuiControl play = GuiFixture.Make("SimGui::Control");
+        var play = GuiFixture.Make("SimGui::Control");
         play.Name = "playGui";
-        GuiControl chat = GuiFixture.Make("SimGui::Control");
+        var chat = GuiFixture.Make("SimGui::Control");
         chat.Id = 140113;
         play.Children.Add(chat);
         f.Content(play);
@@ -36,10 +32,10 @@ public class PlayChatLookupTests
     public void PlayGuiStaysFindableWhileAnotherContentIsUp()
     {
         var f = new GuiFixture();
-        GuiControl play = GuiFixture.Make("SimGui::Control");
+        var play = GuiFixture.Make("SimGui::Control");
         play.Name = "playGui";
         play.Flags = 1;
-        GuiControl chat = GuiFixture.Make("SimGui::Control");
+        var chat = GuiFixture.Make("SimGui::Control");
         chat.Id = 140113;
         play.Children.Add(chat);
         f.Content(play);
@@ -52,16 +48,17 @@ public class PlayChatLookupTests
 // even if the play GUI is there when the frame pumps the chat (stock trace: PlayerTeamChangeEvent 67 ms before the PSC mode change).
 public class ChatLookupAtArrivalTests
 {
+    private static readonly bool[] Values1 = [false, true];
     [Fact]
     public void LookupRunsWhenTheMessageIsMade()
     {
-        var pm = new OpenTribes.Game.ClientPlayerManager();
-        bool play = false;
+        var pm = new Game.ClientPlayerManager();
+        var play = false;
         pm.ChatDisplayExists = () => play;
         pm.Message("Rec joined team Blood Eagle.");
         play = true;
         pm.Message("Rec: hello", 3);
-        Assert.Equal(new[] { false, true }, pm.ChatDisplayed);
+        Assert.Equal(Values1, pm.ChatDisplayed);
         pm.Clear();
         Assert.Empty(pm.ChatDisplayed);
     }
@@ -74,7 +71,7 @@ public class CgaReplyTests
     [Fact]
     public void QueuedRemoteEvalIsPendingUntilWritten()
     {
-        var conn = new OpenTribes.Game.ClientGameConnection(new OpenTribes.Game.ClientWorld());
+        var conn = new Game.ClientGameConnection(new Game.ClientWorld());
         Assert.False(conn.OutgoingPending);
         conn.PostRemoteEval("CGADone");
         Assert.True(conn.OutgoingPending);

@@ -1,20 +1,19 @@
-using OpenTribes.Client.Effects;
+namespace OpenTribes.Client.Scene;
+
 using OpenTribes.Client.Shapes;
 using OpenTribes.Game;
-
-namespace OpenTribes.Client.Scene;
 
 /// <summary>The visual of one ghost: it applies the updates of the ghost, ticks, and builds its images each frame.</summary>
 public abstract class Visual
 {
     /// <summary>The ghost index.</summary>
-    public int Index;
+    public int Index { get; set; }
     /// <summary>The class name of the ghost.</summary>
-    public string Class = "";
+    public string Class { get; set; } = "";
     /// <summary>The ghost the visual shows.</summary>
-    public ClientGhost Ghost = null!;
+    public ClientGhost Ghost { get; set; } = null!;
     /// <summary>The scene model.</summary>
-    protected SceneModel M = null!;
+    protected SceneModel M { get; set; } = null!;
 
     /// <summary>Binds the visual to its ghost and scene.</summary>
     /// <param name="m">The scene model.</param>
@@ -50,7 +49,7 @@ public abstract class Visual
     /// <param name="key">The field name.</param>
     /// <param name="def">The value when the field is missing.</param>
     /// <returns>The number or the default.</returns>
-    protected double Num(string key, double def = 0) => Ghost.State.TryGetValue(key, out object? v) ? Db.ToDouble(v, def) : def;
+    protected double Num(string key, double def = 0) => Ghost.State.TryGetValue(key, out var v) ? Db.ToDouble(v, def) : def;
     /// <summary>Tells whether the ghost state has a field.</summary>
     /// <param name="key">The field name.</param>
     /// <returns>True when the field exists.</returns>
@@ -58,7 +57,7 @@ public abstract class Visual
     /// <summary>Reads a vector of the ghost state.</summary>
     /// <param name="key">The field name.</param>
     /// <returns>The vector, or three zeros when the field is missing.</returns>
-    protected double[] Vec(string key) => Ghost.State.TryGetValue(key, out object? v) ? Db.Vec(v) : new double[3];
+    protected double[] Vec(string key) => Ghost.State.TryGetValue(key, out var v) ? Db.Vec(v) : new double[3];
 }
 
 /// <summary>The visual of the object classes that draw one shape (StaticShape, Turret, Sensor, Moveable, Item, Mine, Vehicle, Flier): the three ShapeBase thread slots, damage skins, fade and the destroy effects.</summary>
@@ -66,71 +65,71 @@ public abstract class Visual
 public class ShapeVisual : Visual
 {
     /// <summary>The shape.</summary>
-    protected RenderShape? Shape;
+    protected RenderShape? Shape { get; set; }
     /// <summary>The shape instance.</summary>
-    protected RenderInstance? Inst;
+    protected RenderInstance? Inst { get; set; }
     /// <summary>The datablock.</summary>
-    protected ClientDataBlock? Block;
+    protected ClientDataBlock? Block { get; set; }
     /// <summary>The datablock group of the class.</summary>
-    protected int Group;
+    protected int Group { get; set; }
     /// <summary>The index of the loaded datablock, -1 for none.</summary>
-    protected int BlockIndex = -1;
+    protected int BlockIndex { get; set; } = -1;
     /// <summary>The threads of the three ShapeBase thread slots.</summary>
-    protected readonly RenderThread?[] Slots = new RenderThread?[3];
+    protected RenderThread?[] Slots { get; } = new RenderThread?[3];
     /// <summary>The sequence of each thread slot, -1 for none.</summary>
-    protected readonly int[] SlotSeq = { -1, -1, -1 };
+    protected int[] SlotSeq { get; } = [-1, -1, -1];
     /// <summary>True for each thread slot that runs.</summary>
-    protected readonly bool[] SlotRunning = new bool[3];
+    protected bool[] SlotRunning { get; } = new bool[3];
     /// <summary>The ambient thread.</summary>
-    protected RenderThread? Ambient;
+    protected RenderThread? Ambient { get; set; }
     /// <summary>The visibility thread.</summary>
-    protected RenderThread? Visibility;
+    protected RenderThread? Visibility { get; set; }
     /// <summary>The turn thread of a turret.</summary>
-    protected RenderThread? Turn;
+    protected RenderThread? Turn { get; set; }
     /// <summary>The elevate thread of a turret.</summary>
-    protected RenderThread? Elevate;
+    protected RenderThread? Elevate { get; set; }
     /// <summary>The power thread of a turret.</summary>
-    protected RenderThread? TurretPower;
+    protected RenderThread? TurretPower { get; set; }
     /// <summary>The mode driven power and fire thread (+0x8a4) and its sequences, set up by Turret_onNewDataBlock (00452970).</summary>
-    protected TurretGhostPose? TurretPose;
-    private int mPowerSeq = -1, mFireSeq = -1;
+    protected TurretGhostPose? TurretPose { get; set; }
+    private int _powerSeq = -1, _fireSeq = -1;
     /// <summary>The x position of the object.</summary>
-    protected double X;
+    protected double X { get; set; }
     /// <summary>The y position of the object.</summary>
-    protected double Y;
+    protected double Y { get; set; }
     /// <summary>The z position of the object.</summary>
-    protected double Z;
+    protected double Z { get; set; }
     /// <summary>The heading (Euler z).</summary>
-    protected double Yaw;
+    protected double Yaw { get; set; }
     /// <summary>The pitch (Euler y).</summary>
-    protected double Pitch;
+    protected double Pitch { get; set; }
     /// <summary>The roll (Euler x).</summary>
-    protected double Roll;
+    protected double Roll { get; set; }
     /// <summary>True once the ghost sent a position.</summary>
-    protected bool HavePos;
+    protected bool HavePos { get; set; }
     /// <summary>The damage value.</summary>
-    protected double Damage;
+    protected double Damage { get; set; }
     /// <summary>The damage state.</summary>
-    protected int DamageState = 1;
+    protected int DamageState { get; set; } = 1;
     /// <summary>The scene time the fade started, -1 for none.</summary>
-    protected double FadeStart = -1;
+    protected double FadeStart { get; set; } = -1;
     /// <summary>The fade direction: 1 fading out, -1 fading in.</summary>
-    protected double FadeDir;
+    protected double FadeDir { get; set; }
     /// <summary>True while the object is hidden.</summary>
-    protected bool Hidden;
+    protected bool Hidden { get; set; }
     /// <summary>The skin name.</summary>
-    protected string Skin = "";
+    protected string Skin { get; set; } = "";
     /// <summary>The extra spin about z.</summary>
-    protected double SpinZ;
+    protected double SpinZ { get; set; }
     /// <summary>The seconds since the ghost was created.</summary>
-    protected double Age;
-    private (RenderShape, string) mPreloaded;
+    protected double Age { get; set; }
+    private (RenderShape, string) _preloaded;
 
     /// <inheritdoc/>
     public override (double x, double y, double z)? Position => HavePos ? (X, Y, Z) : null;
 
     /// <summary>True while a simulated copy of the ghost (RemoteGhosts) sets the state each frame: the stream update leaves it alone.</summary>
-    public bool Driven;
+    public bool Driven { get; set; }
     /// <summary>The drawn heading (Euler z), the compass input of a piloted vehicle (docs/gui.md 4.2 Compass).</summary>
     public double HeadingRad => Yaw;
 
@@ -158,14 +157,18 @@ public class ShapeVisual : Visual
         {
             if (!HavePos || Shape == null)
                 return null;
-            Xf xf = PoseXf();
-            float[] b = Shape.Box;
+            var xf = PoseXf();
+            var b = Shape.Box;
             var box = new[] { double.MaxValue, double.MaxValue, double.MaxValue, double.MinValue, double.MinValue, double.MinValue };
-            for (int c = 0; c < 8; ++c)
+            for (var c = 0; c < 8; ++c)
             {
                 var (wx, wy, wz) = xf.Apply(b[(c & 1) != 0 ? 3 : 0], b[(c & 2) != 0 ? 4 : 1], b[(c & 4) != 0 ? 5 : 2]);
-                box[0] = Math.Min(box[0], wx); box[1] = Math.Min(box[1], wy); box[2] = Math.Min(box[2], wz);
-                box[3] = Math.Max(box[3], wx); box[4] = Math.Max(box[4], wy); box[5] = Math.Max(box[5], wz);
+                box[0] = Math.Min(box[0], wx);
+                box[1] = Math.Min(box[1], wy);
+                box[2] = Math.Min(box[2], wz);
+                box[3] = Math.Max(box[3], wx);
+                box[4] = Math.Max(box[4], wy);
+                box[5] = Math.Max(box[5], wz);
             }
             return box;
         }
@@ -185,7 +188,7 @@ public class ShapeVisual : Visual
                 return null;
             if (Inst == null || Shape == null)
                 return (X, Y, Z + 1.5);
-            int n = Shape.FindNodeBase("dummy muzzle", 0);
+            var n = Shape.FindNodeBase("dummy muzzle", 0);
             if (n < 0)
                 return (X, Y, Z + 1.5);
             Inst.Animate(0);
@@ -195,7 +198,15 @@ public class ShapeVisual : Visual
 
     private static int GroupOf(string cls) => cls switch
     {
-        "StaticShape" => 4, "Turret" => 19, "Sensor" => 8, "Item" => 5, "Mine" => 23, "Moveable" => 7, "Vehicle" => 9, "Flier" => 10, "Player" => 3,
+        "StaticShape" => 4,
+        "Turret" => 19,
+        "Sensor" => 8,
+        "Item" => 5,
+        "Mine" => 23,
+        "Moveable" => 7,
+        "Vehicle" => 9,
+        "Flier" => 10,
+        "Player" => 3,
         _ => 4,
     };
 
@@ -209,12 +220,12 @@ public class ShapeVisual : Visual
     /// <summary>Loads the datablock and shape of the ghost when the datablock index changed, and sets up the instance and its threads.</summary>
     protected void LoadBlock()
     {
-        int idx = (int)Num("datablock", -1);
+        var idx = (int)Num("datablock", -1);
         if (idx == BlockIndex && Shape != null)
             return;
         BlockIndex = idx;
         Block = M.Db.Block(Group, idx);
-        string name = Db.Str(Block, "shapeFile");
+        var name = Db.Str(Block, "shapeFile");
         if (name.EndsWith(".dts", StringComparison.OrdinalIgnoreCase))
             name = name[..^4];
         Shape = M.Assets.Shape(name);
@@ -235,18 +246,20 @@ public class ShapeVisual : Visual
             }
             if (Group == 19)
             {
-                if (Shape.FindSequence("turn") is int t && t >= 0) { Turn = Inst.AddThread(t, 0, 0); Turn.TimeScale = 0; }
-                if (Shape.FindSequence("elevate") is int e && e >= 0) { Elevate = Inst.AddThread(e, 0, 0); Elevate.TimeScale = 0; }
+                if (Shape.FindSequence("turn") is int t && t >= 0)
+                { Turn = Inst.AddThread(t, 0, 0); Turn.TimeScale = 0; }
+                if (Shape.FindSequence("elevate") is int e && e >= 0)
+                { Elevate = Inst.AddThread(e, 0, 0); Elevate.TimeScale = 0; }
                 // Turret_onNewDataBlock 0x00452970: the third thread exists only when the shape has both `fire` and `power`; it starts on
                 // `power` (priority -1, Turret_setPowerSequence 0x00452e1c) at position 0.
-                mFireSeq = Shape.FindSequence("fire");
-                mPowerSeq = Shape.FindSequence("power");
-                if (mFireSeq >= 0 && mPowerSeq >= 0)
+                _fireSeq = Shape.FindSequence("fire");
+                _powerSeq = Shape.FindSequence("power");
+                if (_fireSeq >= 0 && _powerSeq >= 0)
                 {
-                    TurretPower = Inst.AddThread(mPowerSeq, 0, -1);
+                    TurretPower = Inst.AddThread(_powerSeq, 0, -1);
                     TurretPower.TimeScale = 0;
-                    TurretPose = new TurretGhostPose(true, Shape.Sequences[mPowerSeq].Duration, Shape.Sequences[mPowerSeq].Cyclic,
-                        Shape.Sequences[mFireSeq].Duration, Shape.Sequences[mFireSeq].Cyclic, Db.Num(Block, "speed", 1));
+                    TurretPose = new TurretGhostPose(true, Shape.Sequences[_powerSeq].Duration, Shape.Sequences[_powerSeq].Cyclic,
+                        Shape.Sequences[_fireSeq].Duration, Shape.Sequences[_fireSeq].Cyclic, Db.Num(Block, "speed", 1));
                 }
             }
             if (Group is 5 or 23 && Shape.FindSequence("ambient") is int ia && ia >= 0)
@@ -257,12 +270,12 @@ public class ShapeVisual : Visual
     }
 
     /// <summary>The jet thread of a Flier: Flier_onNewDataBlock (0042e0c0) runs the sequence <c>jet</c> at position 0.5 when the shape has the names <c>jet</c> and <c>idle</c>. Flier_clientUpdate sets its position every frame, so it is not advanced.</summary>
-    protected RenderThread? FlierJet;
+    protected RenderThread? FlierJet { get; set; }
     /// <summary>The idle thread of a Flier: thread +0x954 runs the sequence <c>idle</c> at 0. The indices of <c>thrust</c> (+0x968) and <c>idle</c> (+0x96c) are looked up for the switch.</summary>
-    protected RenderThread? FlierIdle;
-    private int mThrustSeq = -1, mIdleSeq = -1;
-    private bool mFlierBraking, mFlierActive;
-    private float mFlierF, mFlierT, mFlierMax = 1;
+    protected RenderThread? FlierIdle { get; set; }
+    private int _thrustSeq = -1, _idleSeq = -1;
+    private bool _flierBraking, _flierActive;
+    private float _flierF, _flierT, _flierMax = 1;
 
     private void AddFlierThreads()
     {
@@ -277,8 +290,8 @@ public class ShapeVisual : Visual
         if (Shape.FindSequence("idle") is int i && i >= 0)
         {
             FlierIdle = Inst.AddThread(i, 0, 0);
-            mIdleSeq = i;
-            mThrustSeq = Shape.FindSequence("thrust");
+            _idleSeq = i;
+            _thrustSeq = Shape.FindSequence("thrust");
         }
     }
 
@@ -291,9 +304,9 @@ public class ShapeVisual : Visual
     /// <param name="maxSpeed">The datablock maxSpeed (+0x110).</param>
     public void SetFlierState(bool piloted, bool braking, bool active, float f, float t, float maxSpeed)
     {
-        mFlierBraking = piloted && braking;
-        mFlierActive = piloted && active;
-        (mFlierF, mFlierT, mFlierMax) = (f, t, maxSpeed);
+        _flierBraking = piloted && braking;
+        _flierActive = piloted && active;
+        (_flierF, _flierT, _flierMax) = (f, t, maxSpeed);
     }
 
     // The thread part of Flier_clientUpdate 0042e254 (the 0042e2c1 .. 0042e416 block, found by disassembly): the `jet` position moves toward 1 while braking
@@ -303,9 +316,9 @@ public class ShapeVisual : Visual
     {
         if (FlierJet != null)
         {
-            float cur = (float)FlierJet.Position;
-            float target = mFlierBraking && mFlierF != 0f ? 1f : 1f - ((mFlierT / mFlierMax) * 0.5f + 0.5f);
-            float step = (float)dt;
+            var cur = (float)FlierJet.Position;
+            var target = _flierBraking && _flierF != 0f ? 1f : 1f - ((_flierT / _flierMax * 0.5f) + 0.5f);
+            var step = (float)dt;
             if (cur < target)
             {
                 cur += step;
@@ -326,7 +339,7 @@ public class ShapeVisual : Visual
         }
         if (FlierIdle != null)
         {
-            int seq = mFlierActive ? mThrustSeq : mIdleSeq;
+            var seq = _flierActive ? _thrustSeq : _idleSeq;
             if (seq >= 0 && FlierIdle.Sequence != seq)
             {
                 FlierIdle.Sequence = seq;
@@ -341,27 +354,27 @@ public class ShapeVisual : Visual
     {
         LoadBlock();
         UpdateTeamSkin();
-        if (Shape != null && mPreloaded != (Shape, Skin))
+        if (Shape != null && _preloaded != (Shape, Skin))
         {
-            mPreloaded = (Shape, Skin);
+            _preloaded = (Shape, Skin);
             M.Assets.Preload(Shape, Skin);
         }
         if (Has("pos") && !Driven && u.Fields.Any(f => f.Name == "pos"))
         {
-            double[] p = Vec("pos");
+            var p = Vec("pos");
             (X, Y, Z) = (p[0], p[1], p[2]);
             HavePos = true;
         }
         if (!Driven && u.Fields.Any(f => f.Name == "rot"))
         {
-            double[] r = Vec("rot");
+            var r = Vec("rot");
             (Roll, Pitch, Yaw) = (r[0], r[1], r[2]);
         }
         if (u.Fields.Any(f => f.Name == "rotZ") && Group is 5 or 23)
             Yaw = Num("rotZ") * Math.PI * 2;
-        foreach (DecodedField f in u.Fields)
+        foreach (var f in u.Fields)
             if (f.Name == "threads")
-                foreach (ThreadSlot s in ThreadSlot.ParseAll(f.Value))
+                foreach (var s in ThreadSlot.ParseAll(f.Value))
                     ApplySlot(s);
         if (u.Fields.Any(f => f.Name == "fade"))
             StartFade((long)Num("fade") == 2);
@@ -369,9 +382,9 @@ public class ShapeVisual : Visual
             ApplyTurret(u);
         if (u.Fields.Any(f => f.Name == "damageState"))
         {
-            int ds = (int)Num("damageState");
+            var ds = (int)Num("damageState");
             // StaticBase_setDamageState: a state of 0 (Disabled) 2, Destroyed 3 in the client numbering of the ghost.
-            int state = ds == 1 ? 1 : ds == 2 ? 2 : ds == 0 ? 3 : ds;
+            var state = ds == 1 ? 1 : ds == 2 ? 2 : ds == 0 ? 3 : ds;
             if (state != DamageState && !isNew && state == 3)
                 Destroyed();
             // StaticBase_setDamageState: Enabled and Disabled call 0044cfe4, which clears the no-draw flag +0x71d set by ShapeBase_explode.
@@ -387,11 +400,10 @@ public class ShapeVisual : Visual
     {
         if (Inst == null || s.Slot < 0 || s.Slot > 2)
             return;
-        RenderThread? t = Slots[s.Slot];
+        var t = Slots[s.Slot];
         if (s.Sequence < 0 || s.Sequence >= Inst.Shape.Sequences.Length)
         {
-            if (t != null)
-                t.TimeScale = 0;
+            t?.TimeScale = 0;
             return;
         }
         if (t == null)
@@ -436,14 +448,14 @@ public class ShapeVisual : Visual
             pose.Rotation = rotation;
             SyncTurret();
         }
-        else if (Turn != null)
-            Turn.Position = Math.Clamp(rotation / TurretGhostPose.TwoPi, 0, 1);
+        else
+            Turn?.Position = Math.Clamp(rotation / TurretGhostPose.TwoPi, 0, 1);
         if (Elevate != null && maxElevation != minElevation)
             Elevate.Position = Math.Clamp((elevation - minElevation) / (maxElevation - minElevation), 0, 1);
     }
 
-    private float mMinElevation, mMaxElevation;
-    private bool mHaveLimits;
+    private float _minElevation, _maxElevation;
+    private bool _haveLimits;
 
     /// <summary>Reads the elevation limits of the turret shape.</summary>
     /// <param name="min">The lower limit.</param>
@@ -452,14 +464,14 @@ public class ShapeVisual : Visual
     /// <remarks>Follows Turret_onNewDataBlock (00452970): the Euler x of the node <c>dummy muzzle</c> with the <c>elevate</c> thread at position 0 and at 1. A minimum above pi loses 2 pi.</remarks>
     public bool TryElevationLimits(out float min, out float max)
     {
-        (min, max) = (mMinElevation, mMaxElevation);
-        if (mHaveLimits)
+        (min, max) = (_minElevation, _maxElevation);
+        if (_haveLimits)
             return true;
-        int n = Inst != null && Shape != null ? Shape.FindNodeBase("dummy muzzle", 0) : -1;
+        var n = Inst != null && Shape != null ? Shape.FindNodeBase("dummy muzzle", 0) : -1;
         if (n < 0 || Elevate == null || Inst == null)
             return false;
         (min, max) = ElevationLimitsOf(Inst, n, Elevate, Turn, TurretPower);
-        (mMinElevation, mMaxElevation, mHaveLimits) = (min, max, true);
+        (_minElevation, _maxElevation, _haveLimits) = (min, max, true);
         return true;
     }
 
@@ -473,30 +485,28 @@ public class ShapeVisual : Visual
     /// <remarks>Follows Turret_onNewDataBlock (00452970, limits at +0x8bc and +0x8c0): the Euler x of the <c>dummy muzzle</c> node entry (Mat3_toEuler 005eceb4) with the <c>elevate</c> thread at position 0 and at 1. The routine runs before the power and fire thread (+0x8a4) is created and with the turn thread at 0, so the nodes carry neither the power pose (it folds the barrels) nor the current turn.</remarks>
     public static (float Min, float Max) ElevationLimitsOf(RenderInstance inst, int node, RenderThread elevate, RenderThread? turn, RenderThread? power)
     {
-        double keep = elevate.Position;
-        double keepTurn = turn?.Position ?? 0;
-        int powerAt = power != null ? inst.Threads.IndexOf(power) : -1;
+        var keep = elevate.Position;
+        var keepTurn = turn?.Position ?? 0;
+        var powerAt = power != null ? inst.Threads.IndexOf(power) : -1;
         if (powerAt >= 0)
             inst.Threads.RemoveAt(powerAt);
-        if (turn != null)
-            turn.Position = 0;
+        turn?.Position = 0;
         float EulerX(double position)
         {
             elevate.Position = position;
             inst.Animate(0);
-            Xf e = inst.NodeWorld[node];
-            var t = new OpenTribes.Sim.Transform { Flags = 3u };
-            double[] m = { e.M0, e.M1, e.M2, e.M3, e.M4, e.M5, e.M6, e.M7, e.M8 };
-            for (int i = 0; i < 9; ++i)
+            var e = inst.NodeWorld[node];
+            var t = new Sim.Transform { Flags = 3u };
+            double[] m = [e.M0, e.M1, e.M2, e.M3, e.M4, e.M5, e.M6, e.M7, e.M8];
+            for (var i = 0; i < 9; ++i)
                 t.M[i] = (float)m[i];
             var eu = new float[3];
-            OpenTribes.Sim.MissionTransform.MatrixToEuler(t, eu);
+            Sim.MissionTransform.MatrixToEuler(t, eu);
             return eu[0];
         }
         float lo = EulerX(0), hi = EulerX(1);
         elevate.Position = keep;
-        if (turn != null)
-            turn.Position = keepTurn;
+        turn?.Position = keepTurn;
         if (powerAt >= 0)
             inst.Threads.Insert(powerAt, power!);
         if (lo > (float)Math.PI)
@@ -528,17 +538,16 @@ public class ShapeVisual : Visual
     {
         if (TurretPose is not { } pose || TurretPower == null)
             return;
-        TurretPower.Sequence = pose.OnFire ? mFireSeq : mPowerSeq;
+        TurretPower.Sequence = pose.OnFire ? _fireSeq : _powerSeq;
         TurretPower.Priority = pose.OnFire ? 0 : -1;
         TurretPower.Position = pose.Position;
         TurretPower.TimeScale = 0;
-        if (Turn != null)
-            Turn.Position = Math.Clamp(pose.Rotation / TurretGhostPose.TwoPi, 0, 1);
+        Turn?.Position = Math.Clamp(pose.Rotation / TurretGhostPose.TwoPi, 0, 1);
     }
 
     private void UpdateTeamSkin()
     {
-        int team = (int)Num("team", 15);
+        var team = (int)Num("team", 15);
         Skin = M.TeamSkin(team);
     }
 
@@ -547,8 +556,8 @@ public class ShapeVisual : Visual
     {
         if (Inst == null || Block == null)
             return;
-        int expl = (int)Db.Num(Block, "explosionId", -1);
-        int debris = (int)Db.Num(Block, "debrisId", -1);
+        var expl = (int)Db.Num(Block, "explosionId", -1);
+        var debris = (int)Db.Num(Block, "debrisId", -1);
         var (cx, cy, cz) = BoxCenter();
         if (expl >= 0)
             M.SpawnExplosion(expl, cx, cy, cz, 0, 0, 1);
@@ -570,10 +579,10 @@ public class ShapeVisual : Visual
     /// <returns>True when the detail exists.</returns>
     public static bool HasDebrisDetail(RenderShape sh)
     {
-        int node = sh.FindNode("debris0");
+        var node = sh.FindNode("debris0");
         if (node < 0)
             return false;
-        foreach (RsDetail d in sh.Details)
+        foreach (var d in sh.Details)
             if (d.RootNode == node)
                 return true;
         return false;
@@ -586,22 +595,25 @@ public class ShapeVisual : Visual
     {
         if (!HavePos || Shape == null)
             return null;
-        Xf xf = PoseXf();
-        double[] lo = { Shape.Box[0], Shape.Box[1], Shape.Box[2] }, hi = { Shape.Box[3], Shape.Box[4], Shape.Box[5] };
-        double r = Block == null ? 0 : Db.Num(Block, "triggerRadius");
+        var xf = PoseXf();
+        double[] lo = [Shape.Box[0], Shape.Box[1], Shape.Box[2]], hi = [Shape.Box[3], Shape.Box[4], Shape.Box[5]];
+        var r = Block == null ? 0 : Db.Num(Block, "triggerRadius");
         if (r != 0)
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
             {
                 lo[i] = Math.Min(lo[i], -r);
                 hi[i] = Math.Max(hi[i], r);
             }
         double x0 = double.MaxValue, y0 = x0, z0 = x0, x1 = -x0, y1 = x1, z1 = x1;
-        for (int i = 0; i < 8; ++i)
+        for (var i = 0; i < 8; ++i)
         {
-            var c = xf.Apply((i & 1) == 0 ? lo[0] : hi[0], (i >> 1 & 1) == 0 ? lo[1] : hi[1], (i >> 2 & 1) == 0 ? lo[2] : hi[2]);
-            x0 = Math.Min(x0, c.x); x1 = Math.Max(x1, c.x);
-            y0 = Math.Min(y0, c.y); y1 = Math.Max(y1, c.y);
-            z0 = Math.Min(z0, c.z); z1 = Math.Max(z1, c.z);
+            var (x, y, z) = xf.Apply((i & 1) == 0 ? lo[0] : hi[0], ((i >> 1) & 1) == 0 ? lo[1] : hi[1], ((i >> 2) & 1) == 0 ? lo[2] : hi[2]);
+            x0 = Math.Min(x0, x);
+            x1 = Math.Max(x1, x);
+            y0 = Math.Min(y0, y);
+            y1 = Math.Max(y1, y);
+            z0 = Math.Min(z0, z);
+            z1 = Math.Max(z1, z);
         }
         return (x0, y0, z0, x1, y1, z1, xf.Px, xf.Py, xf.Pz);
     }
@@ -628,7 +640,7 @@ public class ShapeVisual : Visual
     /// <param name="obj">The object transform.</param>
     /// <param name="eye">The eye node transform, or null without that node.</param>
     /// <returns>True when the visual has a shape instance.</returns>
-    public bool TryCameraInputs(out OpenTribes.Sim.Transform obj, out OpenTribes.Sim.Transform? eye) =>
+    public bool TryCameraInputs(out Sim.Transform obj, out Sim.Transform? eye) =>
         TryNodeInputs(s => s.FindNodeBase("dummy eye", 0), out obj, out eye, out _);
 
     /// <summary>Reads the object transform as drawn and the animated transform (object space) of the node a finder picks.</summary>
@@ -637,26 +649,30 @@ public class ShapeVisual : Visual
     /// <param name="node">The node transform, or null when the finder picks none.</param>
     /// <param name="haveShape">False while the visual has no shape instance (the stock vtable +0x10c then reports no transform).</param>
     /// <returns>True when the transforms are valid.</returns>
-    public bool TryNodeInputs(Func<RenderShape, int> find, out OpenTribes.Sim.Transform obj, out OpenTribes.Sim.Transform? node, out bool haveShape)
+    public bool TryNodeInputs(Func<RenderShape, int> find, out Sim.Transform obj, out Sim.Transform? node, out bool haveShape)
     {
-        obj = new OpenTribes.Sim.Transform();
+        obj = new Sim.Transform();
         node = null;
         haveShape = Inst != null && Shape != null;
         if (!HavePos)
             return false;
-        OpenTribes.Sim.MissionTransform.EulerToMatrix(new[] { (float)Roll, (float)Pitch, (float)Yaw }, ref obj);
+        Sim.MissionTransform.EulerToMatrix([(float)Roll, (float)Pitch, (float)Yaw], ref obj);
         obj.Flags |= 3u;
-        obj.P[0] = (float)X; obj.P[1] = (float)Y; obj.P[2] = (float)Z;
-        int n = haveShape ? find(Shape!) : -1;
+        obj.P[0] = (float)X;
+        obj.P[1] = (float)Y;
+        obj.P[2] = (float)Z;
+        var n = haveShape ? find(Shape!) : -1;
         if (n < 0)
             return true;
         Inst!.Animate(0);
-        Xf e = Inst.NodeWorld[n];
-        var t = new OpenTribes.Sim.Transform { Flags = 3u };
-        double[] m = { e.M0, e.M1, e.M2, e.M3, e.M4, e.M5, e.M6, e.M7, e.M8 };
-        for (int i = 0; i < 9; ++i)
+        var e = Inst.NodeWorld[n];
+        var t = new Sim.Transform { Flags = 3u };
+        double[] m = [e.M0, e.M1, e.M2, e.M3, e.M4, e.M5, e.M6, e.M7, e.M8];
+        for (var i = 0; i < 9; ++i)
             t.M[i] = (float)m[i];
-        t.P[0] = (float)e.Px; t.P[1] = (float)e.Py; t.P[2] = (float)e.Pz;
+        t.P[0] = (float)e.Px;
+        t.P[1] = (float)e.Py;
+        t.P[2] = (float)e.Pz;
         node = t;
         return true;
     }
@@ -673,13 +689,12 @@ public class ShapeVisual : Visual
             return;
         if (Group is 5 or 23 && Num("rotates") != 0 && Num("atRest", 1) != 0)
             SpinZ += 3.0 * dt;   // Item_clientUpdate: spin about z at 3 rad/s (3.5)
-        foreach (RenderThread? t in Slots)
+        foreach (var t in Slots)
             if (t != null)
                 Inst.Advance(t, dt);
         if (Ambient != null)
             Inst.Advance(Ambient, dt);
-        if (Visibility != null)
-            Visibility.Position = DamageState == 3 ? 1.0 : 0.0;
+        Visibility?.Position = DamageState == 3 ? 1.0 : 0.0;
         if (TurretPose != null)
         {
             TurretPose.Tick(dt);
@@ -696,7 +711,7 @@ public class ShapeVisual : Visual
     // A finished fade in (state 2) is state 0 again, so asking for it again starts it again.
     private void StartFade(bool fadeIn)
     {
-        int dir = fadeIn ? -1 : 1;
+        var dir = fadeIn ? -1 : 1;
         double now = M.Time, elapsed = now - FadeStart;
         if (FadeStart < 0 || FadeDir == 0 || (FadeDir < 0 && elapsed >= FadeSeconds))
             FadeStart = now;
@@ -717,7 +732,7 @@ public class ShapeVisual : Visual
     {
         if (FadeStart < 0)
             return 0;
-        double f = (M.Time - FadeStart) / FadeSeconds;
+        var f = (M.Time - FadeStart) / FadeSeconds;
         if (FadeDir > 0)
             return Math.Clamp(f, 0, 1);
         return Math.Clamp(1 - f, 0, 1);
@@ -727,7 +742,7 @@ public class ShapeVisual : Visual
     protected virtual int DamageLevel => Skins.DamageLevel(Damage, M.Assets.DamageSkinDetail);
 
     /// <summary>The smoothed state of the light probe of this object.</summary>
-    protected readonly ProbeState mProbe = new();
+    protected ProbeState Probe { get; } = new();
 
     /// <summary>Builds the light set of the main image of the object: the scene light adjusted by the probe state.</summary>
     /// <param name="ctx">The frame context.</param>
@@ -735,18 +750,18 @@ public class ShapeVisual : Visual
     /// <remarks>Items and vehicles probe again every 250 ms (Item_queryRender, Vehicle_renderQuery). The other shapes probe once (ShapeBase_processQuery).</remarks>
     protected LightSet ProbedLight(FrameContext ctx)
     {
-        LightProbe? probe = M.Probe;
-        double[]? box = probe == null ? null : WorldBox;
+        var probe = M.Probe;
+        var box = probe == null ? null : WorldBox;
         if (probe == null || box == null)
             return ctx.Light;
-        bool repeat = Group is 5 or 23 or 9 or 10;
-        if (mProbe.LastUpdate < 0 || (Group == 3 && M.Time != mProbe.LastUpdate) || (repeat && M.Time - mProbe.LastUpdate >= 0.25))
+        var repeat = Group is 5 or 23 or 9 or 10;
+        if (Probe.LastUpdate < 0 || (Group == 3 && M.Time != Probe.LastUpdate) || (repeat && M.Time - Probe.LastUpdate >= 0.25))
         {
             var (ok, rgb, strength) = probe.Query(box);
-            mProbe.Update(ok, rgb, strength);
-            mProbe.LastUpdate = M.Time;
+            Probe.Update(ok, rgb, strength);
+            Probe.LastUpdate = M.Time;
         }
-        return mProbe.Active ? ctx.Light.WithProbe(mProbe.Colour.r, mProbe.Colour.g, mProbe.Colour.b, mProbe.Strength) : ctx.Light;
+        return Probe.Active ? ctx.Light.WithProbe(Probe.Colour.r, Probe.Colour.g, Probe.Colour.b, Probe.Strength) : ctx.Light;
     }
 
     /// <inheritdoc/>
@@ -754,13 +769,13 @@ public class ShapeVisual : Visual
     {
         if (Inst == null || Shape == null || !HavePos || Hidden)
             return;
-        ShapeDraw d = ctx.Draw(PoseXf(), Shape.Name);
+        var d = ctx.Draw(PoseXf(), Shape.Name);
         d.Light = ProbedLight(ctx);
         d.Skin = Skin;
         d.DamageLevel = Group is 3 or 4 or 19 ? DamageLevel : 0;
         d.Fade = FadeAmount();
         d.DetailScale = 1;
-        RenderImage? img = ctx.Renderer.Build(Inst, ctx.Camera, d);
+        var img = ctx.Renderer.Build(Inst, ctx.Camera, d);
         if (img != null)
             ctx.Lists.Add(img);
     }

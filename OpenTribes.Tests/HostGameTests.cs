@@ -3,42 +3,44 @@
 // 0x7c, 0x7a, 0x79, 0x7d of FearGame_consoleCallback), the focus per frame phase (FearWorld_advance 004eba40,
 // FearWorld_clientAdvance 004eb7ac) and the join over the loopback transport (0058d7d4) of the same process. Synthetic
 // game directory: no game data.
-using OpenTribes.Client.App;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Client.App;
 
 public sealed class HostGameTests : IDisposable
 {
-    private readonly string mRoot = Path.Combine(Path.GetTempPath(), "ot-host-" + Guid.NewGuid().ToString("N"));
-    private ClientApp? mApp;
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "ot-host-" + Guid.NewGuid().ToString("N"));
+    private ClientApp? _app;
 
     public HostGameTests()
     {
-        Directory.CreateDirectory(Path.Combine(mRoot, "config"));
-        Directory.CreateDirectory(Path.Combine(mRoot, "temp"));
+        Directory.CreateDirectory(Path.Combine(_root, "config"));
+        Directory.CreateDirectory(Path.Combine(_root, "temp"));
     }
 
     public void Dispose()
     {
-        mApp?.Dispose();
-        try { Directory.Delete(mRoot, true); } catch (IOException) { }
+        _app?.Dispose();
+        try
+        { Directory.Delete(_root, true); }
+        catch (IOException) { }
     }
 
     private ClientApp Boot(string consoleCs = "")
     {
-        File.WriteAllText(Path.Combine(mRoot, "console.cs"),
+        File.WriteAllText(Path.Combine(_root, "console.cs"),
             "newClient(); focusClient();\n" +
             "newObject(MainWindow, SimGui::Canvas, \"Tribes\", 640, 480, True, \"512 384\", \"1024 768\");\n" +
             "function onConnection(%m) { $conn = %m; }\nfunction Game::EndFrame() {}\n" +
             "$ConsoleWorld::DefaultSearchPath = \"config;base;temp\";\n" + consoleCs);
-        ClientOptions opt = ClientOptions.Parse(new[] { "--root", mRoot, "--headless" }, out string err)!;
+        var opt = ClientOptions.Parse(["--root", _root, "--headless"], out var err)!;
         Assert.Equal("", err);
-        mApp = new ClientApp(opt);
-        Assert.True(mApp.Start(out string error), error);
-        return mApp;
+        _app = new ClientApp(opt);
+        Assert.True(_app.Start(out var error), error);
+        return _app;
     }
 
-    private string Eval(string text) => mApp!.Interp.Evaluate(text);
+    private string Eval(string text) => _app!.Interp.Evaluate(text);
 
     [Fact]
     public void FocusServerIsFalseUntilANewServerExists() // 0x7a: only when slot 1 is filled
@@ -71,7 +73,7 @@ public sealed class HostGameTests : IDisposable
         Eval("newObject(ClientKeeps, SimSet); newServer(); focusServer(); newObject(HostedSet, SimSet); focusClient();");
         Eval("deleteServer();");
         Assert.Equal("True", Eval("isObject(ClientKeeps);"));
-        Assert.False(mApp!.Hosted.Exists);
+        Assert.False(_app!.Hosted.Exists);
     }
 
     [Fact]
@@ -89,18 +91,18 @@ public sealed class HostGameTests : IDisposable
         Eval("newServer(); focusServer();");
         Eval("Hosted::mark(7);");
         Eval("focusClient();");
-        Assert.Equal("7", mApp!.Interp.PeekVariable("$marked"));
+        Assert.Equal("7", _app!.Interp.PeekVariable("$marked"));
     }
 
     [Fact]
     public void TheServerWorldHasItsOwnCommandsWhileFocused() // the server commands answer only under the server focus
     {
         Boot();
-        Assert.False(mApp!.Interp.HasFunction("Client::getTransportAddress"));
+        Assert.False(_app!.Interp.HasFunction("Client::getTransportAddress"));
         Eval("newServer(); focusServer();");
-        Assert.True(mApp.Interp.HasFunction("Client::getTransportAddress"));
+        Assert.True(_app.Interp.HasFunction("Client::getTransportAddress"));
         Eval("focusClient();");
-        Assert.False(mApp.Interp.HasFunction("Client::getTransportAddress"));
+        Assert.False(_app.Interp.HasFunction("Client::getTransportAddress"));
     }
 
     [Fact]
@@ -108,10 +110,10 @@ public sealed class HostGameTests : IDisposable
     {
         Boot();
         Eval("newServer(); focusServer();");
-        mApp!.Step();
+        _app!.Step();
         Assert.Equal("False", Eval("isObject(NoSuchObject);"));
         Eval("newObject(InClient, SimSet);");
-        Assert.Null(mApp.Interp.FocusedWorld());
+        Assert.Null(_app.Interp.FocusedWorld());
     }
 
     [Fact]
@@ -119,17 +121,17 @@ public sealed class HostGameTests : IDisposable
     {
         Boot();
         Eval("newServer(); focusServer(); newObject(serverDelegate, FearCSDelegate, true, \"LOOPBACK\", 0);");
-        Assert.True(mApp!.Hosted.Net!.IsOpen());
-        ushort port = mApp.Hosted.Net.Port();
+        Assert.True(_app!.Hosted.Net!.IsOpen());
+        var port = _app.Hosted.Net.Port();
         Eval("focusClient();");
-        Assert.True(mApp.Connect("LOOPBACK:" + port));
-        for (int i = 0; i < 400 && mApp.Interp.PeekVariable("$conn") != "Accepted"; ++i)
+        Assert.True(_app.Connect("LOOPBACK:" + port));
+        for (var i = 0; i < 400 && _app.Interp.PeekVariable("$conn") != "Accepted"; ++i)
         {
-            mApp.Step();
+            _app.Step();
             Thread.Sleep(1);
         }
-        Assert.True(mApp.Interp.PeekVariable("$conn") == "Accepted", string.Join("\n", mApp.LogTail.Take(12)));
-        Assert.Single(mApp.Hosted.Net.Players());
+        Assert.True(_app.Interp.PeekVariable("$conn") == "Accepted", string.Join("\n", _app.LogTail.Take(12)));
+        Assert.Single(_app.Hosted.Net.Players());
     }
 
     [Fact]
@@ -137,12 +139,12 @@ public sealed class HostGameTests : IDisposable
     {
         Boot();
         Eval("newServer(); focusServer(); newObject(serverDelegate, FearCSDelegate, true, \"LOOPBACK\", 0);");
-        Assert.True(mApp!.Hosted.Net!.IsOpen());
-        Assert.True(mApp.Hosted.Net.LoopbackOnly);
+        Assert.True(_app!.Hosted.Net!.IsOpen());
+        Assert.True(_app.Hosted.Net.LoopbackOnly);
         // Stock passes the packets in memory: a real UDP socket reaches nothing of this game.
         using var probe = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 0));
         probe.Client.ReceiveTimeout = 50;
-        probe.Send(new byte[] { 0x10, 0x05 }, 2, new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, mApp.Hosted.Net.Port()));
+        probe.Send([0x10, 0x05], 2, new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, _app.Hosted.Net.Port()));
         Assert.Equal(0, probe.Available);
     }
 
@@ -150,13 +152,13 @@ public sealed class HostGameTests : IDisposable
     public void AnIpBindThatFailsPrintsTheSessionErrorAndFailsTheDelegate() // SimNet_activate 0x0054e86c, UDPTransport_activate 0058bfac
     {
         using var taken = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(System.Net.IPAddress.Any, 0));
-        int port = ((System.Net.IPEndPoint)taken.Client.LocalEndPoint!).Port;
+        var port = ((System.Net.IPEndPoint)taken.Client.LocalEndPoint!).Port;
         Boot("$Console::PrintLevel = 2;\n");
         Eval("newServer(); focusServer();");
         // The result of the failed newObject is false and no other port is tried.
         Assert.NotEqual("True", Eval("newObject(serverDelegate, FearCSDelegate, true, \"IP\", " + port + ");"));
-        Assert.Contains("SimNET: Session (server): transport IP on port " + port + ": ERROR", mApp!.LogTail);
-        Assert.False(mApp.Hosted.Net!.IsOpen());
+        Assert.Contains("SimNET: Session (server): transport IP on port " + port + ": ERROR", _app!.LogTail);
+        Assert.False(_app.Hosted.Net!.IsOpen());
     }
 
     [Fact]
@@ -164,20 +166,20 @@ public sealed class HostGameTests : IDisposable
     {
         Boot("$Console::PrintLevel = 2;\n");
         Eval("newServer(); focusServer(); newObject(serverDelegate, FearCSDelegate, true, \"LOOPBACK\", 0, \"IP\", 0);");
-        Assert.Contains("SimNET: Session (server): transport LOOPBACK on port 0: Ok", mApp!.LogTail);
-        Assert.Contains("SimNET: Session (server): transport IP on port 0: Ok", mApp.LogTail);
+        Assert.Contains("SimNET: Session (server): transport LOOPBACK on port 0: Ok", _app!.LogTail);
+        Assert.Contains("SimNET: Session (server): transport IP on port 0: Ok", _app.LogTail);
     }
 
     [Fact]
     public void AFailedIpBindStillServesWhenLoopbackStarted() // any started transport keeps the delegate; loopback is the only one left
     {
         using var taken = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(System.Net.IPAddress.Any, 0));
-        int port = ((System.Net.IPEndPoint)taken.Client.LocalEndPoint!).Port;
+        var port = ((System.Net.IPEndPoint)taken.Client.LocalEndPoint!).Port;
         Boot("$Console::PrintLevel = 2;\n");
         Eval("newServer(); focusServer(); newObject(serverDelegate, FearCSDelegate, true, \"LOOPBACK\", 0, \"IP\", " + port + ");");
-        Assert.True(mApp!.Hosted.Net!.IsOpen());
-        Assert.True(mApp.Hosted.Net.LoopbackOnly);
-        Assert.Contains("SimNET: Session (server): transport IP on port " + port + ": Ok", mApp.LogTail);
+        Assert.True(_app!.Hosted.Net!.IsOpen());
+        Assert.True(_app.Hosted.Net.LoopbackOnly);
+        Assert.Contains("SimNET: Session (server): transport IP on port " + port + ": Ok", _app.LogTail);
     }
 
     // A tiny master: a loopback socket that stands in for the t1master style exchange (heartbeat, challenge, ping reply).
@@ -192,9 +194,9 @@ public sealed class HostGameTests : IDisposable
     private byte[]? Receive(System.Net.Sockets.UdpClient m, out System.Net.IPEndPoint from, int waitFrames)
     {
         from = new System.Net.IPEndPoint(System.Net.IPAddress.Any, 0);
-        for (int i = 0; i < waitFrames; ++i)
+        for (var i = 0; i < waitFrames; ++i)
         {
-            mApp!.Step();
+            _app!.Step();
             if (m.Available > 0)
                 return m.Receive(ref from);
             Thread.Sleep(2);
@@ -212,16 +214,16 @@ public sealed class HostGameTests : IDisposable
     [Fact]
     public void APublicHostedGameAnnouncesItselfAndAnswersTheMasterChallenge() // SimNet_activate 0x0054e86c tail, 0x0054f478, 0x0054f608
     {
-        using var master = FakeMaster(out int port);
+        using var master = FakeMaster(out var port);
         HostWithMaster(port, "false", "true", "\"IP\", 0, \"LOOPBACK\", 0");
         // The heartbeat leaves at network start, from the game port.
-        byte[]? beat = Receive(master, out var from, 50);
+        var beat = Receive(master, out var from, 50);
         Assert.NotNull(beat);
         Assert.Equal(new byte[] { 0x10, 0x05, 0xff, 0, 0, 0, 0, 0 }, beat);
-        Assert.Equal(mApp!.Hosted.Net!.Port(), from.Port);
+        Assert.Equal(_app!.Hosted.Net!.Port(), from.Port);
         // The master answers an unknown server with a challenge; the server returns its ping reply with the same key.
-        master.Send(new byte[] { 0x10, 0x03, 0xff, 0x00, 0x34, 0x12 }, 6, from);
-        byte[]? reply = Receive(master, out _, 200);
+        master.Send([0x10, 0x03, 0xff, 0x00, 0x34, 0x12], 6, from);
+        var reply = Receive(master, out _, 200);
         Assert.NotNull(reply);
         Assert.Equal(40, reply!.Length);
         Assert.Equal(new byte[] { 0x10, 0x04, 0xff, 0xf0, 0x34, 0x12 }, reply[..6]);
@@ -230,10 +232,10 @@ public sealed class HostGameTests : IDisposable
     [Fact]
     public void AnUnsetHostPublicGameCountsAsPublicForAHostedGame() // 0x0054f478: an empty $Server::HostPublicGame becomes TRUE
     {
-        using var master = FakeMaster(out int port);
+        using var master = FakeMaster(out var port);
         HostWithMaster(port, "false", "\"\"", "\"IP\", 0");
         Assert.NotNull(Receive(master, out _, 50));
-        Assert.Equal("TRUE", mApp!.Interp.PeekVariable("$Server::HostPublicGame"));
+        Assert.Equal("TRUE", _app!.Interp.PeekVariable("$Server::HostPublicGame"));
     }
 
     [Theory]
@@ -241,10 +243,10 @@ public sealed class HostGameTests : IDisposable
     [InlineData("false", "false", "\"IP\", 0")]             // not public
     [InlineData("false", "true", "\"LOOPBACK\", 0")]        // no IP transport
     [InlineData("false", "true", "\"ip\", 0")]              // the transport name is compared exactly (0x0063ead5)
-    public void AHostedGameThatIsNotPublicSendsNoHeartbeat(string single, string pub, string transports)
+    public void AHostedGameThatIsNotPublicSendsNoHeartbeat(string singlePlayer, string pub, string transports)
     {
-        using var master = FakeMaster(out int port);
-        HostWithMaster(port, single, pub, transports);
+        using var master = FakeMaster(out var port);
+        HostWithMaster(port, singlePlayer, pub, transports);
         Assert.Null(Receive(master, out _, 40));
     }
 }
@@ -253,46 +255,48 @@ public sealed class HostGameTests : IDisposable
 // (OT_GAME_ROOT or the default install path), like the intro movie tests.
 public sealed class HostGameStockTests : IDisposable
 {
-    private readonly string mRoot = Path.Combine(Path.GetTempPath(), "ot-hoststock-" + Guid.NewGuid().ToString("N"));
-    private ClientApp? mApp;
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "ot-hoststock-" + Guid.NewGuid().ToString("N"));
+    private ClientApp? _app;
 
     public void Dispose()
     {
-        mApp?.Dispose();
-        try { Directory.Delete(mRoot, true); } catch (IOException) { }
+        _app?.Dispose();
+        try
+        { Directory.Delete(_root, true); }
+        catch (IOException) { }
     }
 
     private static string? GameRoot()
     {
-        string root = Environment.GetEnvironmentVariable("OT_GAME_ROOT") ?? "/mnt/software/Games/Tribes/Tribes";
+        var root = Environment.GetEnvironmentVariable("OT_GAME_ROOT") ?? "/mnt/software/Games/Tribes/Tribes";
         return File.Exists(Path.Combine(root, "console.cs")) && File.Exists(Path.Combine(root, "base", "scripts.vol")) ? root : null;
     }
 
     private void BootStock(string mission, bool predict = false)
     {
-        string game = GameRoot()!;
-        Directory.CreateDirectory(mRoot);
-        Directory.CreateDirectory(Path.Combine(mRoot, "config"));
-        Directory.CreateDirectory(Path.Combine(mRoot, "temp"));
-        Directory.CreateSymbolicLink(Path.Combine(mRoot, "base"), Path.Combine(game, "base"));
-        File.Copy(Path.Combine(game, "console.cs"), Path.Combine(mRoot, "console.cs"));
-        ClientOptions opt = ClientOptions.Parse(predict ? new[] { "--root", mRoot, "--headless" } : new[] { "--root", mRoot, "--headless", "--no-predict" }, out string err)!;
+        var game = GameRoot()!;
+        Directory.CreateDirectory(_root);
+        Directory.CreateDirectory(Path.Combine(_root, "config"));
+        Directory.CreateDirectory(Path.Combine(_root, "temp"));
+        Directory.CreateSymbolicLink(Path.Combine(_root, "base"), Path.Combine(game, "base"));
+        File.Copy(Path.Combine(game, "console.cs"), Path.Combine(_root, "console.cs"));
+        var opt = ClientOptions.Parse(predict ? ["--root", _root, "--headless"] : ["--root", _root, "--headless", "--no-predict"], out var err)!;
         Assert.Equal("", err);
-        mApp = new ClientApp(opt);
-        Assert.True(mApp.Start(out string error), error);
-        mApp.Interp.SetVariable("$pref::lastMission", mission);
+        _app = new ClientApp(opt);
+        Assert.True(_app.Start(out var error), error);
+        _app.Interp.SetVariable("$pref::lastMission", mission);
         using var probe = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 0));
-        mApp.Interp.SetVariable("$Server::Port", ((System.Net.IPEndPoint)probe.Client.LocalEndPoint!).Port.ToString());
+        _app.Interp.SetVariable("$Server::Port", ((System.Net.IPEndPoint)probe.Client.LocalEndPoint!).Port.ToString());
     }
 
     private bool RunUntilConnected()
     {
-        for (int i = 0; i < 4000 && mApp!.Interp.PeekVariable("$ConnectedToServer") != "True"; ++i)
+        for (var i = 0; i < 4000 && _app!.Interp.PeekVariable("$ConnectedToServer") != "True"; ++i)
         {
-            mApp.Step();
+            _app.Step();
             Thread.Sleep(1);
         }
-        return mApp!.Interp.PeekVariable("$ConnectedToServer") == "True";
+        return _app!.Interp.PeekVariable("$ConnectedToServer") == "True";
     }
 
     [Fact]
@@ -301,15 +305,15 @@ public sealed class HostGameStockTests : IDisposable
         if (GameRoot() == null)
             return;
         BootStock("5_CTF");
-        mApp!.Interp.Evaluate("createServer();"); // the CREATE SERVER button of gui\\CreateServer.gui: command `createServer();`
-        Assert.True(RunUntilConnected(), string.Join("\n", mApp.LogTail.TakeLast(60)));
-        Assert.True(mApp.Hosted.Exists);
-        Assert.NotNull(mApp.Hosted.Sim!.Server()!.Find("MissionGroup"));
-        Assert.Single(mApp.Hosted.Net!.Players());
-        Assert.True(mApp.Hosted.Net.LoopbackOnly == false); // IP transport: a non-single-player game listens on all interfaces
+        _app!.Interp.Evaluate("createServer();"); // the CREATE SERVER button of gui\\CreateServer.gui: command `createServer();`
+        Assert.True(RunUntilConnected(), string.Join("\n", _app.LogTail.TakeLast(60)));
+        Assert.True(_app.Hosted.Exists);
+        Assert.NotNull(_app.Hosted.Sim!.Server()!.Find("MissionGroup"));
+        Assert.Single(_app.Hosted.Net!.Players());
+        Assert.False(_app.Hosted.Net.LoopbackOnly); // IP transport: a non-single-player game listens on all interfaces
         // End of game (GUI.CS EndGame): disconnect, then deleteServer ends the server world and closes its socket.
-        mApp.Interp.Evaluate("disconnect(); deleteServer();");
-        Assert.False(mApp.Hosted.Exists);
+        _app.Interp.Evaluate("disconnect(); deleteServer();");
+        Assert.False(_app.Hosted.Exists);
     }
 
     [Fact]
@@ -318,12 +322,12 @@ public sealed class HostGameStockTests : IDisposable
         if (GameRoot() == null)
             return;
         BootStock("5_CTF", predict: true);
-        mApp!.Interp.Evaluate("createServer();");
-        Assert.True(RunUntilConnected(), string.Join("\n", mApp.LogTail.TakeLast(60)));
-        for (int i = 0; i < 600; ++i)
-            mApp.Step();
-        Assert.NotNull(mApp.Hosted.Sim!.Server()!.Find("MissionGroup"));
-        Assert.True(mApp.Game!.Joined);
+        _app!.Interp.Evaluate("createServer();");
+        Assert.True(RunUntilConnected(), string.Join("\n", _app.LogTail.TakeLast(60)));
+        for (var i = 0; i < 600; ++i)
+            _app.Step();
+        Assert.NotNull(_app.Hosted.Sim!.Server()!.Find("MissionGroup"));
+        Assert.True(_app.Game!.Joined);
     }
 
     [Fact]
@@ -332,10 +336,10 @@ public sealed class HostGameStockTests : IDisposable
         if (GameRoot() == null)
             return;
         BootStock("1_Welcome");
-        mApp!.Interp.SetVariable("$SinglePlayer", "true");
-        mApp.Interp.Evaluate("createServer();");
-        Assert.True(RunUntilConnected(), string.Join("\n", mApp.LogTail.TakeLast(60)));
-        Assert.True(mApp.Hosted.Net!.LoopbackOnly);
+        _app!.Interp.SetVariable("$SinglePlayer", "true");
+        _app.Interp.Evaluate("createServer();");
+        Assert.True(RunUntilConnected(), string.Join("\n", _app.LogTail.TakeLast(60)));
+        Assert.True(_app.Hosted.Net!.LoopbackOnly);
     }
 
     [Fact]
@@ -344,10 +348,10 @@ public sealed class HostGameStockTests : IDisposable
         if (GameRoot() == null)
             return;
         BootStock("5_CTF");
-        mApp!.Interp.Evaluate("GuiLoadContentCtrl(MainWindow, \"gui\\\\CreateServer.gui\");");
-        Assert.NotNull(mApp.GuiRt.FindControl("MissionTextList"));
-        mApp.Step();
-        var list = (OpenTribes.Gui.GuiList)mApp.GuiRt.FindControl("MissionTextList")!;
-        Assert.True(list.Entries.Count > 0, string.Join("\n", mApp.LogTail.TakeLast(40)));
+        _app!.Interp.Evaluate("GuiLoadContentCtrl(MainWindow, \"gui\\\\CreateServer.gui\");");
+        Assert.NotNull(_app.GuiRt.FindControl("MissionTextList"));
+        _app.Step();
+        var list = (Gui.GuiList)_app.GuiRt.FindControl("MissionTextList")!;
+        Assert.True(list.Entries.Count > 0, string.Join("\n", _app.LogTail.TakeLast(40)));
     }
 }

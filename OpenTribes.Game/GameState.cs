@@ -3,32 +3,29 @@
 // stepped-move candidates (src/game/move_candidates.cpp), the displacement (src/game/displace.cpp) and the collision
 // event (GameState::postCollisionEvent and dispatchCollisionEvent of src/game/player.cpp) are Displace.cs; the AI
 // manager is AIManager.cs.
-using OpenTribes.Core;
-using OpenTribes.Script;
-using OpenTribes.Sim;
-using OpenTribes.World;
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>The record of one team of the PlayerManager.</summary>
 /// <remarks>Port of struct Team in src/game/game_commands.hpp.</remarks>
 public sealed class TeamRecord
 {
     /// <summary>The team name.</summary>
-    public string Name;
+    public string Name { get; set; }
     /// <summary>The team skin.</summary>
-    public string Skin;
+    public string Skin { get; set; }
     /// <summary>The score text.</summary>
-    public string Score = "";
+    public string Score { get; set; } = "";
     /// <summary>The sort value of the team.</summary>
-    public int SortValue;
+    public int SortValue { get; set; }
     /// <summary>The stamp of the last score change.</summary>
-    public uint ScoreStamp;
+    public ref uint ScoreStamp => ref _scoreStamp;
+    private uint _scoreStamp;
     /// <summary>The stamp of each objective. Stamps start at 1 (docs/player-manager.md 2.2).</summary>
-    public readonly uint[] ObjectiveStamp = new uint[32];
+    public uint[] ObjectiveStamp { get; } = new uint[32];
     /// <summary>The text of each objective.</summary>
-    public readonly string[] Objectives = new string[32];
+    public string[] Objectives { get; } = new string[32];
 
     /// <summary>Creates a team record with empty objectives.</summary>
     /// <param name="n">The team name.</param>
@@ -37,7 +34,7 @@ public sealed class TeamRecord
     {
         Name = n;
         Skin = s;
-        for (int i = 0; i < 32; ++i)
+        for (var i = 0; i < 32; ++i)
         {
             ObjectiveStamp[i] = 1;
             Objectives[i] = "";
@@ -50,40 +47,40 @@ public sealed class TeamRecord
 public sealed partial class GameState : GameServices
 {
     /// <summary>The script interpreter.</summary>
-    public Interpreter? Console;
+    public Interpreter? Console { get; set; }
     /// <summary>The simulation console, or null.</summary>
-    public SimConsole? Sim;
+    public SimConsole? Sim { get; set; }
     /// <summary>The resource manager, or null.</summary>
-    public ResourceManager? Resources;
+    public ResourceManager? Resources { get; set; }
     /// <summary>The player manager.</summary>
-    public readonly PlayerManager Players;
+    public PlayerManager Players { get; }
     /// <summary>Allocates a record id for an AI player from the connection layer's pool. Set by the server.</summary>
-    public Func<int>? AllocateRecordId;
+    public Func<int>? AllocateRecordId { get; set; }
     /// <summary>Releases a record id of an AI player.</summary>
-    public Action<int>? ReleaseRecordId;
+    public Action<int>? ReleaseRecordId { get; set; }
     /// <summary>The AI manager (object 726) while the mission has one (docs/ai-sim.md 1.2).</summary>
-    public AIManager? Ai;
+    public AIManager? Ai { get; set; }
 
     /// <summary>The team count, or -1 until the first resetPlayerManager (docs/mission.md 2.2).</summary>
-    public int TeamCount = -1;
+    public int TeamCount { get; set; } = -1;
     /// <summary>The team records. The record of team t is at index t + 1.</summary>
-    public readonly List<TeamRecord> Teams = new();
+    public List<TeamRecord> Teams { get; } = [];
     /// <summary>The team score heading.</summary>
-    public string TeamScoreHeading = "";
+    public string TeamScoreHeading { get; set; } = "";
     /// <summary>The client score heading.</summary>
-    public string ClientScoreHeading = "";
+    public string ClientScoreHeading { get; set; } = "";
     /// <summary>The sensor target names in registration order (GB4).</summary>
-    public readonly List<string> TargetNames = new();
+    public List<string> TargetNames { get; } = [];
     /// <summary>The target objects, at the same index as the names. An entry is null once removed.</summary>
-    public readonly List<GameBase?> Targets = new();
+    public List<GameBase?> Targets { get; } = [];
     /// <summary>The material table (setMaterialProperty, 0x006c1ff0).</summary>
-    public readonly MaterialTable Materials = new();
+    public MaterialTable Materials { get; } = new();
     /// <summary>ORs bits into the object's entry of every ghost manager. Set by the game server.</summary>
-    public Action<SimObject, uint>? MaskBits;
+    public Action<SimObject, uint>? MaskBits { get; set; }
     /// <summary>Container 7, which holds the objects of the world.</summary>
-    public readonly Container World = new();
+    public Container World { get; } = new();
     /// <summary>The movers of the running displaces (object type 0).</summary>
-    public readonly List<GameBase> mDisplaceHidden = new();
+    public List<GameBase> DisplaceHidden { get; } = [];
 
     /// <summary>Creates the game state and its player manager.</summary>
     public GameState() => Players = new PlayerManager(this);
@@ -95,9 +92,9 @@ public sealed partial class GameState : GameServices
         if (TeamCount == 8)
             return;
         // $Server::teamName<c> with c = '0' + count ('/' for the observer team).
-        string c = ((char)('0' + TeamCount)).ToString();
-        string name = Console != null ? Console.GetVariable("$Server::teamName" + c, out _) : "";
-        string skin = Console != null ? Console.GetVariable("$Server::teamSkin" + c, out _) : "";
+        var c = ((char)('0' + TeamCount)).ToString();
+        var name = Console != null ? Console.GetVariable("$Server::teamName" + c, out _) : "";
+        var skin = Console != null ? Console.GetVariable("$Server::teamSkin" + c, out _) : "";
         Console?.Print(1, "MSG: \"" + Builtins.ExportEscape("Server: Team \"" + name + "\" added - id = " + Numbers.FormatInt(id)) + "\"");
         ++TeamCount;
         Teams.Add(new TeamRecord(name.Length == 0 ? "unnamed" : name, skin.Length == 0 ? "base" : skin));
@@ -116,32 +113,32 @@ public sealed partial class GameState : GameServices
     /// <inheritdoc/>
     public override int AddTeamFromGroup()
     {
-        int id = TeamCount;
+        var id = TeamCount;
         AddTeam(id);
         return id;
     }
 
     /// <inheritdoc/>
-    public override bool ResolveDataBlock(SimObject o)
+    public override bool ResolveDataBlock(SimObject obj)
     {
-        if (o is not GameBase obj || Sim == null || obj.DataBlockGroup() < 0)
+        if (obj is not GameBase gameObj || Sim == null || gameObj.DataBlockGroup() < 0)
             return false;
-        DataBlockManager db = Sim.DataBlocks();
-        DataBlockManager.Block? b = db.Find(obj.DataBlockName);
-        if (b == null || b.Group != obj.DataBlockGroup())
+        var db = Sim.DataBlocks();
+        var b = db.Find(gameObj.DataBlockName);
+        if (b == null || b.Group != gameObj.DataBlockGroup())
             return false;
         // GB4: a block visible to sensors expands the map name (GB7).
-        bool hasVisible = db.GetField(b, "visibleToSensor", "", out string visible);
+        var hasVisible = db.GetField(b, "visibleToSensor", "", out var visible);
         if (hasVisible && visible == "True")
         {
-            string raw = obj.MapName ?? "";
-            obj.SetMapName(obj.MapName != null ? raw : null);
+            var raw = gameObj.MapName ?? "";
+            gameObj.SetMapName(gameObj.MapName != null ? raw : null);
         }
-        if (visible == "True" && obj.TargetIndex < 0 && obj.DataBlockGroup() != 3)
+        if (visible == "True" && gameObj.TargetIndex < 0 && gameObj.DataBlockGroup() != 3)
         {
             // 0x00447e6c: the lowest free slot 0..127; a full table gives -1 with no message. SensorManager_addTarget
             // refuses datablock group 3: a Player has no target slot.
-            int slot = 0;
+            var slot = 0;
             while (slot < Targets.Count && Targets[slot] != null)
                 ++slot;
             if (slot < 128)
@@ -151,30 +148,30 @@ public sealed partial class GameState : GameServices
                     Targets.Add(null);
                     TargetNames.Add("");
                 }
-                obj.TargetIndex = slot;
-                Targets[slot] = obj;
-                SetTargetName(slot, obj.MapName ?? "");
+                gameObj.TargetIndex = slot;
+                Targets[slot] = gameObj;
+                SetTargetName(slot, gameObj.MapName ?? "");
             }
         }
-        obj.DataBlockIndex = b.Index;
-        if (obj.IsShapeBase())
+        gameObj.DataBlockIndex = b.Index;
+        if (gameObj.IsShapeBase())
         {
             // ShapeBase onNewDataBlock (0x0044b274): maxDamage (+0x5c), the damageLevel ratios (+0xec, +0xf0) and the
             // shape instance the threads run on.
             float Value(string field, int comp, float def)
             {
-                DataBlockManager.Field? f = b.Find(StringTable.Global().Intern(field));
+                var f = b.Find(StringTable.Global().Intern(field));
                 if (f == null || f.Elems.Count == 0)
                     return def;
                 if (f.Elems[0].Set)
                     return f.Elems[0].F[comp];
                 // Unset: the constructor constant (0x00449ffc stores 0x3dcccccd for repairRate).
-                float[] v = { def, def };
-                string p = f.Def.DefaultText;
-                int at = 0;
-                for (int k = 0; k < 2 && at < p.Length; ++k)
+                float[] v = [def, def];
+                var p = f.Def.DefaultText;
+                var at = 0;
+                for (var k = 0; k < 2 && at < p.Length; ++k)
                 {
-                    float x = DataBlockManager.CtorFloat(p, at, out int e);
+                    var x = DataBlockManager.CtorFloat(p, at, out var e);
                     if (e == at)
                         break;
                     v[k] = x;
@@ -184,7 +181,7 @@ public sealed partial class GameState : GameServices
             }
             bool Boolean(string field, bool def)
             {
-                DataBlockManager.Field? f = b.Find(StringTable.Global().Intern(field));
+                var f = b.Find(StringTable.Global().Intern(field));
                 if (f == null || f.Elems.Count == 0)
                     return def;
                 if (f.Elems[0].Set)
@@ -193,25 +190,25 @@ public sealed partial class GameState : GameServices
             }
             int Integer(string field, int def)
             {
-                DataBlockManager.Field? f = b.Find(StringTable.Global().Intern(field));
+                var f = b.Find(StringTable.Global().Intern(field));
                 if (f == null || f.Elems.Count == 0)
                     return def;
                 if (f.Elems[0].Set)
                     return f.Elems[0].I;
                 return Strtol(f.Def.DefaultText);
             }
-            if (obj.ShapeClass() == GameBase.ShapeKind.Sensor || obj.ShapeClass() == GameBase.ShapeKind.Turret)
+            if (gameObj.ShapeClass() is GameBase.ShapeKind.Sensor or GameBase.ShapeKind.Turret)
             {
-                obj.SensorData.CastLOS = Boolean("castLOS", false);
-                obj.SensorData.Range = Integer("range", 100);
-                obj.SensorData.Doppler = Integer("dopplerVelocity", 0);
-                obj.SensorData.Supression = Boolean("supression", false);
-                obj.SensorData.Supressable = Boolean("supressable", true);
-                obj.SensorData.Pinger = Boolean("pinger", true);
+                gameObj.SensorData.CastLOS = Boolean("castLOS", false);
+                gameObj.SensorData.Range = Integer("range", 100);
+                gameObj.SensorData.Doppler = Integer("dopplerVelocity", 0);
+                gameObj.SensorData.Supression = Boolean("supression", false);
+                gameObj.SensorData.Supressable = Boolean("supressable", true);
+                gameObj.SensorData.Pinger = Boolean("pinger", true);
             }
-            if (obj.ShapeClass() == GameBase.ShapeKind.Turret)
+            if (gameObj.ShapeClass() == GameBase.ShapeKind.Turret)
             {
-                GameBase.TurretBlock t = obj.TurretData;
+                var t = gameObj.TurretData;
                 t.GunRange = Value("gunRange", 0, -1.0f);
                 t.Speed = Value("speed", 0, 1.0f);
                 t.SpeedModifier = Value("speedModifier", 0, 0.0f);
@@ -224,81 +221,80 @@ public sealed partial class GameState : GameServices
                 t.EnergyRate = Value("energyRate", 0, 0.0f);
                 t.Sustained = Boolean("isSustained", false);
                 t.FiringTimeMS = Integer("firingTimeMS", 0);
-                t.HasProjectile = db.GetField(b, "projectileType", "", out string proj) && proj.Length != 0;
+                t.HasProjectile = db.GetField(b, "projectileType", "", out var proj) && proj.Length != 0;
             }
-            obj.MaxDamage = Value("maxDamage", 0, 1.0f);
-            obj.DisabledLevel = Value("damageLevel", 0, 0.5f);
-            obj.DestroyedLevel = Value("damageLevel", 1, 0.75f);
-            obj.MaxEnergy = Value("maxEnergy", 0, 0.0f);
-            obj.RepairRate = Value("repairRate", 0, 0.1f);
-            obj.Energy = obj.MaxEnergy; // 0x0044b274
-            if (obj.MaxDamage <= obj.Damage)
-                obj.Damage = Store(Mul(obj.MaxDamage, 0.9f));
-            if (obj.ShapeClass() == GameBase.ShapeKind.Item || obj.ShapeClass() == GameBase.ShapeKind.Mine)
+            gameObj.MaxDamage = Value("maxDamage", 0, 1.0f);
+            gameObj.DisabledLevel = Value("damageLevel", 0, 0.5f);
+            gameObj.DestroyedLevel = Value("damageLevel", 1, 0.75f);
+            gameObj.MaxEnergy = Value("maxEnergy", 0, 0.0f);
+            gameObj.RepairRate = Value("repairRate", 0, 0.1f);
+            gameObj.Energy = gameObj.MaxEnergy; // 0x0044b274
+            if (gameObj.MaxDamage <= gameObj.Damage)
+                gameObj.Damage = Store(Mul(gameObj.MaxDamage, 0.9f));
+            if (gameObj.ShapeClass() is GameBase.ShapeKind.Item or GameBase.ShapeKind.Mine)
             {
-                obj.ItemData.Mass = Value("mass", 0, 1.0f);
-                obj.ItemData.Drag = Value("drag", 0, 1.0f);
-                obj.ItemData.Density = Value("density", 0, 1.0f);
-                obj.ItemData.Friction = Value("friction", 0, 1.0f);
-                obj.ItemData.Elasticity = Value("elasticity", 0, 0.2f);
+                gameObj.ItemData.Mass = Value("mass", 0, 1.0f);
+                gameObj.ItemData.Drag = Value("drag", 0, 1.0f);
+                gameObj.ItemData.Density = Value("density", 0, 1.0f);
+                gameObj.ItemData.Friction = Value("friction", 0, 1.0f);
+                gameObj.ItemData.Elasticity = Value("elasticity", 0, 0.2f);
             }
-            if (obj.ShapeClass() == GameBase.ShapeKind.Mine)
+            if (gameObj.ShapeClass() == GameBase.ShapeKind.Mine)
             {
-                obj.MineData.DamageType = Integer("damageType", 0);
-                obj.MineData.DamageValue = Value("damageValue", 0, 1.0f);
-                obj.MineData.ExplosionRadius = Value("explosionRadius", 0, 1.0f);
-                obj.MineData.Kick = Value("kickBackStrength", 0, 100.0f);
+                gameObj.MineData.DamageType = Integer("damageType", 0);
+                gameObj.MineData.DamageValue = Value("damageValue", 0, 1.0f);
+                gameObj.MineData.ExplosionRadius = Value("explosionRadius", 0, 1.0f);
+                gameObj.MineData.Kick = Value("kickBackStrength", 0, 100.0f);
             }
-            if (obj.ShapeClass() == GameBase.ShapeKind.Moveable)
+            if (gameObj.ShapeClass() == GameBase.ShapeKind.Moveable)
             {
-                obj.MoveData.Speed = Value("speed", 0, 1.0f);
-                obj.MoveData.Displace = Boolean("displace", true);
-                obj.MoveData.BlockForward = Boolean("blockForward", true);
-                obj.MoveData.BlockBackward = Boolean("blockBackward", true);
+                gameObj.MoveData.Speed = Value("speed", 0, 1.0f);
+                gameObj.MoveData.Displace = Boolean("displace", true);
+                gameObj.MoveData.BlockForward = Boolean("blockForward", true);
+                gameObj.MoveData.BlockBackward = Boolean("blockBackward", true);
             }
-            string shape = "";
+            var shape = "";
             if (Resources != null && db.GetField(b, "shapeFile", "", out shape) && shape.Length != 0)
-                obj.Anim = Shape.GetShapeAnim(Resources, shape);
+                gameObj.Anim = Shape.GetShapeAnim(Resources, shape);
             if (shape.Length != 0 && Resources != null)
             {
                 float radius = 0;
                 Span<float> center = stackalloc float[3];
                 if (Shape.ShapeSphere(Resources, shape, ref radius, center))
                 {
-                    obj.ShapeRadius = radius;
-                    for (int i = 0; i < 3; ++i)
-                        obj.ShapeCenter[i] = center[i];
-                    obj.ItemSubStep = Store(Mul(radius, 0.45)); // 0x0044b4c5
+                    gameObj.ShapeRadius = radius;
+                    for (var i = 0; i < 3; ++i)
+                        gameObj.ShapeCenter[i] = center[i];
+                    gameObj.ItemSubStep = Store(Mul(radius, 0.45)); // 0x0044b4c5
                 }
                 Span<float> sb = stackalloc float[6];
                 if (Shape.ShapeBox(Resources, shape, sb))
                 {
-                    for (int i = 0; i < 6; ++i)
-                        obj.ShapeBox[i] = obj.ShapeQueryBox[i] = sb[i];
+                    for (var i = 0; i < 6; ++i)
+                        gameObj.ShapeBox[i] = gameObj.ShapeQueryBox[i] = sb[i];
                     // StaticBase only: other classes have no such field and the lookup would print an error.
-                    string tr = "";
-                    float r = obj.IsStaticBase() && db.GetField(b, "triggerRadius", "", out tr) ? Store(Numbers.BorlandAtof(tr)) : 0.0f;
-                    obj.ShapeTriggerRadius = r;
+                    var r = gameObj.IsStaticBase() && db.GetField(b, "triggerRadius", "", out var tr) ? Store(Numbers.BorlandAtof(tr)) : 0.0f;
+                    gameObj.ShapeTriggerRadius = r;
                     if (r != 0.0f)
-                        for (int i = 0; i < 3; ++i)
+                        for (var i = 0; i < 3; ++i)
                         {
-                            obj.ShapeQueryBox[i] = Math.Min(sb[i], -r);
-                            obj.ShapeQueryBox[i + 3] = Math.Max(sb[i + 3], r);
+                            gameObj.ShapeQueryBox[i] = Math.Min(sb[i], -r);
+                            gameObj.ShapeQueryBox[i + 3] = Math.Max(sb[i + 3], r);
                         }
                 }
             }
-            obj.VisibilityThread = obj.Anim != null && obj.Anim.FindSequence("visibility") != -1;
-            obj.ShapeBound = true;
+            gameObj.VisibilityThread = gameObj.Anim != null && gameObj.Anim.FindSequence("visibility") != -1;
+            gameObj.ShapeBound = true;
         }
-        PlaceInContainer(obj, b);
+        PlaceInContainer(gameObj, b);
         return true;
     }
 
     // std::strtol(text, nullptr, 10).
     private static int Strtol(string s)
     {
-        int v = 0;
-        CScan.Int(s, ref v);
+        var v = 0;
+        CScan.ScanInt(s, ref v);
         return v;
     }
 
@@ -308,23 +304,23 @@ public sealed partial class GameState : GameServices
         if (GameUtil.EqualsNoCase(obj.ClassName(), "SimPath"))
             output.Add(obj);
         if (obj.AsSet() is SimSet set)
-            foreach (SimObject m in set.Members())
+            foreach (var m in set.Members())
                 CollectPathObjects(m, output);
     }
 
     /// <inheritdoc/>
     /// <remarks>Refreshes the container entry of the object whose transform changed.</remarks>
-    public override void ObjectMoved(SimObject o)
+    public override void ObjectMoved(SimObject obj)
     {
-        if (o is not GameBase obj)
+        if (obj is not GameBase gameObj)
             return;
-        if (Player.From(obj) is Player p)
+        if (Player.From(gameObj) is Player p)
         {
             p.RefileBox(); // setTransform updates the container at once (0x005054a4 -> 0x004f9a38)
             return;
         }
-        if (Sim != null && obj.DataBlockName != null && Sim.DataBlocks().Find(obj.DataBlockName) is DataBlockManager.Block b)
-            PlaceInContainer(obj, b);
+        if (Sim != null && gameObj.DataBlockName != null && Sim.DataBlocks().Find(gameObj.DataBlockName) is DataBlockManager.Block b)
+            PlaceInContainer(gameObj, b);
     }
 
     /// <inheritdoc/>
@@ -334,13 +330,13 @@ public sealed partial class GameState : GameServices
     /// <remarks>SimPathManager ids follow SimPath registration order (docs/game-stream-ghosts.md 6.5).</remarks>
     public override int PathIndex(SimObject path)
     {
-        SimManager? m = Sim?.Server();
+        var m = Sim?.Server();
         if (m == null || path.Manager() == null)
             return -1;
         var paths = new List<SimObject>();
         CollectPathObjects(m, paths);
-        int index = 0;
-        foreach (SimObject p in paths)
+        var index = 0;
+        foreach (var p in paths)
             if (p.Sequence() < path.Sequence())
                 ++index;
         return index;
@@ -350,16 +346,16 @@ public sealed partial class GameState : GameServices
         Sim?.Server()?.FindById(720) is SensorManager sm && GameUtil.EqualsNoCase(sm.ClassName(), "SensorManager") ? sm : null;
 
     /// <inheritdoc/>
-    public override void SensorInsert(SimObject s)
+    public override void SensorInsert(SimObject sensor)
     {
-        if (s is GameBase gb)
+        if (sensor is GameBase gb)
             SensorManagerObject()?.Insert(gb);
     }
 
     /// <inheritdoc/>
-    public override void SensorRemove(SimObject s)
+    public override void SensorRemove(SimObject sensor)
     {
-        if (s is GameBase gb)
+        if (sensor is GameBase gb)
             SensorManagerObject()?.Remove(gb);
     }
 
@@ -369,7 +365,7 @@ public sealed partial class GameState : GameServices
     /// <remarks>Follows 0x0040fc58.</remarks>
     public void SensorJam(GameBase p, bool link)
     {
-        SensorManager? sm = SensorManagerObject();
+        var sm = SensorManagerObject();
         if (sm == null)
             return;
         if (link)
@@ -380,28 +376,28 @@ public sealed partial class GameState : GameServices
 
     /// <inheritdoc/>
     /// <remarks>Follows 0x00458be4: radius damage (0x0046edd0) with the mine's damage type, radius, value and kick, no velocity, centred on the world box ((max + min) stored as f32, times 0.5). The source is the thrower's client while its record still carries the join counter stored at the throw (0x004524f8), else 0.</remarks>
-    public override void MineDestroyed(SimObject m)
+    public override void MineDestroyed(SimObject mine)
     {
-        if (m is not GameBase mine || World.Find(mine) is not Container.Entry e)
+        if (mine is not GameBase gameMine || World.Find(gameMine) is not Container.Entry e)
             return;
-        float[] c = new float[3];
-        for (int i = 0; i < 3; ++i)
+        var c = new float[3];
+        for (var i = 0; i < 3; ++i)
         {
-            float sum = X87.F32(Add(e.Box[i + 3], e.Box[i]));
+            var sum = X87.F32(Add(e.Box[i + 3], e.Box[i]));
             c[i] = X87.F32(Mul(0.5, sum));
         }
-        int source = 0;
-        if (mine.ItemThrowerClient > 0 && Players.Find(mine.ItemThrowerClient) is ClientRecord r && r.JoinOrder == mine.ItemThrowerJoin)
-            source = mine.ItemThrowerClient;
-        float[] zero = { 0, 0, 0 };
-        DamageCommands.ApplyRadiusDamage(this, mine.MineData.DamageType, c, zero, mine.MineData.ExplosionRadius,
-                                         mine.MineData.DamageValue, mine.MineData.Kick, source);
+        var source = 0;
+        if (gameMine.ItemThrowerClient > 0 && Players.Find(gameMine.ItemThrowerClient) is ClientRecord r && r.JoinOrder == gameMine.ItemThrowerJoin)
+            source = gameMine.ItemThrowerClient;
+        float[] zero = [0, 0, 0];
+        DamageCommands.ApplyRadiusDamage(this, gameMine.MineData.DamageType, c, zero, gameMine.MineData.ExplosionRadius,
+                                         gameMine.MineData.DamageValue, gameMine.MineData.Kick, source);
     }
 
     /// <inheritdoc/>
-    public override void SensorTeam(SimObject s)
+    public override void SensorTeam(SimObject sensor)
     {
-        if (s is GameBase gb)
+        if (sensor is GameBase gb)
             SensorManagerObject()?.TeamChanged(gb);
     }
 
@@ -418,7 +414,7 @@ public sealed partial class GameState : GameServices
             return;
         TargetNames[index] = name;
         // One TargetNameEvent per human, newest first.
-        foreach (int h in Players.Humans())
+        foreach (var h in Players.Humans())
             Players.SendEvent(h, GameEvents.MakeTargetName((uint)index, name));
     }
 
@@ -427,17 +423,17 @@ public sealed partial class GameState : GameServices
 
     /// <inheritdoc/>
     /// <remarks>Follows 0x00439b54: the slot is freed (count - 1, entry 0, name NULL).</remarks>
-    public override void TargetRemoved(SimObject o)
+    public override void TargetRemoved(SimObject obj)
     {
-        if (o is not GameBase obj)
+        if (obj is not GameBase gameObj)
             return;
-        if (obj.TargetIndex >= 0 && obj.TargetIndex < Targets.Count && Targets[obj.TargetIndex] == obj)
+        if (gameObj.TargetIndex >= 0 && gameObj.TargetIndex < Targets.Count && Targets[gameObj.TargetIndex] == gameObj)
         {
-            Targets[obj.TargetIndex] = null;
+            Targets[gameObj.TargetIndex] = null;
             // The name goes to NULL through the same setter, so a named target tells every human.
-            SetTargetName(obj.TargetIndex, "");
+            SetTargetName(gameObj.TargetIndex, "");
         }
-        obj.TargetIndex = -1;
+        gameObj.TargetIndex = -1;
     }
 
     /// <inheritdoc/>
@@ -446,12 +442,12 @@ public sealed partial class GameState : GameServices
     /// <inheritdoc/>
     public override SimObject? PathById(int id)
     {
-        SimManager? m = Sim?.Server();
+        var m = Sim?.Server();
         if (m == null || id < 0)
             return null;
         var paths = new List<SimObject>();
         CollectPathObjects(m, paths);
-        paths = paths.OrderBy(p => p.Sequence()).ToList(); // stable
+        paths = [.. paths.OrderBy(p => p.Sequence())]; // stable
         return id < paths.Count ? paths[id] : null;
     }
 
@@ -465,10 +461,10 @@ public sealed partial class GameState : GameServices
     /// <inheritdoc/>
     public override Material? TerrainMaterial(int index)
     {
-        Terrain? terr = GetTerrain();
+        var terr = GetTerrain();
         if (terr == null || Resources == null)
             return null;
-        List<Material>? list = MaterialList.Get(Resources, terr.MaterialListName());
+        var list = MaterialList.Get(Resources, terr.MaterialListName());
         return list != null && index >= 0 && index < list.Count ? list[index] : null;
     }
 
@@ -476,12 +472,12 @@ public sealed partial class GameState : GameServices
     /// <remarks>An object whose container chain reaches the SimTerrain is pulled by its contGravity (default 0 0 -9.8) and slowed by contDrag (default 0) (FC2, FC3).</remarks>
     public override bool TerrainForces(SimObject obj, Span<float> gravity, ref float drag)
     {
-        TerrainObject? t = FindTerrain();
+        var t = FindTerrain();
         if (t == null)
             return false;
-        object? c = World.ParentOf(obj);
-        bool inside = false;
-        for (int depth = 0; c != null && depth < 8; ++depth)
+        var c = World.ParentOf(obj);
+        var inside = false;
+        for (var depth = 0; c != null && depth < 8; ++depth)
         {
             if (c == t)
             {
@@ -499,25 +495,25 @@ public sealed partial class GameState : GameServices
 
     /// <inheritdoc/>
     /// <remarks>Follows SimTerrain_enterContainer (0x005195b4): contGravity is copied into the force list and contDrag into +0x124 when the object enters a container inside the terrain. A move between nested containers leaves and enters again. Leaving (0x0051963c) removes the force only (FC2, FC3).</remarks>
-    public override bool EnteredForces(SimObject o, Span<float> gravity, ref float drag)
+    public override bool EnteredForces(SimObject obj, Span<float> gravity, ref float drag)
     {
-        if (o is not GameBase obj)
+        if (obj is not GameBase gameObj)
             return false;
-        Container.Entry? terr = World.TerrainOf(obj);
-        object? parent = World.ParentOf(obj);
-        GameBase.EntryForcesRec f = obj.EntryForces;
+        var terr = World.TerrainOf(gameObj);
+        var parent = World.ParentOf(gameObj);
+        var f = gameObj.EntryForces;
         if (terr != f.Terrain || parent != f.Parent)
         {
             if (terr != null)
             {
-                for (int i = 0; i < 3; ++i)
+                for (var i = 0; i < 3; ++i)
                     f.Gravity[i] = terr.Gravity[i];
                 f.Drag = terr.Drag;
             }
             f.Terrain = terr;
             f.Parent = parent;
         }
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             gravity[i] = terr != null ? f.Gravity[i] : 0.0f;
         drag = f.Drag;
         return terr != null;
@@ -532,12 +528,12 @@ public sealed partial class GameState : GameServices
     public static uint ContainerType(GameBase obj)
     {
         (string, uint)[] kTypes =
-        {
-            ("StaticShape", ObjectType.kStaticType), ("Sensor", ObjectType.kStaticType), ("Turret", ObjectType.kStaticType),
-            ("Moveable", ObjectType.kMoveableType), ("Item", ObjectType.kItemType), ("Mine", ObjectType.kMineType),
-            ("Flier", ObjectType.kVehicleType), ("Trigger", ObjectType.kTriggerType),
-        };
-        foreach ((string cls, uint type) in kTypes)
+        [
+            ("StaticShape", ObjectType.StaticType), ("Sensor", ObjectType.StaticType), ("Turret", ObjectType.StaticType),
+            ("Moveable", ObjectType.MoveableType), ("Item", ObjectType.ItemType), ("Mine", ObjectType.MineType),
+            ("Flier", ObjectType.VehicleType), ("Trigger", ObjectType.TriggerType),
+        ];
+        foreach ((var cls, var type) in kTypes)
             if (GameUtil.EqualsNoCase(cls, obj.ClassName()))
                 return type;
         return 0;
@@ -549,21 +545,21 @@ public sealed partial class GameState : GameServices
     /// <remarks>Follows ShapeBase::onNewDataBlock (0x0044b274), which binds the shape box, and Trigger::onAdd (0x00487178), which adds its boundingBox. World boxes: ShapeBase rotates the box (0x005edbb4), a Trigger only translates it (0x005069fc).</remarks>
     public void PlaceInContainer(GameBase obj, DataBlockManager.Block block)
     {
-        uint type = ContainerType(obj);
+        var type = ContainerType(obj);
         if (type == 0 || Resources == null)
             return;
-        float[] local = { -1, -1, -1, 1, 1, 1 };
+        float[] local = [-1, -1, -1, 1, 1, 1];
         Span<float> box = stackalloc float[6];
-        Mat m = obj.WorldMat();
+        var m = obj.WorldMat();
         if (obj.GetKind() == GameBase.Kind.Trigger)
         {
             if (obj.PersistValue("boundingBox") is IReadOnlyList<string> v && v.Count != 0)
                 CScan.Floats(v[0], local);
-            for (int i = 0; i < 6; ++i)
+            for (var i = 0; i < 6; ++i)
                 obj.TriggerBox[i] = local[i];
             if (obj.PersistValue("isSphere") is IReadOnlyList<string> s && s.Count != 0)
                 obj.TriggerSphere = Numbers.ParseBool(s[0]);
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
             {
                 box[i] = Store(Add(local[i], m.P[i]));
                 box[i + 3] = Store(Add(local[i + 3], m.P[i]));
@@ -571,15 +567,15 @@ public sealed partial class GameState : GameServices
         }
         else
         {
-            if (Sim == null || !Sim.DataBlocks().GetField(block, "shapeFile", "", out string shape) || shape.Length == 0 ||
+            if (Sim == null || !Sim.DataBlocks().GetField(block, "shapeFile", "", out var shape) || shape.Length == 0 ||
                 !Shape.ShapeBox(Resources, shape, local))
                 return;
             // StaticBase_bindShape (0x0044f68c): a non-zero triggerRadius widens the box.
-            if (Sim.DataBlocks().GetField(block, "triggerRadius", "", out string radius))
+            if (Sim.DataBlocks().GetField(block, "triggerRadius", "", out var radius))
             {
-                float r = Store(Numbers.BorlandAtof(radius));
+                var r = Store(Numbers.BorlandAtof(radius));
                 if (r != 0.0f)
-                    for (int i = 0; i < 3; ++i)
+                    for (var i = 0; i < 3; ++i)
                     {
                         local[i] = Math.Min(local[i], -r);
                         local[i + 3] = Math.Max(local[i + 3], r);
@@ -600,8 +596,8 @@ public sealed partial class GameState : GameServices
         if (obj.GetKind() != GameBase.Kind.Trigger)
         {
             // ShapeCollisionImage against a line (docs/collision.md 6 T7).
-            GameBase gb = obj;
-            ne.Cast = (Vec3 s, Vec3 en, ref Vec3 hit, ref Vec3 n) => ShapeState.ShapeObjectLine(this, gb, s, en, ref hit, ref n);
+            var gb = obj;
+            ne.Cast = (s, en, ref hit, ref n) => ShapeState.ShapeObjectLine(this, gb, s, en, ref hit, ref n);
         }
         World.Add(ne);
         EnteredForces(obj, g, ref d);
@@ -622,12 +618,12 @@ public sealed partial class GameState : GameServices
         {
             candidates.Add(gb.DataBlockName + "::" + method);
             if (Sim?.DataBlocks().Find(gb.DataBlockName) is DataBlockManager.Block b &&
-                Sim.DataBlocks().GetField(b, "className", "", out string cls) && cls.Length != 0)
+                Sim.DataBlocks().GetField(b, "className", "", out var cls) && cls.Length != 0)
                 candidates.Add(cls + "::" + method);
         }
         candidates.Add(gb.ScriptClass() + "::" + method);
         candidates.Add(method);
-        foreach (string fn in candidates)
+        foreach (var fn in candidates)
             if (Console.HasFunction(fn))
                 return fn;
         return "";
@@ -635,11 +631,11 @@ public sealed partial class GameState : GameServices
 
     /// <inheritdoc/>
     /// <remarks>Calls the script method through the GameBase virtual lookup, and does nothing when it is undefined (GB5).</remarks>
-    public override void ScriptCallback(SimObject o, string method, IReadOnlyList<string> extra)
+    public override void ScriptCallback(SimObject obj, string method, IReadOnlyList<string> extra)
     {
-        if (o is not GameBase obj)
+        if (obj is not GameBase gameObj)
             return;
-        string fn = VirtualFunction(obj, method);
+        var fn = VirtualFunction(gameObj, method);
         if (fn.Length == 0)
             return;
         // D11 / docs/static-sim.md K1: the original passes argc 4 with three strings to onWaypoint, so a method declared
@@ -650,7 +646,7 @@ public sealed partial class GameState : GameServices
                              " parameters, the engine passes 2: not called");
             return;
         }
-        var args = new List<string> { Numbers.FormatInt(obj.Id()) };
+        var args = new List<string> { Numbers.FormatInt(gameObj.Id()) };
         args.AddRange(extra);
         Console!.CallFunction(fn, args);
     }
@@ -676,12 +672,12 @@ public sealed partial class GameState : GameServices
         if (Sim?.Server()?.FindById(12)?.AsSet() is not SimSet set)
             return;
         var members = new List<SimObject>(set.Members());
-        foreach (SimObject m in members)
+        foreach (var m in members)
         {
             if (m is not GameBase t || t.GetKind() != GameBase.Kind.Trigger || t == obj)
                 continue;
-            int before = t.Occupants.Count;
-            t.Occupants.RemoveAll(o => o.Object == obj.Id());
+            var before = t.Occupants.Count;
+            t.Occupants.RemoveAll(o => o.ObjectId == obj.Id());
             if (t.Occupants.Count != before && t.Occupants.Count == 0)
                 set.RemoveObject(t);
         }

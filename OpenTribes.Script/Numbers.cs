@@ -1,9 +1,9 @@
+namespace OpenTribes.Script;
+
 using System.Globalization;
 using System.Numerics;
 using System.Text;
 using OpenTribes.Core;
-
-namespace OpenTribes.Script;
 
 /// <summary>The number conversions of the script (docs/script.md 3.1 to 3.3), in the form of the portable truncating build (DECISIONS D25, docs/portable-float.md 1).</summary>
 /// <remarks>Values are doubles. Parsing and digit generation (%g, %f) follow the rounding mode of <c>Fpu</c>, toward zero in the script FPU mode (docs/script.md 3.2), and are computed on the exact values. Port of src/script/numbers.cpp.</remarks>
@@ -25,7 +25,7 @@ public static class Numbers
         const string kTrue = "true";
         if (s.Length != 4)
             return false;
-        for (int i = 0; i < 4; ++i)
+        for (var i = 0; i < 4; ++i)
             if ((s[i] | 0x20) != kTrue[i])
                 return false;
         return true;
@@ -50,14 +50,14 @@ public static class Numbers
     {
         if (s.Length == 0)
             return false;
-        foreach (char c in s)
-            if (!((c >= '0' && c <= '9') || c == '.' || c == 'e' || c == 'E' || c == '+' || c == '-'))
+        foreach (var c in s)
+            if (c is not ((>= '0' and <= '9') or '.' or 'e' or 'E' or '+' or '-'))
                 return false;
         return true;
     }
 
-    private static bool IsSpace(char c) => c == ' ' || (c >= '\t' && c <= '\r');
-    private static bool IsDigit(char c) => c >= '0' && c <= '9';
+    private static bool IsSpace(char c) => c is ' ' or (>= '\t' and <= '\r');
+    private static bool IsDigit(char c) => c is >= '0' and <= '9';
 
     /// <summary>Parses a decimal number like the Borland atof: strtod of the matched text.</summary>
     /// <param name="s">The string.</param>
@@ -65,14 +65,14 @@ public static class Numbers
     public static double BorlandAtof(string s)
     {
         // [ws][sign]digits[.digits][(e|E)[sign]digits]; no hex, inf or nan forms.
-        int i = 0;
+        var i = 0;
         while (i < s.Length && IsSpace(s[i]))
             ++i;
-        int start = i;
+        var start = i;
         // Borland RTL reads its own "+INF" / "-NAN" spellings (sign and upper case required).
         if (i + 3 < s.Length && (s[i] == '+' || s[i] == '-'))
         {
-            bool negative = s[i] == '-';
+            var negative = s[i] == '-';
             if (string.CompareOrdinal(s, i + 1, "INF", 0, 3) == 0)
                 return negative ? double.NegativeInfinity : double.PositiveInfinity;
             if (string.CompareOrdinal(s, i + 1, "NAN", 0, 3) == 0)
@@ -80,7 +80,7 @@ public static class Numbers
         }
         if (i < s.Length && (s[i] == '+' || s[i] == '-'))
             ++i;
-        int digits = 0;
+        var digits = 0;
         while (i < s.Length && IsDigit(s[i]))
         {
             ++i;
@@ -99,7 +99,7 @@ public static class Numbers
             return 0.0;
         if (i < s.Length && (s[i] == 'e' || s[i] == 'E'))
         {
-            int j = i + 1;
+            var j = i + 1;
             if (j < s.Length && (s[j] == '+' || s[j] == '-'))
                 ++j;
             if (j < s.Length && IsDigit(s[j]))
@@ -111,7 +111,7 @@ public static class Numbers
         }
         // The result must fit a double: overflow gives infinity, underflow below denormals gives 0
         // (both are what the round-to-nearest parse returns).
-        return Strtod(s.Substring(start, i - start));
+        return Strtod(s[start..i]);
     }
 
     // strtod of a text matched by one of the decimal grammars of this port, in the current rounding mode.
@@ -122,15 +122,15 @@ public static class Numbers
     /// <returns>The value.</returns>
     public static int BorlandAtoi(string s)
     {
-        int i = 0;
+        var i = 0;
         while (i < s.Length && IsSpace(s[i]))
             ++i;
-        bool negative = false;
+        var negative = false;
         if (i < s.Length && (s[i] == '+' || s[i] == '-'))
             negative = s[i++] == '-';
         uint v = 0;
         while (i < s.Length && IsDigit(s[i]))
-            v = unchecked(v * 10 + (uint)(s[i++] - '0'));
+            v = unchecked((v * 10) + (uint)(s[i++] - '0'));
         return unchecked((int)(negative ? 0u - v : v));
     }
 
@@ -143,10 +143,10 @@ public static class Numbers
         {
             // Hex literals wrap modulo 2^32 (0x100000000 is 0, 0x1FFFFFFFF is -1).
             uint v = 0;
-            for (int i = 2; i < text.Length; ++i)
+            for (var i = 2; i < text.Length; ++i)
             {
-                char c = text[i];
-                v = unchecked(v * 16 + (uint)(c <= '9' ? c - '0' : (c | 0x20) - 'a' + 10));
+                var c = text[i];
+                v = unchecked((v * 16) + (uint)(c <= '9' ? c - '0' : (c | 0x20) - 'a' + 10));
             }
             return unchecked((int)v);
         }
@@ -199,11 +199,11 @@ public static class CFormat
     // Exact decimal digits of a finite non-zero |v|: v = 0.D * 10^(exp10 + 1) = D[0].D[1..] * 10^exp10.
     private static (string digits, int exp10) Exact(double v)
     {
-        long bits = BitConverter.DoubleToInt64Bits(v) & 0x7fffffffffffffffL;
-        int be = (int)(bits >> 52);
-        long frac = bits & 0xfffffffffffffL;
-        long m = be == 0 ? frac : frac | (1L << 52);
-        int e2 = (be == 0 ? 1 : be) - 1075;
+        var bits = BitConverter.DoubleToInt64Bits(v) & 0x7fffffffffffffffL;
+        var be = (int)(bits >> 52);
+        var frac = bits & 0xfffffffffffffL;
+        var m = be == 0 ? frac : frac | (1L << 52);
+        var e2 = (be == 0 ? 1 : be) - 1075;
         string d;
         int exp10;
         if (e2 >= 0)
@@ -229,15 +229,15 @@ public static class CFormat
             return (d, exp10);
         if (keep < 0)
             return ("", exp10);
-        string kept = d[..keep];
+        var kept = d[..keep];
         if (Fpu.TowardZero)
             return (kept, exp10);
-        string rest = d[keep..];
-        int cmp = rest[0] > '5' ? 1 : rest[0] < '5' ? -1 : rest[1..].Trim('0').Length > 0 ? 1 : 0;
-        bool up = cmp > 0 || (cmp == 0 && keep > 0 && (kept[^1] - '0') % 2 == 1);
+        var rest = d[keep..];
+        var cmp = rest[0] > '5' ? 1 : rest[0] < '5' ? -1 : rest[1..].Trim('0').Length > 0 ? 1 : 0;
+        var up = cmp > 0 || (cmp == 0 && keep > 0 && (kept[^1] - '0') % 2 == 1);
         if (!up)
             return (kept, exp10);
-        string nd = (kept.Length == 0 ? BigInteger.One : BigInteger.Parse(kept, CultureInfo.InvariantCulture) + 1).ToString(CultureInfo.InvariantCulture);
+        var nd = (kept.Length == 0 ? BigInteger.One : BigInteger.Parse(kept, CultureInfo.InvariantCulture) + 1).ToString(CultureInfo.InvariantCulture);
         return (nd, nd.Length > kept.Length ? exp10 + 1 : exp10);
     }
 
@@ -248,12 +248,12 @@ public static class CFormat
         if (exp10 < 0)
             sb.Append('0');
         else
-            for (int i = 0; i <= exp10; ++i)
+            for (var i = 0; i <= exp10; ++i)
                 sb.Append(DigitAt(d, i));
         if (prec > 0)
         {
             sb.Append('.');
-            for (int k = 1; k <= prec; ++k)
+            for (var k = 1; k <= prec; ++k)
                 sb.Append(DigitAt(d, exp10 + k));
         }
         return sb.ToString();
@@ -274,7 +274,7 @@ public static class CFormat
     {
         if (!double.IsFinite(v))
             return Special(v);
-        string sign = double.IsNegative(v) ? "-" : "";
+        var sign = double.IsNegative(v) ? "-" : "";
         if (v == 0)
             return sign + Fixed("", 0, prec);
         var (d, e) = Exact(v);
@@ -292,9 +292,9 @@ public static class CFormat
             return Special(v);
         if (prec == 0)
             prec = 1;
-        string sign = double.IsNegative(v) ? "-" : "";
-        string d = "";
-        int x = 0;
+        var sign = double.IsNegative(v) ? "-" : "";
+        var d = "";
+        var x = 0;
         if (v != 0)
         {
             (d, x) = Exact(v);
@@ -312,11 +312,11 @@ public static class CFormat
             if (prec > 1)
             {
                 sb.Append('.');
-                for (int i = 1; i < prec; ++i)
+                for (var i = 1; i < prec; ++i)
                     sb.Append(DigitAt(d, i));
             }
             body = StripZeros(sb.ToString());
-            int ax = Math.Abs(x);
+            var ax = Math.Abs(x);
             body += (x < 0 ? "e-" : "e+") + (ax < 10 ? "0" : "") + ax.ToString(CultureInfo.InvariantCulture);
         }
         return sign + body;

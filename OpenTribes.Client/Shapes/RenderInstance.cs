@@ -4,15 +4,15 @@ namespace OpenTribes.Client.Shapes;
 public sealed class RenderThread
 {
     /// <summary>The sequence index, -1 for none.</summary>
-    public int Sequence = -1;
+    public int Sequence { get; set; } = -1;
     /// <summary>The position in the sequence, 0 to 1.</summary>
-    public double Position;
+    public double Position { get; set; }
     /// <summary>The playback speed factor. A negative value plays backwards.</summary>
-    public double TimeScale = 1;
+    public double TimeScale { get; set; } = 1;
     /// <summary>The priority of the thread.</summary>
-    public int Priority;
+    public int Priority { get; set; }
     /// <summary>The position before the last advance.</summary>
-    public double LastPosition;
+    public double LastPosition { get; set; }
 
     /// <summary>Tells whether a one shot sequence reached its end.</summary>
     /// <param name="s">The shape that owns the sequence.</param>
@@ -25,11 +25,11 @@ public sealed class RenderThread
 public struct RsObjectState
 {
     /// <summary>The frame index.</summary>
-    public int Frame;
+    public int Frame { get; set; }
     /// <summary>The texture frame index.</summary>
-    public int TextureFrame;
+    public int TextureFrame { get; set; }
     /// <summary>True when the object draws.</summary>
-    public bool Visible;
+    public bool Visible { get; set; }
 }
 
 /// <summary>The render side instance of a shape: threads, sequence stepping, node transforms by interpolated keys, object frames, visibility and texture frames, the image list remap (1.5), frame triggers (3.7) and run time transitions (3.3).</summary>
@@ -37,63 +37,63 @@ public struct RsObjectState
 public sealed class RenderInstance
 {
     /// <summary>The shape.</summary>
-    public readonly RenderShape Shape;
+    public RenderShape Shape { get; }
     /// <summary>The playing threads.</summary>
-    public readonly List<RenderThread> Threads = new();
+    public List<RenderThread> Threads { get; } = [];
     /// <summary>The image list remap of the materials (1.5).</summary>
-    public readonly int[] Remap;
+    public int[] Remap { get; }
     /// <summary>The transform of each node to shape space.</summary>
-    public readonly Xf[] NodeWorld;
+    public Xf[] NodeWorld { get; }
     /// <summary>The state of each object.</summary>
-    public readonly RsObjectState[] Objects;
+    public RsObjectState[] Objects { get; }
     /// <summary>The local rotation of each node as x, y, z, w, as animated.</summary>
-    public readonly double[][] LocalQ;
+    public double[][] LocalQ { get; }
     /// <summary>The local translation of each node, as animated.</summary>
-    public readonly double[][] LocalT;
+    public double[][] LocalT { get; }
     /// <summary>True for each node that is visible.</summary>
-    public bool[] NodeVisible;
+    public bool[] NodeVisible { get; set; }
     /// <summary>The detail the nodes were last animated for, -2 for none.</summary>
-    public int DetailAnimated = -2;
+    public int DetailAnimated { get; set; } = -2;
 
     /// <summary>The player view mode (player-sim.md 5.2, byte +0x9e of the instance): 0 none, 1 chase or third person, 2 first person.</summary>
     /// <remarks>With a mode set, a <c>lowerback</c> node that a thread animates does not hang on its parent. Its parent frame is the fixed upright frame (yaw pi / 2) at the position of the parent (mode 1) or at (0, 0, height of <c>dummyalways root</c>) (mode 2), so the whole upper body, the eye and the hand follow the looks thread alone and never the leg cycle.</remarks>
-    public int ViewMode;
-    private readonly bool[] mLowerBack;
-    private readonly int mRootNode;
+    public int ViewMode { get; set; }
+    private readonly bool[] _lowerBack;
+    private readonly int _rootNode;
 
     // Transition (3.3): blend from the pose at the switch to the animated pose.
-    private double[][]? mFromQ, mFromT;
-    private double mBlendLeft, mBlendDuration;
+    private double[][]? _fromQ, _fromT;
+    private double _blendLeft, _blendDuration;
 
     /// <summary>Creates an instance of a shape with no threads.</summary>
     /// <param name="shape">The shape.</param>
     public RenderInstance(RenderShape shape)
     {
         Shape = shape;
-        int rm = Math.Max(shape.RemapSize, shape.MaterialCount);
+        var rm = Math.Max(shape.RemapSize, shape.MaterialCount);
         Remap = new int[Math.Max(rm, 1)];
-        for (int i = 0; i < Remap.Length; ++i)
+        for (var i = 0; i < Remap.Length; ++i)
             Remap[i] = i;
         NodeWorld = new Xf[shape.Nodes.Length];
-        for (int i = 0; i < NodeWorld.Length; ++i)
+        for (var i = 0; i < NodeWorld.Length; ++i)
             NodeWorld[i] = Xf.Identity;
         Objects = new RsObjectState[shape.Objects.Length];
         LocalQ = new double[shape.Nodes.Length][];
         LocalT = new double[shape.Nodes.Length][];
         NodeVisible = new bool[shape.Nodes.Length];
-        for (int i = 0; i < shape.Nodes.Length; ++i)
+        for (var i = 0; i < shape.Nodes.Length; ++i)
         {
             LocalQ[i] = new double[4];
             LocalT[i] = new double[3];
         }
-        mLowerBack = new bool[shape.Nodes.Length];
-        mRootNode = -1;
-        for (int i = 0; i < shape.Nodes.Length; ++i)
+        _lowerBack = new bool[shape.Nodes.Length];
+        _rootNode = -1;
+        for (var i = 0; i < shape.Nodes.Length; ++i)
         {
-            string name = shape.Names[shape.Nodes[i].Name];
-            mLowerBack[i] = name.StartsWith("lowerback", StringComparison.Ordinal);
-            if (mRootNode < 0 && name == "dummyalways root")
-                mRootNode = i;
+            var name = shape.Names[shape.Nodes[i].Name];
+            _lowerBack[i] = name.StartsWith("lowerback", StringComparison.Ordinal);
+            if (_rootNode < 0 && name == "dummyalways root")
+                _rootNode = i;
         }
         Animate(0);
     }
@@ -117,7 +117,7 @@ public sealed class RenderInstance
     /// <returns>The thread, or null when the shape has no such sequence.</returns>
     public RenderThread? AddThread(string sequence, double position = 0, int priority = 0)
     {
-        int s = Shape.FindSequence(sequence);
+        var s = Shape.FindSequence(sequence);
         return s < 0 ? null : AddThread(s, position, priority);
     }
 
@@ -129,14 +129,14 @@ public sealed class RenderInstance
     {
         if (t.Sequence < 0 || t.Sequence >= Shape.Sequences.Length)
             return;
-        RsSequence q = Shape.Sequences[t.Sequence];
-        double dur = q.Duration > 1e-6 ? q.Duration : 1e-6;
-        double old = t.Position;
-        double p = old + dt * t.TimeScale / dur;
-        bool wrapped = false;
+        var q = Shape.Sequences[t.Sequence];
+        var dur = q.Duration > 1e-6 ? q.Duration : 1e-6;
+        var old = t.Position;
+        var p = old + (dt * t.TimeScale / dur);
+        var wrapped = false;
         if (q.Cyclic)
         {
-            double f = p - Math.Floor(p);
+            var f = p - Math.Floor(p);
             wrapped = Math.Floor(p) != Math.Floor(old);
             p = f;
         }
@@ -152,12 +152,12 @@ public sealed class RenderInstance
     // backward (position < 0); a cyclic wrap counts.
     private void CollectTriggers(RenderThread t, in RsSequence q, double from, double to, bool wrapped, List<uint> output)
     {
-        for (int i = 0; i < q.NumTriggers && q.FirstTrigger + i < Shape.Triggers.Length; ++i)
+        for (var i = 0; i < q.NumTriggers && q.FirstTrigger + i < Shape.Triggers.Length; ++i)
         {
-            RsTrigger tr = Shape.Triggers[q.FirstTrigger + i];
+            var tr = Shape.Triggers[q.FirstTrigger + i];
             double pos = Math.Abs(tr.Position);
-            bool forward = t.TimeScale >= 0;
-            if (tr.Position >= 0 != forward && tr.Position != 0)
+            var forward = t.TimeScale >= 0;
+            if ((tr.Position >= 0) != forward && tr.Position != 0)
                 continue;
             bool hit;
             if (wrapped)
@@ -174,13 +174,13 @@ public sealed class RenderInstance
     /// <param name="triggers">Receives the triggers the threads passed, or null.</param>
     public void Advance(double dt, List<uint>? triggers = null)
     {
-        foreach (RenderThread t in Threads)
+        foreach (var t in Threads)
             Advance(t, dt, triggers);
-        if (mBlendLeft > 0)
+        if (_blendLeft > 0)
         {
-            mBlendLeft -= dt;
-            if (mBlendLeft <= 0)
-                mFromQ = mFromT = null;
+            _blendLeft -= dt;
+            if (_blendLeft <= 0)
+                _fromQ = _fromT = null;
         }
     }
 
@@ -192,22 +192,22 @@ public sealed class RenderInstance
     public void StartTransition(RenderThread t, int sequence, double position, double duration)
     {
         Animate(Math.Max(DetailAnimated, 0));
-        mFromQ = LocalQ.Select(a => (double[])a.Clone()).ToArray();
-        mFromT = LocalT.Select(a => (double[])a.Clone()).ToArray();
-        mBlendLeft = mBlendDuration = duration;
+        _fromQ = [.. LocalQ.Select(a => (double[])a.Clone())];
+        _fromT = [.. LocalT.Select(a => (double[])a.Clone())];
+        _blendLeft = _blendDuration = duration;
         t.Sequence = sequence;
         t.Position = position;
         t.LastPosition = position;
     }
 
     /// <summary>True while a transition blend runs.</summary>
-    public bool Blending => mBlendLeft > 0;
+    public bool Blending => _blendLeft > 0;
 
     private int SubFor(int first, int count, int sequence)
     {
         if (count <= 0 || first < 0)
             return -1;
-        for (int i = first; i < first + count && i < Shape.SubSequences.Length; ++i)
+        for (var i = first; i < first + count && i < Shape.SubSequences.Length; ++i)
             if (Shape.SubSequences[i].Sequence == sequence)
                 return i;
         return -1;
@@ -221,8 +221,8 @@ public sealed class RenderInstance
     {
         if (sub.NumKeys <= 0 || sub.FirstKey < 0 || sub.FirstKey + sub.NumKeys > Shape.Keys.Length)
             return -1;
-        int last = sub.FirstKey - 1;
-        for (int i = sub.FirstKey; i < sub.FirstKey + sub.NumKeys; ++i)
+        var last = sub.FirstKey - 1;
+        for (var i = sub.FirstKey; i < sub.FirstKey + sub.NumKeys; ++i)
         {
             if (Shape.Keys[i].Position > p)
                 break;
@@ -230,7 +230,7 @@ public sealed class RenderInstance
         }
         if (last < sub.FirstKey)
         {
-            bool cyclic = sub.Sequence >= 0 && sub.Sequence < Shape.Sequences.Length && Shape.Sequences[sub.Sequence].Cyclic;
+            var cyclic = sub.Sequence >= 0 && sub.Sequence < Shape.Sequences.Length && Shape.Sequences[sub.Sequence].Cyclic;
             last = cyclic ? sub.FirstKey + sub.NumKeys - 1 : sub.FirstKey;
         }
         return last;
@@ -250,9 +250,9 @@ public sealed class RenderInstance
         int n = sub.NumKeys, f = sub.FirstKey;
         if (n <= 0 || f < 0 || f + n > Shape.Keys.Length)
             return false;
-        bool cyclic = sub.Sequence >= 0 && sub.Sequence < Shape.Sequences.Length && Shape.Sequences[sub.Sequence].Cyclic;
-        int idx = -1;
-        for (int i = f; i < f + n; ++i)
+        var cyclic = sub.Sequence >= 0 && sub.Sequence < Shape.Sequences.Length && Shape.Sequences[sub.Sequence].Cyclic;
+        var idx = -1;
+        for (var i = f; i < f + n; ++i)
         {
             if (Shape.Keys[i].Position > p)
                 break;
@@ -271,7 +271,8 @@ public sealed class RenderInstance
                 lo = hi = first;
                 return true;
             }
-            lo = last; hi = first;
+            lo = last;
+            hi = first;
             double span = Shape.Keys[first].Position + 1 - Shape.Keys[last].Position;
             frac = span > 1e-9 ? (p + 1 - Shape.Keys[last].Position) / span : 0;
             return true;
@@ -283,12 +284,14 @@ public sealed class RenderInstance
                 lo = hi = last;
                 return true;
             }
-            lo = last; hi = first;
+            lo = last;
+            hi = first;
             double span = Shape.Keys[first].Position + 1 - Shape.Keys[last].Position;
             frac = span > 1e-9 ? (p - Shape.Keys[last].Position) / span : 0;
             return true;
         }
-        lo = idx; hi = idx + 1;
+        lo = idx;
+        hi = idx + 1;
         double d = Shape.Keys[hi].Position - Shape.Keys[lo].Position;
         frac = d > 1e-9 ? (p - Shape.Keys[lo].Position) / d : 0;
         return true;
@@ -297,9 +300,10 @@ public sealed class RenderInstance
     private static void Slerp(double[] a, RsTransform tb, double t, double[] q)
     {
         double bx = tb.Qx, by = tb.Qy, bz = tb.Qz, bw = tb.Qw;
-        double c = a[0] * bx + a[1] * by + a[2] * bz + a[3] * bw;
+        var c = (a[0] * bx) + (a[1] * by) + (a[2] * bz) + (a[3] * bw);
         double sign = 1;
-        if (c < 0) { c = -c; sign = -1; }
+        if (c < 0)
+        { c = -c; sign = -1; }
         double s0, s1;
         if (1 - c > 1e-5)
         {
@@ -312,20 +316,23 @@ public sealed class RenderInstance
             s0 = 1 - t;
             s1 = sign * t;
         }
-        q[0] = s0 * a[0] + s1 * bx; q[1] = s0 * a[1] + s1 * by; q[2] = s0 * a[2] + s1 * bz; q[3] = s0 * a[3] + s1 * bw;
+        q[0] = (s0 * a[0]) + (s1 * bx);
+        q[1] = (s0 * a[1]) + (s1 * by);
+        q[2] = (s0 * a[2]) + (s1 * bz);
+        q[3] = (s0 * a[3]) + (s1 * bw);
     }
 
-    private readonly List<RenderThread> mOrdered = new();
+    private readonly List<RenderThread> _ordered = [];
 
     private List<RenderThread> Ordered()
     {
         // Ascending priority: the first thread whose sequence drives a node wins (a lower number is a higher priority, the
         // looks thread uses -1). Stable insertion sort into a list kept between calls (no allocation per frame).
-        List<RenderThread> l = mOrdered;
+        var l = _ordered;
         l.Clear();
-        foreach (RenderThread t in Threads)
+        foreach (var t in Threads)
         {
-            int i = l.Count;
+            var i = l.Count;
             while (i > 0 && l[i - 1].Priority > t.Priority)
                 --i;
             l.Insert(i, t);
@@ -338,77 +345,87 @@ public sealed class RenderInstance
     public void Animate(int detail)
     {
         DetailAnimated = detail;
-        RenderShape sh = Shape;
-        List<RenderThread> order = Ordered();
-        for (int i = 0; i < Remap.Length; ++i)
+        var sh = Shape;
+        var order = Ordered();
+        for (var i = 0; i < Remap.Length; ++i)
             Remap[i] = i;
-        foreach (RenderThread t in order)
+        foreach (var t in order)
             StepIfl(t);
-        int[] nodes = sh.NodesOfDetail(detail).Sorted;
-        double blend = mBlendLeft > 0 && mFromQ != null ? Math.Clamp(1 - mBlendLeft / mBlendDuration, 0, 1) : 1;
+        var nodes = sh.NodesOfDetail(detail).Sorted;
+        var blend = _blendLeft > 0 && _fromQ != null ? Math.Clamp(1 - (_blendLeft / _blendDuration), 0, 1) : 1;
         var q = new double[4];
-        foreach (int node in nodes)
+        foreach (var node in nodes)
         {
-            ref RsNode nd = ref sh.Nodes[node];
-            Xf entry = Xf.Identity;
+            ref var nd = ref sh.Nodes[node];
+            var entry = Xf.Identity;
             if (node >= 1 && nd.Parent >= 0 && nd.Parent < node)
             {
-                bool done = false;
+                var done = false;
                 NodeVisible[node] = true;
-                foreach (RenderThread t in order)
+                foreach (var t in order)
                 {
-                    int sub = SubFor(nd.FirstSub, nd.NumSub, t.Sequence);
-                    if (sub < 0 || !FindKeys(sh.SubSequences[sub], t.Position, out int lo, out int hi, out double frac))
+                    var sub = SubFor(nd.FirstSub, nd.NumSub, t.Sequence);
+                    if (sub < 0 || !FindKeys(sh.SubSequences[sub], t.Position, out var lo, out var hi, out var frac))
                         continue;
-                    RsKey ka = sh.Keys[lo];
+                    var ka = sh.Keys[lo];
                     if (ka.Index >= sh.Transforms.Length || sh.Keys[hi].Index >= sh.Transforms.Length)
                         continue;
                     RsTransform ta = sh.Transforms[ka.Index], tb = sh.Transforms[sh.Keys[hi].Index];
-                    LocalQ[node][0] = ta.Qx; LocalQ[node][1] = ta.Qy; LocalQ[node][2] = ta.Qz; LocalQ[node][3] = ta.Qw;
+                    LocalQ[node][0] = ta.Qx;
+                    LocalQ[node][1] = ta.Qy;
+                    LocalQ[node][2] = ta.Qz;
+                    LocalQ[node][3] = ta.Qw;
                     Slerp(LocalQ[node], tb, frac, q);
                     Array.Copy(q, LocalQ[node], 4);
-                    LocalT[node][0] = ta.Tx + (tb.Tx - ta.Tx) * frac;
-                    LocalT[node][1] = ta.Ty + (tb.Ty - ta.Ty) * frac;
-                    LocalT[node][2] = ta.Tz + (tb.Tz - ta.Tz) * frac;
-                    
+                    LocalT[node][0] = ta.Tx + ((tb.Tx - ta.Tx) * frac);
+                    LocalT[node][1] = ta.Ty + ((tb.Ty - ta.Ty) * frac);
+                    LocalT[node][2] = ta.Tz + ((tb.Tz - ta.Tz) * frac);
+
                     done = true;
                     break;
                 }
                 if (!done)
                 {
-                    int di = nd.DefaultTransform;
+                    var di = nd.DefaultTransform;
                     if (di < 0 || di >= sh.Transforms.Length)
                         continue;
-                    RsTransform d = sh.Transforms[di];
-                    LocalQ[node][0] = d.Qx; LocalQ[node][1] = d.Qy; LocalQ[node][2] = d.Qz; LocalQ[node][3] = d.Qw;
-                    LocalT[node][0] = d.Tx; LocalT[node][1] = d.Ty; LocalT[node][2] = d.Tz;
+                    var d = sh.Transforms[di];
+                    LocalQ[node][0] = d.Qx;
+                    LocalQ[node][1] = d.Qy;
+                    LocalQ[node][2] = d.Qz;
+                    LocalQ[node][3] = d.Qw;
+                    LocalT[node][0] = d.Tx;
+                    LocalT[node][1] = d.Ty;
+                    LocalT[node][2] = d.Tz;
                 }
-                if (blend < 1 && mFromQ != null && mFromT != null)
+                if (blend < 1 && _fromQ != null && _fromT != null)
                 {
-                    double[] fq = mFromQ[node], cq = LocalQ[node];
-                    double dot = fq[0] * cq[0] + fq[1] * cq[1] + fq[2] * cq[2] + fq[3] * cq[3];
+                    double[] fq = _fromQ[node], cq = LocalQ[node];
+                    var dot = (fq[0] * cq[0]) + (fq[1] * cq[1]) + (fq[2] * cq[2]) + (fq[3] * cq[3]);
                     double sg = dot < 0 ? -1 : 1, len = 0;
-                    for (int k = 0; k < 4; ++k)
+                    for (var k = 0; k < 4; ++k)
                     {
-                        q[k] = fq[k] * sg * (1 - blend) + cq[k] * blend;
+                        q[k] = (fq[k] * sg * (1 - blend)) + (cq[k] * blend);
                         len += q[k] * q[k];
                     }
                     len = Math.Sqrt(len);
                     if (len > 1e-9)
-                        for (int k = 0; k < 4; ++k)
+                        for (var k = 0; k < 4; ++k)
                             cq[k] = q[k] / len;
-                    for (int k = 0; k < 3; ++k)
-                        LocalT[node][k] = mFromT[node][k] * (1 - blend) + LocalT[node][k] * blend;
+                    for (var k = 0; k < 3; ++k)
+                        LocalT[node][k] = (_fromT[node][k] * (1 - blend)) + (LocalT[node][k] * blend);
                 }
-                Xf local = Xf.FromQuat(LocalQ[node][0], LocalQ[node][1], LocalQ[node][2], LocalQ[node][3]);
-                local.Px = LocalT[node][0]; local.Py = LocalT[node][1]; local.Pz = LocalT[node][2];
-                if (ViewMode != 0 && mLowerBack[node] && done && (ViewMode == 1 || mRootNode >= 0))
+                var local = Xf.FromQuat(LocalQ[node][0], LocalQ[node][1], LocalQ[node][2], LocalQ[node][3]);
+                local.Px = LocalT[node][0];
+                local.Py = LocalT[node][1];
+                local.Pz = LocalT[node][2];
+                if (ViewMode != 0 && _lowerBack[node] && done && (ViewMode == 1 || _rootNode >= 0))
                 {
-                    Xf frame = Xf.Euler(0, 0, Math.PI / 2);
+                    var frame = Xf.Euler(0, 0, Math.PI / 2);
                     if (ViewMode == 1)
                         (frame.Px, frame.Py, frame.Pz) = (NodeWorld[nd.Parent].Px, NodeWorld[nd.Parent].Py, NodeWorld[nd.Parent].Pz);
                     else
-                        frame.Pz = NodeWorld[mRootNode].Pz;
+                        frame.Pz = NodeWorld[_rootNode].Pz;
                     entry = local.Then(frame);
                 }
                 else
@@ -418,21 +435,21 @@ public sealed class RenderInstance
         }
         // Objects (3.1): defaults, then the threads from the last to the first of the order, each key overriding the
         // fields its flags mark as valid.
-        for (int oi = 0; oi < sh.Objects.Length; ++oi)
+        for (var oi = 0; oi < sh.Objects.Length; ++oi)
         {
-            ref RsObject ob = ref sh.Objects[oi];
-            ref RsObjectState st = ref Objects[oi];
+            ref var ob = ref sh.Objects[oi];
+            ref var st = ref Objects[oi];
             st.Frame = 0;
             st.TextureFrame = 0;
             st.Visible = (ob.Flags & 1) == 0;
-            for (int i = order.Count; i-- > 0;)
+            for (var i = order.Count; i-- > 0;)
             {
-                RenderThread t = order[i];
-                int sub = SubFor(ob.FirstSub, ob.NumSub, t.Sequence);
-                int key = sub >= 0 ? CurrentKey(sh.SubSequences[sub], t.Position) : -1;
+                var t = order[i];
+                var sub = SubFor(ob.FirstSub, ob.NumSub, t.Sequence);
+                var key = sub >= 0 ? CurrentKey(sh.SubSequences[sub], t.Position) : -1;
                 if (key < 0)
                     continue;
-                RsKey k = sh.Keys[key];
+                var k = sh.Keys[key];
                 if ((k.Flags & 0x1000) != 0)
                     st.Frame = k.Index;
                 if ((k.Flags & 0x4000) != 0)
@@ -449,16 +466,16 @@ public sealed class RenderInstance
     {
         if (t.Sequence < 0 || t.Sequence >= Shape.Sequences.Length)
             return;
-        RsSequence q = Shape.Sequences[t.Sequence];
-        for (int i = 0; i < q.NumIfl; ++i)
+        var q = Shape.Sequences[t.Sequence];
+        for (var i = 0; i < q.NumIfl; ++i)
         {
-            int si = q.FirstIfl + i;
+            var si = q.FirstIfl + i;
             if (si < 0 || si >= Shape.SubSequences.Length)
                 break;
-            int k = CurrentKey(Shape.SubSequences[si], t.Position);
+            var k = CurrentKey(Shape.SubSequences[si], t.Position);
             if (k < 0)
                 continue;
-            int slot = Shape.Keys[k].Flags & 0xfff;
+            var slot = Shape.Keys[k].Flags & 0xfff;
             if (slot < Remap.Length)
                 Remap[slot] = Shape.Keys[k].Index;
         }
@@ -469,8 +486,8 @@ public sealed class RenderInstance
     /// <returns>The transform.</returns>
     public Xf ObjectTransform(int objectIndex)
     {
-        RsObject ob = Shape.Objects[objectIndex];
-        Xf node = ob.Node >= 0 && ob.Node < NodeWorld.Length ? NodeWorld[ob.Node] : Xf.Identity;
+        var ob = Shape.Objects[objectIndex];
+        var node = ob.Node >= 0 && ob.Node < NodeWorld.Length ? NodeWorld[ob.Node] : Xf.Identity;
         return Xf.Translate(ob.Ox, ob.Oy, ob.Oz).Then(node);
     }
 }

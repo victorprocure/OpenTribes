@@ -1,60 +1,69 @@
+namespace OpenTribes.Client.Audio;
+
 using System.Globalization;
 using OpenTribes.Client.Effects;
 using OpenTribes.Client.Scene;
 using OpenTribes.Game;
 using OpenTribes.World;
 
-namespace OpenTribes.Client.Audio;
-
 /// <summary>Starts the sounds of the scene: network events and the sounds driven by ghosts.</summary>
 /// <remarks>docs/audio.md 3 (where sounds start): network events (3.1) and the ghost driven sounds (3.2 to 3.4) of the scene model, over the <see cref="SoundManager"/>. The scene model calls the <c>On*</c> hooks while it applies packets and ghost updates. <see cref="Frame"/> runs once per client frame after the visuals ticked (listener, follow the object positions, stops).</remarks>
 public sealed class SceneAudio
 {
     /// <summary>The sound manager the sounds play on.</summary>
-    public readonly SoundManager Sound;
-    private readonly SceneModel M;
-    private Db Db => M.Db;
+    public SoundManager Sound { get; }
+    private readonly SceneModel _m;
+    private Db Db => _m.Db;
 
     /// <summary>True when voices play: <c>$pref::playVoices</c> (1.5), which is true when unset.</summary>
-    public bool PlayVoices => M.World.Players.PlayVoices();
+    public bool PlayVoices => _m.World.Players.PlayVoices();
     /// <summary>The materials of the terrain, to pick the footstep surface type of a terrain material byte (3.2). Empty means type 0.</summary>
-    public List<Material>? TerrainMaterials;
+    public List<Material>? TerrainMaterials { get; set; }
     /// <summary>Reads the surface type (0 to 14) under a foot from the prediction container (terrain and interiors, <see cref="FootSurface"/>), -1 for none. Null offline.</summary>
-    public Func<double, double, double, int>? SurfaceType;
+    public Func<double, double, double, int>? SurfaceType { get; set; }
 
     /// <summary>The number of sounds started per source, for the offline report.</summary>
-    public readonly Dictionary<string, int> Started = new();
+    public Dictionary<string, int> Started { get; } = [];
 
     private sealed class GhostSounds
     {
-        public int Looper;                         // jet, vehicle idle, static ambient, projectile
-        public int Move, Whir, Run, Sustained;
-        public readonly int[] SeqSound = new int[3];     // sequence sound handle per thread slot (3.3)
-        public readonly int[] SeqPlaying = Enumerable.Repeat(-1, 3).ToArray();   // sequence the sound was started for
-        public readonly ImageVoiceSlots Image = new();
-        public readonly int[] Channel = new int[4];
-        public int LastMode = -1, LastFire = -1, LastDamage = -1, LastSound = -1, LastState = -1;
-        public double JetOffSince = -1;
-        public double LastRotation = double.NaN, LastElevation = double.NaN, WhirUntil;
-        public int DatablockStarted = -1;
-        public bool Stopped;
+        public int Looper { get; set; }                         // jet, vehicle idle, static ambient, projectile
+        public int Move { get; set; }
+        public int Whir { get; set; }
+        public int Run { get; set; }
+        public int Sustained { get; set; }
+        public int[] SeqSound { get; } = new int[3];     // sequence sound handle per thread slot (3.3)
+        public int[] SeqPlaying { get; } = [.. Enumerable.Repeat(-1, 3)];   // sequence the sound was started for
+        public ImageVoiceSlots Image { get; } = new();
+        public int[] Channel { get; } = new int[4];
+        public int LastMode { get; set; } = -1;
+        public int LastFire { get; set; } = -1;
+        public int LastDamage { get; set; } = -1;
+        public int LastSound { get; set; } = -1;
+        public int LastState { get; set; } = -1;
+        public double JetOffSince { get; set; } = -1;
+        public double LastRotation { get; set; } = double.NaN;
+        public double LastElevation { get; set; } = double.NaN;
+        public double WhirUntil { get; set; }
+        public int DatablockStarted { get; set; } = -1;
+        public bool Stopped { get; set; }
     }
 
-    private readonly Dictionary<int, GhostSounds> mGhosts = new();
-    private readonly Dictionary<int, int> mVoiceByClient = new();
-    private int mPrecip;
+    private readonly Dictionary<int, GhostSounds> _ghosts = [];
+    private readonly Dictionary<int, int> _voiceByClient = [];
+    private int _precip;
     /// <summary>The queue of sounds that play one after another.</summary>
-    public readonly SoundSequencer Sequencer;
+    public SoundSequencer Sequencer { get; }
 
     /// <summary>Creates the scene audio.</summary>
     /// <param name="m">The scene model.</param>
     /// <param name="sound">The sound manager.</param>
     public SceneAudio(SceneModel m, SoundManager sound)
     {
-        M = m;
+        _m = m;
         Sound = sound;
         Sequencer = new SoundSequencer(sound);
-        M.World.Players.ChatVoice = ChatWave;
+        _m.World.Players.ChatVoice = ChatWave;
     }
 
     private void Count(string what, int handle)
@@ -65,8 +74,8 @@ public sealed class SceneAudio
 
     private GhostSounds Gs(int ghost)
     {
-        if (!mGhosts.TryGetValue(ghost, out GhostSounds? g))
-            mGhosts[ghost] = g = new GhostSounds();
+        if (!_ghosts.TryGetValue(ghost, out var g))
+            _ghosts[ghost] = g = new GhostSounds();
         return g;
     }
 
@@ -76,7 +85,7 @@ public sealed class SceneAudio
     {
         if (sound < 0 || at == null)
             return 0;
-        int h = Sound.PlayDatablock(sound, At(at));
+        var h = Sound.PlayDatablock(sound, At(at));
         Count(what, h);
         return h;
     }
@@ -106,7 +115,7 @@ public sealed class SceneAudio
     /// <param name="pkt">The decoded packet.</param>
     public void OnPacket(DecodedPacket pkt)
     {
-        foreach (DecodedEvent e in pkt.Events)
+        foreach (var e in pkt.Events)
         {
             object? F(string n) => e.Fields.FirstOrDefault(f => f.Name == n).Value;
             switch (e.Tag)
@@ -129,6 +138,8 @@ public sealed class SceneAudio
                 case 0x453:
                     ChatWave((int)Db.ToDouble(F("from")), F("msg") as string ?? "");
                     break;
+                default:
+                    break;
             }
         }
     }
@@ -136,9 +147,9 @@ public sealed class SceneAudio
     // LocSoundEvent: listener position + direction * (distance * profile maxDist), identity orientation, zero velocity.
     private void LocSound(long sound, double[]? dir, double dist)
     {
-        if (!Sound.TryDatablock(sound, out _, out SoundProfile p, out _))
+        if (!Sound.TryDatablock(sound, out _, out var p, out _))
             return;
-        Listener l = Sound.Listener;
+        var l = Sound.Listener;
         var at = new SoundXf(l.X, l.Y, l.Z);
         if (dir != null && dist >= 0)
         {
@@ -152,9 +163,9 @@ public sealed class SceneAudio
     // SoundEvent: stop the channel's voice, play at the object, remember the handle (0..3).
     private void ShapeSound(int ghost, int channel, long sound)
     {
-        if (!M.Visuals.TryGetValue(ghost, out Visual? v) || channel is < 0 or > 3)
+        if (!_m.Visuals.TryGetValue(ghost, out var v) || channel is < 0 or > 3)
             return;
-        GhostSounds g = Gs(ghost);
+        var g = Gs(ghost);
         Sound.Stop(g.Channel[channel]);
         g.Channel[channel] = Play("SoundEvent", sound, v.Position);
     }
@@ -164,10 +175,10 @@ public sealed class SceneAudio
     // 1.5 name building: `<voiceBase>.w<name>.wav`, else `w<name>.wav`.
     private string? VoiceWave(int client, string text)
     {
-        string a = $"{M.World.Players.Get(client)?.Voice}.w{text}.wav";
+        var a = $"{_m.World.Players.Get(client)?.Voice}.w{text}.wav";
         if (HasWave(a))
             return a;
-        string b = $"w{text}.wav";
+        var b = $"w{text}.wav";
         return HasWave(b) ? b : null;
     }
 
@@ -175,23 +186,23 @@ public sealed class SceneAudio
     {
         if (!PlayVoices)
             return;
-        ClientPlayerRecord? rec = M.World.Players.Get(client);
-        if (rec == null || rec.OwnedGhost < 0 || !M.Visuals.TryGetValue(rec.OwnedGhost, out Visual? v) || v.Position == null)
+        var rec = _m.World.Players.Get(client);
+        if (rec == null || rec.OwnedGhost < 0 || !_m.Visuals.TryGetValue(rec.OwnedGhost, out var v) || v.Position == null)
             return;
-        string? wave = VoiceWave(client, text);
-        if (wave == null || !ProfileZero(out SoundProfile p))
+        var wave = VoiceWave(client, text);
+        if (wave == null || !ProfileZero(out var p))
             return;
-        if (mVoiceByClient.TryGetValue(client, out int old))
+        if (_voiceByClient.TryGetValue(client, out var old))
             Sound.Stop(old);
-        int h = Sound.PlayWave(wave, p, 0, At(v.Position));
-        mVoiceByClient[client] = h;
+        var h = Sound.PlayWave(wave, p, 0, At(v.Position));
+        _voiceByClient[client] = h;
         Count("VoiceEvent", h);
     }
 
     private bool ProfileZero(out SoundProfile p)
     {
         p = SoundProfile.Default;
-        if (Sound.DataBlocks == null || !Sound.DataBlocks.Blocks.TryGetValue((0, 0), out ClientDataBlock? b))
+        if (Sound.DataBlocks == null || !Sound.DataBlocks.Blocks.TryGetValue((0, 0), out var b))
             return false;
         p = SoundManager.ProfileOf(b);
         return true;
@@ -200,24 +211,24 @@ public sealed class SceneAudio
     // Chat text with ~w (1.5): a 2D wave, the sender's previous voice stopped first.
     private void ChatWave(int from, string msg)
     {
-        int i = msg.IndexOf("~w", StringComparison.Ordinal);
+        var i = msg.IndexOf("~w", StringComparison.Ordinal);
         if (i < 0 || !PlayVoices)
             return;
-        string text = msg[(i + 2)..];
-        string? wave = M.World.Players.Get(from) != null ? VoiceWave(from, text) : text;
+        var text = msg[(i + 2)..];
+        var wave = _m.World.Players.Get(from) != null ? VoiceWave(from, text) : text;
         if (wave == null)
             return;
-        if (mVoiceByClient.TryGetValue(from, out int old))
+        if (_voiceByClient.TryGetValue(from, out var old))
             Sound.Stop(old);
-        int h = Sound.PlayWave(wave);
-        mVoiceByClient[from] = h;
+        var h = Sound.PlayWave(wave);
+        _voiceByClient[from] = h;
         Count("ChatWave", h);
     }
 
     // Sfx::SoundEvent (kinds 0 and 2), priority 1.0.
     private void SfxEvent(int kind, string name, int profileId, double[]? pos)
     {
-        if (!Sound.Profiles.TryGetValue(profileId, out SoundProfile p))
+        if (!Sound.Profiles.TryGetValue(profileId, out var p))
             return;
         if (kind == 0)
             Count("Sfx::SoundEvent", Sound.PlayWave(name, p, 1.0));
@@ -235,14 +246,14 @@ public sealed class SceneAudio
 
     private static int ParseKey(string text, string key)
     {
-        int p = text.IndexOf(key, StringComparison.Ordinal);
+        var p = text.IndexOf(key, StringComparison.Ordinal);
         if (p < 0)
             return int.MinValue;
         p += key.Length;
-        int e = p;
+        var e = p;
         while (e < text.Length && (char.IsDigit(text[e]) || text[e] == '-'))
             ++e;
-        return int.TryParse(text.AsSpan(p, e - p), NumberStyles.Integer, CultureInfo.InvariantCulture, out int v) ? v : int.MinValue;
+        return int.TryParse(text.AsSpan(p, e - p), NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) ? v : int.MinValue;
     }
 
 
@@ -259,7 +270,7 @@ public sealed class SceneAudio
     /// <param name="ghost">The ghost index.</param>
     public void OnDelete(int ghost)
     {
-        if (!mGhosts.Remove(ghost, out GhostSounds? g))
+        if (!_ghosts.Remove(ghost, out var g))
             return;
         StopAll(g);
     }
@@ -271,9 +282,9 @@ public sealed class SceneAudio
         Sound.Stop(g.Whir);
         Sound.Stop(g.Run);
         Sound.Stop(g.Sustained);
-        foreach (int h in g.Image.Handles)
+        foreach (var h in g.Image.Handles)
             Sound.Stop(h);
-        foreach (int h in g.SeqSound)
+        foreach (var h in g.SeqSound)
             Sound.Stop(h);
         Array.Clear(g.SeqSound);
         Array.Fill(g.SeqPlaying, -1);
@@ -287,11 +298,11 @@ public sealed class SceneAudio
     /// <remarks>Follows Turret_activate (00455b34) and Turret_deactivate (00455cc4), ghost branches: the sound starts from the own tick of the ghost, at the thread position the pose model reports, and first stops the whir handle (+0x910). The datablock fields are activationSound (+0x13c) and deactivateSound (+0x140).</remarks>
     public void TurretPower(ShapeVisual sv, bool on)
     {
-        ClientDataBlock? b = Db.Block(19, DatablockIndex(sv));
+        var b = Db.Block(19, DatablockIndex(sv));
         if (b == null)
             return;
-        GhostSounds g = Gs(sv.Index);
-        long sound = Idx(b, on ? "activationSound" : "deactivateSound");
+        var g = Gs(sv.Index);
+        var sound = Idx(b, on ? "activationSound" : "deactivateSound");
         if (sound < 0)
             return;
         Sound.Stop(g.Whir);
@@ -299,22 +310,21 @@ public sealed class SceneAudio
         Play("TurretPower", sound, sv.Position);
     }
 
-    private int DatablockIndex(Visual v) => (int)Db.ToDouble(v.Ghost.State.GetValueOrDefault("datablock"), -1);
+    private static int DatablockIndex(Visual v) => (int)Db.ToDouble(v.Ghost.State.GetValueOrDefault("datablock"), -1);
 
     /// <summary>Starts and stops the sounds that follow the state of a ghost after an update.</summary>
     /// <param name="v">The visual of the ghost.</param>
     /// <param name="u">The decoded update.</param>
-    /// <param name="isNew">True when the ghost is new.</param>
-    public void OnGhost(Visual v, DecodedGhost u, bool isNew)
+    public void OnGhost(Visual v, DecodedGhost u)
     {
-        GhostSounds g = Gs(v.Index);
+        var g = Gs(v.Index);
         bool has(string n) => u.Fields.Any(f => f.Name == n);
         switch (v)
         {
             case ProjectileVisual pv:
                 if (g.Looper == 0 && !pv.Exploded && !g.Stopped && pv.Position != null)
                 {
-                    int group = v.Class switch { "Bullet" => 14, "Grenade" => 15, "RocketDumb" => 16, "SeekingMissile" => 25, _ => 13 };
+                    var group = v.Class switch { "Bullet" => 14, "Grenade" => 15, "RocketDumb" => 16, "SeekingMissile" => 25, _ => 13 };
                     g.Looper = Play("Projectile", Idx(Db.Block(group, DatablockIndex(v)), "soundId"), pv.Position);
                 }
                 if (pv.Exploded)
@@ -335,6 +345,8 @@ public sealed class SceneAudio
                 break;
             case ShapeVisual sv:
                 ShapeGhost(sv, g, u, has);
+                break;
+            default:
                 break;
         }
     }
@@ -370,8 +382,8 @@ public sealed class SceneAudio
     {
         if (slot is < 0 or > 7)
             return;
-        GhostSounds g = Gs(pl.Index);
-        int h = Play("Image" + field[3..], Idx(image, field), pl.Position);
+        var g = Gs(pl.Index);
+        var h = Play("Image" + field[3..], Idx(image, field), pl.Position);
         g.Image.Started(slot, h, h != 0 && Sound.IsLooping(h));
     }
 
@@ -380,7 +392,7 @@ public sealed class SceneAudio
     /// <param name="sound">The sound datablock index.</param>
     public void AnimationSound(PlayerVisual p, long sound)
     {
-        Sound.TryDatablock(sound, out string wave, out _, out _);
+        Sound.TryDatablock(sound, out var wave, out _, out _);
         Play("Animation " + wave, sound, p.Position);
     }
 
@@ -392,15 +404,15 @@ public sealed class SceneAudio
     /// <param name="z">The foot z.</param>
     public void Footstep(PlayerVisual p, bool right, double x, double y, double z)
     {
-        ClientDataBlock? pd = Db.Block(3, (int)Db.ToDouble(p.Ghost.State.GetValueOrDefault("datablock"), -1));
-        int m = SurfaceType?.Invoke(x, y, z) ?? -1;
-        if (m < 0 && M.Terrain != null)
+        var pd = Db.Block(3, (int)Db.ToDouble(p.Ghost.State.GetValueOrDefault("datablock"), -1));
+        var m = SurfaceType?.Invoke(x, y, z) ?? -1;
+        if (m < 0 && _m.Terrain != null)
         {
             m = 0;
             float h = 0;
             var n = new Vec3(0, 0, 1);
-            int mat = 0;
-            if (M.Terrain.Surface((float)x, (float)y, ref h, ref n, ref mat) && TerrainMaterials != null && mat >= 0 && mat < TerrainMaterials.Count)
+            var mat = 0;
+            if (_m.Terrain.Surface((float)x, (float)y, ref h, ref n, ref mat) && TerrainMaterials != null && mat >= 0 && mat < TerrainMaterials.Count)
                 m = Math.Clamp(TerrainMaterials[mat].Type, 0, 14);
         }
         if (m < 0)
@@ -411,11 +423,11 @@ public sealed class SceneAudio
 
     private void ShapeGhost(ShapeVisual sv, GhostSounds g, DecodedGhost u, Func<string, bool> has)
     {
-        int idx = DatablockIndex(sv);
-        int group = sv.Class switch { "StaticShape" => 4, "Turret" => 19, "Sensor" => 8, "Moveable" => 7, "Vehicle" => 9, "Flier" => 10, _ => -1 };
+        var idx = DatablockIndex(sv);
+        var group = sv.Class switch { "StaticShape" => 4, "Turret" => 19, "Sensor" => 8, "Moveable" => 7, "Vehicle" => 9, "Flier" => 10, _ => -1 };
         if (group < 0)
             return;
-        ClientDataBlock? b = Db.Block(group, idx);
+        var b = Db.Block(group, idx);
         if (b == null)
             return;
         double Num(string k, double def = 0) => Db.ToDouble(sv.Ghost.State.GetValueOrDefault(k), def);
@@ -426,97 +438,97 @@ public sealed class SceneAudio
         {
             case "Vehicle":
             case "Flier":
+            {
+                if (g.DatablockStarted != idx)
                 {
-                    if (g.DatablockStarted != idx)
-                    {
-                        g.DatablockStarted = idx;
-                        Sound.Stop(g.Looper);
-                        g.Looper = Play("VehicleIdle", Idx(b, "idleSound"), pos);
-                    }
-                    // client-net.md 3.5 fields: f8c4 the 2 bit sound state, f948 the fire counter, i6 the damage level.
-                    if (has("f8c4"))
-                    {
-                        int ss = (int)Num("f8c4");
-                        if (ss == 2 && g.Move == 0)
-                            g.Move = Play("VehicleMove", Idx(b, "moveSound"), pos);
-                        else if (ss != 2)
-                        {
-                            Sound.Stop(g.Move);
-                            g.Move = 0;
-                        }
-                    }
-                    if (has("f948"))
-                    {
-                        int fc = (int)Num("f948");
-                        if (g.LastFire >= 0 && fc != g.LastFire)
-                            Play("VehicleFire", Idx(b, "fireSound"), pos);
-                        g.LastFire = fc;
-                    }
-                    if (has("i6"))
-                    {
-                        int dl = (int)Num("i6");
-                        if (g.LastDamage >= 0 && dl > g.LastDamage)
-                            Play("VehicleDamage", Idx(b, "damageSound"), pos);
-                        g.LastDamage = dl;
-                    }
-                    break;
+                    g.DatablockStarted = idx;
+                    Sound.Stop(g.Looper);
+                    g.Looper = Play("VehicleIdle", Idx(b, "idleSound"), pos);
                 }
+                // client-net.md 3.5 fields: f8c4 the 2 bit sound state, f948 the fire counter, i6 the damage level.
+                if (has("f8c4"))
+                {
+                    var ss = (int)Num("f8c4");
+                    if (ss == 2 && g.Move == 0)
+                        g.Move = Play("VehicleMove", Idx(b, "moveSound"), pos);
+                    else if (ss != 2)
+                    {
+                        Sound.Stop(g.Move);
+                        g.Move = 0;
+                    }
+                }
+                if (has("f948"))
+                {
+                    var fc = (int)Num("f948");
+                    if (g.LastFire >= 0 && fc != g.LastFire)
+                        Play("VehicleFire", Idx(b, "fireSound"), pos);
+                    g.LastFire = fc;
+                }
+                if (has("i6"))
+                {
+                    var dl = (int)Num("i6");
+                    if (g.LastDamage >= 0 && dl > g.LastDamage)
+                        Play("VehicleDamage", Idx(b, "damageSound"), pos);
+                    g.LastDamage = dl;
+                }
+                break;
+            }
             case "Turret":
+            {
+                var sustained = Db.Flag(b, "isSustained");
+                if (has("fireState"))
                 {
-                    bool sustained = Db.Flag(b, "isSustained");
-                    if (has("fireState"))
-                    {
-                        int fs = (int)Num("fireState");
-                        if (!sustained && g.LastFire >= 0 && fs != g.LastFire)
-                            Play("TurretFire", Idx(b, "fireSound"), pos);
-                        g.LastFire = fs;
-                    }
-                    if (sustained && has("barrelFiring"))
-                    {
-                        if (Num("barrelFiring") != 0 && g.Sustained == 0)
-                            g.Sustained = Play("TurretFire", Idx(b, "fireSound"), pos);
-                        else if (Num("barrelFiring") == 0)
-                        {
-                            Sound.Stop(g.Sustained);
-                            g.Sustained = 0;
-                        }
-                    }
-                    if (has("rotation") || has("elevation"))
-                    {
-                        double r = Num("rotation"), e = Num("elevation");
-                        if (!double.IsNaN(g.LastRotation) && (r != g.LastRotation || e != g.LastElevation))
-                        {
-                            g.WhirUntil = M.Time + 0.3;
-                            if (g.Whir == 0)
-                                g.Whir = Play("TurretWhir", Idx(b, "whirSound"), pos);
-                        }
-                        g.LastRotation = r;
-                        g.LastElevation = e;
-                    }
-                    AmbientAndState(sv, g, b, pos, has);
-                    break;
+                    var fs = (int)Num("fireState");
+                    if (!sustained && g.LastFire >= 0 && fs != g.LastFire)
+                        Play("TurretFire", Idx(b, "fireSound"), pos);
+                    g.LastFire = fs;
                 }
+                if (sustained && has("barrelFiring"))
+                {
+                    if (Num("barrelFiring") != 0 && g.Sustained == 0)
+                        g.Sustained = Play("TurretFire", Idx(b, "fireSound"), pos);
+                    else if (Num("barrelFiring") == 0)
+                    {
+                        Sound.Stop(g.Sustained);
+                        g.Sustained = 0;
+                    }
+                }
+                if (has("rotation") || has("elevation"))
+                {
+                    double r = Num("rotation"), e = Num("elevation");
+                    if (!double.IsNaN(g.LastRotation) && (r != g.LastRotation || e != g.LastElevation))
+                    {
+                        g.WhirUntil = _m.Time + 0.3;
+                        if (g.Whir == 0)
+                            g.Whir = Play("TurretWhir", Idx(b, "whirSound"), pos);
+                    }
+                    g.LastRotation = r;
+                    g.LastElevation = e;
+                }
+                AmbientAndState(sv, g, b, pos);
+                break;
+            }
             case "Moveable":
+            {
+                if (has("state"))
                 {
-                    if (has("state"))
+                    var st = (int)Num("state");
+                    if (g.LastState > 0 && st != g.LastState)
+                        Play("MoveableState", Idx(b, st == 3 ? "sfxStop" : "sfxStart"), pos);
+                    g.LastState = st;
+                    if (st == 3)
                     {
-                        int st = (int)Num("state");
-                        if (g.LastState > 0 && st != g.LastState)
-                            Play("MoveableState", Idx(b, st == 3 ? "sfxStop" : "sfxStart"), pos);
-                        g.LastState = st;
-                        if (st == 3)
-                        {
-                            Sound.Stop(g.Run);
-                            g.Run = 0;
-                        }
-                        else if (g.Run == 0 && st != 0)
-                            g.Run = Play("MoveableRun", Idx(b, "sfxRun"), pos);
+                        Sound.Stop(g.Run);
+                        g.Run = 0;
                     }
-                    AmbientAndState(sv, g, b, pos, has);
-                    break;
+                    else if (g.Run == 0 && st != 0)
+                        g.Run = Play("MoveableRun", Idx(b, "sfxRun"), pos);
                 }
+                AmbientAndState(sv, g, b, pos);
+                break;
+            }
             default:
-                AmbientAndState(sv, g, b, pos, has);
+                AmbientAndState(sv, g, b, pos);
                 break;
         }
     }
@@ -525,11 +537,11 @@ public sealed class SceneAudio
     // when the thread stops or pauses, reaches the end, or changes sequence.
     private void SequenceSounds(ShapeVisual sv, GhostSounds g, ClientDataBlock b, (double, double, double)? pos, object? threads)
     {
-        foreach (ThreadSlot s in ThreadSlot.ParseAll(threads))
+        foreach (var s in ThreadSlot.ParseAll(threads))
         {
             if (s.Slot is < 0 or > 2)
                 continue;
-            bool running = s.State == 0 && !s.AtEnd && s.Sequence >= 0;
+            var running = s.State == 0 && !s.AtEnd && s.Sequence >= 0;
             if (!running || g.SeqPlaying[s.Slot] != s.Sequence)
             {
                 Sound.Stop(g.SeqSound[s.Slot]);
@@ -539,8 +551,8 @@ public sealed class SceneAudio
             if (!running || g.SeqPlaying[s.Slot] == s.Sequence)
                 continue;
             g.SeqPlaying[s.Slot] = s.Sequence;
-            string name = sv.SequenceName(s.Sequence);
-            for (int i = 0; i < 16; ++i)
+            var name = sv.SequenceName(s.Sequence);
+            for (var i = 0; i < 16; ++i)
                 if (Db.Get(b, $"sequenceSound[{i}]") is object[] pair && pair.Length >= 2 && pair[0] is string n
                     && string.Equals(n, name, StringComparison.OrdinalIgnoreCase))
                 {
@@ -551,9 +563,9 @@ public sealed class SceneAudio
     }
 
     // StaticBase ambient sound (3.3): starts on a ghost with a datablock, stops when the damage state becomes 2 or 3.
-    private void AmbientAndState(ShapeVisual sv, GhostSounds g, ClientDataBlock b, (double, double, double)? pos, Func<string, bool> has)
+    private void AmbientAndState(ShapeVisual sv, GhostSounds g, ClientDataBlock b, (double, double, double)? pos)
     {
-        int ds = (int)Db.ToDouble(sv.Ghost.State.GetValueOrDefault("damageState"), 1);
+        var ds = (int)Db.ToDouble(sv.Ghost.State.GetValueOrDefault("damageState"), 1);
         if (ds >= 2)
         {
             Sound.Stop(g.Looper);
@@ -566,51 +578,50 @@ public sealed class SceneAudio
 
 
     /// <summary>Runs once per client frame after the visuals ticked: moves the listener, the follow the object voices and the stops.</summary>
-    /// <param name="dt">The frame time in seconds.</param>
-    public void Frame(double dt)
+    public void Frame()
     {
-        foreach (var (index, g) in mGhosts)
+        foreach (var (index, g) in _ghosts)
         {
-            if (!M.Visuals.TryGetValue(index, out Visual? v))
+            if (!_m.Visuals.TryGetValue(index, out var v))
                 continue;
             var pos = v.Position;
             switch (v)
             {
                 case PlayerVisual pl:
+                {
+                    // Jet (3.2): looping while jetting and not mounted; stops when jetting ends.
+                    var jet = pl.Jetting && pl.MountGhost < 0;
+                    if (jet && g.Looper == 0)
                     {
-                        // Jet (3.2): looping while jetting and not mounted; stops when jetting ends.
-                        bool jet = pl.Jetting && pl.MountGhost < 0;
-                        if (jet && g.Looper == 0)
-                        {
-                            ClientDataBlock? pd = Db.Block(3, DatablockIndex(v));
-                            g.Looper = Play("Jet", Idx(pd, "jetSound"), pos);
-                        }
-                        else if (jet)
-                            g.JetOffSince = -1;
-                        else if (g.Looper != 0)
-                        {
-                            // The animation based jetting flag flickers between movement choices (65 ms); stop after 0.2 s without it.
-                            if (g.JetOffSince < 0)
-                                g.JetOffSince = M.Time;
-                            if (M.Time - g.JetOffSince >= 0.2)
-                            {
-                                Sound.Stop(g.Looper);
-                                g.Looper = 0;
-                                g.JetOffSince = -1;
-                            }
-                        }
-                        Follow(g.Looper, pos);
-                        foreach (int h in g.Image.Handles)
-                            Follow(h, pos);
-                        break;
+                        var pd = Db.Block(3, DatablockIndex(v));
+                        g.Looper = Play("Jet", Idx(pd, "jetSound"), pos);
                     }
+                    else if (jet)
+                        g.JetOffSince = -1;
+                    else if (g.Looper != 0)
+                    {
+                        // The animation based jetting flag flickers between movement choices (65 ms); stop after 0.2 s without it.
+                        if (g.JetOffSince < 0)
+                            g.JetOffSince = _m.Time;
+                        if (_m.Time - g.JetOffSince >= 0.2)
+                        {
+                            Sound.Stop(g.Looper);
+                            g.Looper = 0;
+                            g.JetOffSince = -1;
+                        }
+                    }
+                    Follow(g.Looper, pos);
+                    foreach (var h in g.Image.Handles)
+                        Follow(h, pos);
+                    break;
+                }
                 default:
                     Follow(g.Looper, pos);
                     Follow(g.Move, pos);
                     Follow(g.Run, pos);
                     Follow(g.Sustained, pos);
                     Follow(g.Whir, pos);
-                    if (g.Whir != 0 && M.Time > g.WhirUntil)
+                    if (g.Whir != 0 && _m.Time > g.WhirUntil)
                     {
                         Sound.Stop(g.Whir);
                         g.Whir = 0;
@@ -619,16 +630,16 @@ public sealed class SceneAudio
             }
         }
         // Snow and rain (3.4): a 2D looping pair sound while precipitation is on.
-        bool precip = M.HasWeather && WeatherEffect.Draws(M.WeatherPrecipitation, M.Weather.Suspended, M.Weather.Intensity);
-        if (precip && mPrecip == 0)
+        var precip = _m.HasWeather && WeatherEffect.Draws(_m.WeatherPrecipitation, _m.Weather.Suspended, _m.Weather.Intensity);
+        if (precip && _precip == 0)
         {
-            mPrecip = Sound.PlayPair(M.Weather.Rain ? 450046 : 450045);
-            Count("Precipitation", mPrecip);
+            _precip = Sound.PlayPair(_m.Weather.Rain ? 450046 : 450045);
+            Count("Precipitation", _precip);
         }
-        else if (!precip && mPrecip != 0)
+        else if (!precip && _precip != 0)
         {
-            Sound.Stop(mPrecip);
-            mPrecip = 0;
+            Sound.Stop(_precip);
+            _precip = 0;
         }
         Sequencer.Tick();
     }

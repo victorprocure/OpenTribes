@@ -1,14 +1,14 @@
 // Port of tests/test_control_object.cpp: moves and control objects (docs/game-stream.md 6.1-6.5,
 // docs/player-manager.md 12.5): the move wire form, the ObserverCamera, the PlayerPSC blocks in both directions, and the
 // ownership and control links with their script commands. 258 asserts.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Core;
 using OpenTribes.Game;
 using OpenTribes.Net;
 using OpenTribes.Script;
 using OpenTribes.Sim;
 using OpenTribes.World;
-
-namespace OpenTribes.Tests;
 
 public class ControlObjectTests
 {
@@ -19,7 +19,7 @@ public class ControlObjectTests
     private static Move[] MoveArray(int n)
     {
         var m = new Move[n];
-        for (int i = 0; i < n; ++i)
+        for (var i = 0; i < n; ++i)
             m[i] = new Move();
         return m;
     }
@@ -29,21 +29,26 @@ public class ControlObjectTests
     private static void MoveWire()
     {
         // Full form, no previous move: 4 x int(4), jet, jump, crouch, fire, useItem, pitch, turn.
-        var m = new Move();
-        m.Forward = 1.0f;
-        m.Left = (float)(7.0 / 15.0);
-        m.Jet = true;
-        m.Crouch = true;
-        m.Fire = true;
-        m.UseItem = 9;
-        m.Pitch = 0.25f;
-        byte[] buf = new byte[64];
-        var w = new BitStream(buf, buf.Length);
+        var m = new Move
+        {
+            Forward = 1.0f,
+            Left = (float)(7.0 / 15.0),
+            Jet = true,
+            Crouch = true,
+            Fire = true,
+            UseItem = 9,
+            Pitch = 0.25f
+        };
+        var buf = new byte[64];
+        var w = new BitBuffer(buf, buf.Length);
         Moves.PackMove(w, m, true, null);
-        uint total = w.BitPosition();
+        var total = w.BitPosition();
         Assert.True(total == 16 + 3 + 1 + 1 + 8 + 1 + 32 + 1);
         var b = new Bits(buf, total);
-        Assert.True(b.U(4) == 15 && b.U(4) == 0 && b.U(4) == 7 && b.U(4) == 0);
+        Assert.Equal(15u, b.U(4));
+        Assert.Equal(0u, b.U(4));
+        Assert.Equal(7u, b.U(4));
+        Assert.Equal(0u, b.U(4));
         Assert.True(b.Flag() && !b.Flag() && b.Flag()); // jet, jump, crouch in this order
         Assert.True(b.Flag());                          // fire
         Assert.True(b.Flag() && b.U(8) == 9);           // useItem
@@ -52,47 +57,49 @@ public class ControlObjectTests
 
         // Same motion as the previous move: one bit instead of the 19 motion bits. Fire, useItem, pitch and turn are not
         // part of the comparison.
-        Move n = m;
+        var n = m;
         n.Fire = false;
         n.UseItem = -1;
         n.Pitch = 0;
         n.Turn = -0.5f;
-        var w2 = new BitStream(buf, buf.Length);
+        var w2 = new BitBuffer(buf, buf.Length);
         Moves.PackMove(w2, n, true, m);
         Assert.True(w2.BitPosition() == 1 + 1 + 1 + 1 + 1 + 32);
-        var r2 = new BitStream(buf, buf.Length);
-        Move o = m;
+        var r2 = new BitBuffer(buf, buf.Length);
+        var o = m;
         Moves.UnpackMove(r2, ref o, true, havePrev: true);
         Assert.True(o.Forward == 1.0f && o.Left == m.Left && o.Jet && o.Crouch && !o.Jump);
         Assert.True(!o.Fire && o.UseItem == -1 && o.Pitch == 0 && o.Turn == -0.5f);
 
         // A changed flag breaks "same"; the short form (ghost echo) carries the motion only.
         n.Jump = true;
-        var w3 = new BitStream(buf, buf.Length);
+        var w3 = new BitBuffer(buf, buf.Length);
         Moves.PackMove(w3, n, false, m);
         Assert.True(w3.BitPosition() == 1 + 19);
-        var r3 = new BitStream(buf, buf.Length);
-        var shortForm = new Move();
-        shortForm.Fire = true;
-        shortForm.UseItem = 3;
-        shortForm.Turn = 1;
+        var r3 = new BitBuffer(buf, buf.Length);
+        var shortForm = new Move
+        {
+            Fire = true,
+            UseItem = 3,
+            Turn = 1
+        };
         Moves.UnpackMove(r3, ref shortForm, false, in m);
         Assert.True(shortForm.Jump && shortForm.Jet && !shortForm.Fire && shortForm.UseItem == -1 && shortForm.Turn == 0);
 
         // Read values are n / 15; turn and pitch are clamped to 1 radian, NaN and infinity read 0.
         Assert.True(Moves.ClampMoveAngle(0.5f) == 0.5f && Moves.ClampMoveAngle(3.0f) == 1.0f);
         Assert.True(Moves.ClampMoveAngle(-3.0f) == -1.0f && Moves.ClampMoveAngle(-1.0f) == -1.0f);
-        Assert.True(Moves.ClampMoveAngle(FromBits(0x7fc00000)) == 0.0f);
-        Assert.True(Moves.ClampMoveAngle(FromBits(0x7f800000)) == 0.0f);
-        Assert.True(Moves.ClampMoveAngle(FromBits(0xff800000)) == 0.0f);
+        Assert.Equal(0.0f, Moves.ClampMoveAngle(FromBits(0x7fc00000)));
+        Assert.Equal(0.0f, Moves.ClampMoveAngle(FromBits(0x7f800000)));
+        Assert.Equal(0.0f, Moves.ClampMoveAngle(FromBits(0xff800000)));
     }
 
     // ---- 6.5 ObserverCamera ----
 
     private sealed class Calls
     {
-        public readonly List<string> Lines = new();
-        public ObserverCamera.CameraServices Services() => new() { Evaluate = l => Lines.Add(l) };
+        public List<string> Lines { get; } = [];
+        public ObserverCamera.CameraServices Services() => new() { Evaluate = Lines.Add };
     }
 
     private static ObserverCamera.CameraServices NoServices() => new();
@@ -103,47 +110,55 @@ public class ControlObjectTests
         var calls = new Calls();
         var cam = new ObserverCamera(ctx, 2049, calls.Services());
         // Constructor state (004348a4): fly mode, in the mission area, no targets.
-        Assert.True(cam.Mode == ObserverCamera.kFly && cam.InMissionArea && cam.OrbitObject == null && cam.DamageObject == null);
-        Assert.True(cam.ClassName() == "ObserverCamera" && (cam as SimObject) is GameBase g && g == cam);
+        Assert.True(cam.Mode == ObserverCamera.Fly && cam.InMissionArea && cam.OrbitObject == null && cam.DamageObject == null);
+        Assert.True(cam.ClassName() == "ObserverCamera" && cam as SimObject is GameBase g && g == cam);
         Assert.True(cam.ControlClient == 0 && cam.OwnerClient == 0 && cam.Team == -1 && cam.ClientId == 2049);
 
-        float[] rot = { 0, 0, 0 }, pos = { 100, 200, 50 };
+        float[] rot = [0, 0, 0], pos = [100, 200, 50];
         cam.SetFlyMode(true, true, rot, pos);
         Assert.True(cam.Transform.P[0] == 100 && cam.Transform.P[1] == 200 && cam.Transform.P[2] == 50);
 
         // The step of a move runs with the previous move: the first applied move does not move.
-        var fwd = new Move();
-        fwd.Forward = 1;
-        cam.ApplyMoves(new[] { fwd }, 1);
-        Assert.True(cam.Position[1] == 200.0f);
+        var fwd = new Move
+        {
+            Forward = 1
+        };
+        cam.ApplyMoves([fwd], 1);
+        Assert.Equal(200.0f, cam.Position[1]);
         // Second move: 10 units/s forward (row 1 of the rotation) for one 32 ms tick. The tick length is 32 * 0.001
         // stored under round toward zero (0x3d03126e).
-        cam.ApplyMoves(new[] { fwd }, 1);
+        cam.ApplyMoves([fwd], 1);
         float dt = FromBits(0x3d03126e), speed = 10.0f, start = 200.0f;
-        float delta = Fpu.Store(Fpu.Mul(dt, speed));
-        float want = Fpu.Store(Fpu.Add(start, delta));
+        var delta = Fpu.Store(Fpu.Mul(dt, speed));
+        var want = Fpu.Store(Fpu.Add(start, delta));
         Assert.True(cam.Position[0] == 100.0f && cam.Position[1] == want && cam.Position[2] == 50.0f);
         Assert.True(cam.Transform.P[1] == want);
         // Jet triples the speed; backward and left subtract; the result follows the yaw.
-        var back = new Move();
-        back.Backward = 1;
-        back.Jet = true;
+        var back = new Move
+        {
+            Backward = 1,
+            Jet = true
+        };
         cam.LastMove = back;
-        float before = cam.Position[1];
+        var before = cam.Position[1];
         cam.Step(cam.LastMove);
-        Assert.True(cam.Position[1] < before && Math.Abs((before - cam.Position[1]) - 0.96f) < 1e-4f);
-        float[] quarter = { 0, 0, 1.57079637f };
+        Assert.True(cam.Position[1] < before && Math.Abs(before - cam.Position[1] - 0.96f) < 1e-4f);
+        float[] quarter = [0, 0, 1.57079637f];
         cam.SetFlyMode(true, true, quarter, pos);
-        var right = new Move();
-        right.Right = 1;
+        var right = new Move
+        {
+            Right = 1
+        };
         cam.Step(right); // right is +x of the camera; after a quarter turn that is +y of the world
         Assert.True(Math.Abs(cam.Position[1] - 200.32f) < 1e-3f && Math.Abs(cam.Position[0] - 100.0f) < 1e-3f);
 
         // Turn adds to z and wraps into 0..2pi; pitch adds to x and clamps at +-1.3962 (0x3fb2b6ae).
         cam.SetFlyMode(true, true, rot, pos);
-        var turn = new Move();
-        turn.Turn = -0.25f;
-        turn.Pitch = 1.0f;
+        var turn = new Move
+        {
+            Turn = -0.25f,
+            Pitch = 1.0f
+        };
         cam.Step(turn);
         Assert.True(Math.Abs(cam.CamRotation[2] - (6.2831855f - 0.25f)) < 1e-6f && cam.CamRotation[0] == 1.0f);
         cam.Step(turn);
@@ -153,67 +168,71 @@ public class ControlObjectTests
         cam.Step(turn);
         cam.Step(turn);
         Assert.True(Math.Abs(cam.CamRotation[2] - 0.5f) < 1e-5f); // 2pi - 0.5 + 1.0 wrapped past 2pi
-        for (int i = 0; i < 4; ++i)
+        for (var i = 0; i < 4; ++i)
             cam.Step(turn);
-        Assert.True(Bits32(cam.CamRotation[0]) == 0xbfb2b6ae);
+        Assert.Equal(0xbfb2b6ae, Bits32(cam.CamRotation[0]));
 
         // Mode 1 (fly flag off): looks around but does not move. Mode 0: nothing changes.
         cam.SetFlyMode(false, true, rot, pos);
-        Assert.True(cam.Mode == ObserverCamera.kLook);
-        Move both = fwd;
+        Assert.True(cam.Mode == ObserverCamera.Look);
+        var both = fwd;
         both.Turn = 0.5f;
         cam.Step(both);
         Assert.True(cam.Position[1] == 200.0f && cam.CamRotation[2] == 0.5f);
         cam.SetFlyMode(true, false, rot, pos);
-        Assert.True(cam.Mode == ObserverCamera.kFixed);
+        Assert.True(cam.Mode == ObserverCamera.Fixed);
         cam.Step(both);
         Assert.True(cam.Position[1] == 200.0f && cam.CamRotation[2] == 0.0f);
         cam.SetFlyMode(false, false, rot, pos);
-        Assert.True(cam.Mode == ObserverCamera.kFixed);
+        Assert.True(cam.Mode == ObserverCamera.Fixed);
     }
 
     private static void CameraCallbacks()
     {
         var ctx = new ClassContext();
         var calls = new Calls();
-        ObserverCamera.CameraServices s = calls.Services();
-        float[] area = { 0, 0, 100, 100 };
+        var s = calls.Services();
+        float[] area = [0, 0, 100, 100];
         s.MissionArea = o =>
         {
             area.CopyTo(o, 0);
             return true;
         };
         var cam = new ObserverCamera(ctx, 2051, s);
-        float[] rot = { 0, 0, 0 }, pos = { 50, 99.9f, 0 };
+        float[] rot = [0, 0, 0], pos = [50, 99.9f, 0];
         cam.SetFlyMode(true, true, rot, pos);
 
         // Fire edges against the previous move call triggerDown / triggerUp with the client id; a held trigger calls
         // nothing. Jump calls Observer::jump for every move that has it.
-        Move[] m = MoveArray(5);
+        var m = MoveArray(5);
         m[1].Fire = m[2].Fire = true;
         m[3].Jump = m[4].Jump = true;
         cam.ApplyMoves(m, 5);
-        Assert.True(calls.Lines.SequenceEqual(new[] { "Observer::triggerDown(2051);", "Observer::triggerUp(2051);",
-                                                      "Observer::jump(2051);", "Observer::jump(2051);" }));
+        Assert.True(calls.Lines.SequenceEqual([ "Observer::triggerDown(2051);", "Observer::triggerUp(2051);",
+                                                      "Observer::jump(2051);", "Observer::jump(2051);" ]));
         calls.Lines.Clear();
 
         // Leaving and entering the mission area (x, y, w, h; bounds inclusive) is checked once per applyMoves call and
         // reported with the camera's object id (0 while unregistered).
-        var fwd = new Move();
-        fwd.Forward = 1;
-        Move[] run = { fwd, fwd, fwd };
+        var fwd = new Move
+        {
+            Forward = 1
+        };
+        Move[] run = [fwd, fwd, fwd];
         cam.ApplyMoves(run, 3);
         Assert.True(cam.Position[1] > 100.0f && !cam.InMissionArea);
-        Assert.True(calls.Lines.SequenceEqual(new[] { "Observer::leaveMissionArea(0);" }));
+        Assert.True(calls.Lines.SequenceEqual(["Observer::leaveMissionArea(0);"]));
         calls.Lines.Clear();
         cam.ApplyMoves(run, 1);
-        Assert.True(calls.Lines.Count == 0);
-        var back = new Move();
-        back.Backward = 1;
-        Move[] ret = { back, back, back, back };
+        Assert.Empty(calls.Lines);
+        var back = new Move
+        {
+            Backward = 1
+        };
+        Move[] ret = [back, back, back, back];
         cam.ApplyMoves(ret, 4);
         cam.ApplyMoves(ret, 4);
-        Assert.True(cam.InMissionArea && calls.Lines.SequenceEqual(new[] { "Observer::enterMissionArea(0);" }));
+        Assert.True(cam.InMissionArea && calls.Lines.SequenceEqual(["Observer::enterMissionArea(0);"]));
     }
 
     private static void CameraOrbit()
@@ -227,36 +246,40 @@ public class ControlObjectTests
         target.Transform.P[2] = 30;
 
         // Orbit point (00434afc with no object): mode 4, the point, rotation and distances.
-        float[] point = { 1, 2, 3 }, rot = { 0, 0, 0 };
+        float[] point = [1, 2, 3], rot = [0, 0, 0];
         cam.SetDamageObject(other);
         cam.SetOrbit(null, point, 5, 2, 8, rot);
-        Assert.True(cam.Mode == ObserverCamera.kOrbitPoint && cam.Position[0] == 1 && cam.Position[2] == 3);
+        Assert.True(cam.Mode == ObserverCamera.OrbitPoint && cam.Position[0] == 1 && cam.Position[2] == 3);
         Assert.True(cam.Distance == 5 && cam.MinDistance == 2 && cam.MaxDistance == 8 && cam.DamageObject == null);
         // A step puts the transform `distance` behind the point along the view direction (+y).
         var idle = new Move();
         cam.Step(idle);
         Assert.True(cam.Transform.P[0] == 1 && cam.Transform.P[1] == -3 && cam.Transform.P[2] == 3);
-        Assert.True(cam.Position[1] == 2); // the orbit centre is kept
+        Assert.Equal(2, cam.Position[1]); // the orbit centre is kept
         // Forward moves closer at 10 units/s (30 with jet), clamped to the limits.
-        var mIn = new Move();
-        mIn.Forward = 1;
-        mIn.Jet = true;
+        var mIn = new Move
+        {
+            Forward = 1,
+            Jet = true
+        };
         cam.Step(mIn);
         Assert.True(Math.Abs(cam.Distance - 4.04f) < 1e-5f);
-        for (int i = 0; i < 5; ++i)
+        for (var i = 0; i < 5; ++i)
             cam.Step(mIn);
         Assert.True(cam.Distance == 2.0f && cam.Transform.P[1] == 0.0f);
-        var mOut = new Move();
-        mOut.Backward = 1;
-        mOut.Jet = true;
-        for (int i = 0; i < 10; ++i)
+        var mOut = new Move
+        {
+            Backward = 1,
+            Jet = true
+        };
+        for (var i = 0; i < 10; ++i)
             cam.Step(mOut);
-        Assert.True(cam.Distance == 8.0f);
+        Assert.Equal(8.0f, cam.Distance);
 
         // Orbit object: mode 3, centre = the object's box centre (its position without a container entry); the centre
         // follows the object at every step.
         cam.SetOrbit(target, point, 4, 4, 4, rot);
-        Assert.True(cam.Mode == ObserverCamera.kOrbitObject && cam.OrbitObject == target);
+        Assert.True(cam.Mode == ObserverCamera.OrbitObjectMode && cam.OrbitObject == target);
         Assert.True(cam.Position[0] == 10 && cam.Position[1] == 20 && cam.Position[2] == 30);
         target.Transform.P[0] = 11;
         cam.Step(idle);
@@ -269,7 +292,7 @@ public class ControlObjectTests
         // setDamageObject: the orbit object itself is stored as none (00434978). The flash getter asks the damage
         // object, then the orbit object, else 0 (00434a24).
         cam.SetDamageObject(target);
-        Assert.True(cam.DamageObject == null);
+        Assert.Null(cam.DamageObject);
         cam.SetDamageObject(other);
         Assert.True(cam.DamageObject == other && cam.DamageFlash() == 0.0f);
 
@@ -283,26 +306,26 @@ public class ControlObjectTests
         cam.ObjectDeleted(other);
         Assert.True(cam.DamageObject == null && calls.Lines.Count == 0);
         cam.ObjectDeleted(target);
-        Assert.True(cam.OrbitObject == null && cam.Mode == ObserverCamera.kOrbitPoint);
-        Assert.True(calls.Lines.SequenceEqual(new[] { "Observer::orbitObjectDeleted(2049);" }));
+        Assert.True(cam.OrbitObject == null && cam.Mode == ObserverCamera.OrbitPoint);
+        Assert.True(calls.Lines.SequenceEqual(["Observer::orbitObjectDeleted(2049);"]));
         // setFlyMode drops both targets.
         cam.SetOrbit(target, point, 4, 4, 4, rot);
         cam.SetDamageObject(other);
         cam.SetFlyMode(true, true, rot, point);
-        Assert.True(cam.OrbitObject == null && cam.DamageObject == null && cam.Mode == ObserverCamera.kFly);
+        Assert.True(cam.OrbitObject == null && cam.DamageObject == null && cam.Mode == ObserverCamera.Fly);
     }
 
     private static void CameraControlState()
     {
         var ctx = new ClassContext();
         ObserverCamera cam = new(ctx, 2049, NoServices()), target = new(ctx, 0, NoServices());
-        float[] rot = { 0.5f, 0, 2.0f }, pos = { 1, 2, 3 };
+        float[] rot = [0.5f, 0, 2.0f], pos = [1, 2, 3];
         var cc = new ControlContext();
-        byte[] buf = new byte[64];
+        var buf = new byte[64];
 
         // Modes 0-2: rotation, int(3) mode, position.
         cam.SetFlyMode(true, true, rot, pos);
-        var w = new BitStream(buf, buf.Length);
+        var w = new BitBuffer(buf, buf.Length);
         cam.WriteControlState(w, cc);
         Assert.True(w.BitPosition() == 96 + 3 + 96);
         {
@@ -312,32 +335,36 @@ public class ControlObjectTests
         }
         // Mode 4: position, then min, max and current distance.
         cam.SetOrbit(null, pos, 5, 2, 8, rot);
-        var w4 = new BitStream(buf, buf.Length);
+        var w4 = new BitBuffer(buf, buf.Length);
         cam.WriteControlState(w4, cc);
         Assert.True(w4.BitPosition() == 96 + 3 + 96 + 96);
         {
             var b = new Bits(buf, w4.BitPosition());
-            b.U(32); b.U(32); b.U(32);
+            b.U(32);
+            b.U(32);
+            b.U(32);
             Assert.True(b.U(3) == 4 && b.F32() == 1 && b.F32() == 2 && b.F32() == 3);
             Assert.True(b.F32() == 2 && b.F32() == 8 && b.F32() == 5 && b.Done());
         }
         // Mode 3 with an object the client has no ghost of is sent as mode 4.
         cam.SetOrbit(target, pos, 5, 2, 8, rot);
-        var w3 = new BitStream(buf, buf.Length);
+        var w3 = new BitBuffer(buf, buf.Length);
         cam.WriteControlState(w3, cc);
         {
             var b = new Bits(buf, w3.BitPosition());
-            b.U(32); b.U(32); b.U(32);
+            b.U(32);
+            b.U(32);
+            b.U(32);
             Assert.True(b.U(3) == 4 && w3.BitPosition() == 96 + 3 + 96 + 96);
         }
-        Assert.True(cam.Mode == ObserverCamera.kOrbitObject); // only the wire value changes
+        Assert.True(cam.Mode == ObserverCamera.OrbitObjectMode); // only the wire value changes
     }
 
     // ---- 6.2-6.4 PlayerPSC ----
 
     private sealed class Fake
     {
-        public readonly List<(byte[] Data, uint Cookie)> Sent = new();
+        public List<(byte[] Data, uint Cookie)> Sent { get; } = [];
 
         public GameConnection.Transport Transport() => new()
         {
@@ -353,39 +380,39 @@ public class ControlObjectTests
     // Control object that records what it is given.
     private sealed class Probe : GameBase
     {
-        public Probe(ClassContext ctx) : base("Probe", Kind.Marker, -1, Array.Empty<PersistDef>(), ctx) { }
+        public Probe(ClassContext ctx) : base("Probe", Kind.Marker, -1, [], ctx) { }
         public override void ApplyMoves(Move[] m, int n)
         {
             Calls.Add(n);
-            for (int i = 0; i < n; ++i)
+            for (var i = 0; i < n; ++i)
                 All.Add(m[i]);
         }
-        public override void WriteControlState(BitStream bs, ControlContext ctx) => bs.WriteInt(0x5a, 8);
+        public override void WriteControlState(BitBuffer bs, ControlContext ctx) => bs.WriteInt(0x5a, 8);
         public override float DamageFlash() => Flash;
-        public readonly List<int> Calls = new();
-        public readonly List<Move> All = new();
-        public float Flash;
+        public List<int> Calls { get; } = [];
+        public List<Move> All { get; } = [];
+        public float Flash { get; set; }
     }
 
     // Client packet: no rates, no events, PSC with fov, first move index and moves, no ghosts.
-    private static byte[] MovePacket(uint first, IReadOnlyList<Move> moves, uint fov = 169)
+    private static byte[] MovePacket(uint first, Move[] moves, uint fov = 169)
     {
-        byte[] buf = new byte[1400];
-        var bs = new BitStream(buf, buf.Length);
+        var buf = new byte[1400];
+        var bs = new BitBuffer(buf, buf.Length);
         bs.WriteFlag(false);
         bs.WriteFlag(false);
         bs.WriteFlag(false);
         bs.WriteFlag(true);
         bs.WriteInt(fov, 8);
         bs.WriteInt(first, 32);
-        for (int i = 0; i < moves.Count; ++i)
+        for (var i = 0; i < moves.Length; ++i)
         {
             bs.WriteFlag(true);
             Moves.PackMove(bs, moves[i], true, i != 0 ? moves[i - 1] : null);
         }
         bs.WriteFlag(false);
         bs.WriteFlag(false);
-        Assert.True(!bs.Error());
+        Assert.False(bs.Error());
         return buf.AsSpan(0, bs.BytePosition()).ToArray();
     }
 
@@ -404,27 +431,31 @@ public class ControlObjectTests
         var ctx = new ClassContext();
         var world = new Container();
         ScopeThing terrain = new(), atDrop = new(), atPlayer = new();
-        var te = new Container.Entry(terrain, ObjectType.kTerrainType, Float6.Of(-9000, -9000, 0, 9000, 9000, 9000), false, null);
-        te.DatabaseKind = Container.Database.Terrain;
-        te.ContainerMask = 0xffffffffu;
-        te.VisibleDistance = 600;
+        var te = new Container.Entry(terrain, ObjectType.TerrainType, Float6.Of(-9000, -9000, 0, 9000, 9000, 9000), false, null)
+        {
+            DatabaseKind = Container.Database.Terrain,
+            ContainerMask = 0xffffffffu,
+            VisibleDistance = 600
+        };
         world.Add(te);
         // 4000 m apart: an observer camera sees 1500 m (it is in no container).
-        world.Add(new Container.Entry(atDrop, ObjectType.kStaticType, Float6.Of(-1, -1, 49, 1, 1, 51), false, null));
-        world.Add(new Container.Entry(atPlayer, ObjectType.kStaticType, Float6.Of(3999, -1, 49, 4001, 1, 51), false, null));
+        world.Add(new Container.Entry(atDrop, ObjectType.StaticType, Float6.Of(-1, -1, 49, 1, 1, 51), false, null));
+        world.Add(new Container.Entry(atPlayer, ObjectType.StaticType, Float6.Of(3999, -1, 49, 4001, 1, 51), false, null));
 
         var body = new Probe(ctx); // the player: its eye transform is its transform
         body.Transform.P[0] = 4000;
         body.Transform.P[2] = 50;
         var cam = new ObserverCamera(ctx, 2050, NoServices());
-        float[] drop = { 0, 0, 50 }, rot = { 0, 0, 0 };
+        float[] drop = [0, 0, 50], rot = [0, 0, 0];
         cam.SetFlyMode(true, true, rot, drop); // where the camera was left before the client spawned
 
         GameBase control = body;
         var f = new Fake();
-        var hooks = new GameConnection.Hooks();
-        hooks.ControlObject = () => control;
-        int calls = 0;
+        var hooks = new GameConnection.Hooks
+        {
+            ControlObject = () => control
+        };
+        var calls = 0;
         hooks.RemoteCall = (fn, args) =>
         {
             Assert.True(fn == "remoteOtCamera" && args.Count == 1 && args[0] == "2050");
@@ -438,16 +469,16 @@ public class ControlObjectTests
         c.Ghosts().ScopeQuery = g =>
         {
             GhostScope.ScopeGhosts(g, world);
-            sweeps.Add((g.Camera.Object, new[] { g.Camera.Pos[0], g.Camera.Pos[1], g.Camera.Pos[2] }));
+            sweeps.Add((g.Camera.CameraObject, new[] { g.Camera.Pos[0], g.Camera.Pos[1], g.Camera.Pos[2] }));
         };
         c.Ghosts().OnNewGhost = (_, obj) => created.Add(obj);
         c.Ghosts().StartGhosting();
         uint now = 0;
-        int acked = 0;
+        var acked = 0;
         void Send()
         {
             now += 100;
-            int before = f.Sent.Count;
+            var before = f.Sent.Count;
             c.Tick(now);
             Assert.True(f.Sent.Count == before + 1);
             while (acked + 4 < f.Sent.Count)
@@ -455,11 +486,11 @@ public class ControlObjectTests
         }
         bool Has(SimObject o) => created.Contains(o);
         Send(); // always phase: nothing to send, no sweep
-        Assert.True(sweeps.Count == 0);
+        Assert.Empty(sweeps);
 
         // The player in control: the sweep starts at the player.
         var idle = new Move();
-        byte[] first = MovePacket(0, new[] { idle });
+        var first = MovePacket(0, [idle]);
         c.Receive(first);
         Send();
         Assert.True(sweeps.Count == 1 && sweeps[^1].Object == body && sweeps[^1].Pos[0] == 4000);
@@ -468,12 +499,12 @@ public class ControlObjectTests
         // The console line: control to the camera, orbit around the player. Nothing is placed.
         control = cam;
         cam.SetOrbit(body, null, 6, 6, 6, rot);
-        Assert.True(cam.Mode == ObserverCamera.kOrbitObject && cam.Position[0] == 4000);
+        Assert.True(cam.Mode == ObserverCamera.OrbitObjectMode && cam.Position[0] == 4000);
         Assert.True(cam.Transform.P[0] == 0 && cam.Transform.P[1] == 0 && cam.Transform.P[2] == 50);
 
         // A packet without a move, then a packet written before the next client packet: the camera has not been
         // stepped and the sweep starts at the drop point.
-        byte[] empty = MovePacket(1, Array.Empty<Move>());
+        var empty = MovePacket(1, []);
         c.Receive(empty);
         Send();
         Assert.True(sweeps.Count == 2 && sweeps[^1].Object == cam);
@@ -484,8 +515,8 @@ public class ControlObjectTests
 
         // The first move steps the camera on receipt, before the packet of the same frame is written: the sweep starts
         // 6 m behind the player. The ghost at the player, deleted by the stale sweeps, is created again.
-        int ghosts = created.Count;
-        byte[] move = MovePacket(1, new[] { idle });
+        var ghosts = created.Count;
+        var move = MovePacket(1, [idle]);
         c.Receive(move);
         Assert.True(cam.Transform.P[0] == 4000 && cam.Transform.P[1] == -6 && cam.Transform.P[2] == 50);
         Send();
@@ -498,8 +529,8 @@ public class ControlObjectTests
         cam.SetFlyMode(true, true, rot, drop);
         control = body;
         calls = 0;
-        byte[] buf = new byte[256];
-        var bs = new BitStream(buf, buf.Length);
+        var buf = new byte[256];
+        var bs = new BitBuffer(buf, buf.Length);
         bs.WriteFlag(false); // rateSet
         bs.WriteFlag(false); // rateReq
         bs.WriteFlag(true);  // events
@@ -516,7 +547,7 @@ public class ControlObjectTests
         Moves.PackMove(bs, idle, true, null);
         bs.WriteFlag(false);
         bs.WriteFlag(false); // no ghost block
-        Assert.True(!bs.Error());
+        Assert.False(bs.Error());
         c.Receive(buf.AsSpan(0, bs.BytePosition()));
         Assert.True(calls == 1 && control == cam && body.Calls.Count == 1); // the move went to the camera
         Assert.True(cam.Transform.P[0] == 4000 && cam.Transform.P[1] == -6);
@@ -531,15 +562,17 @@ public class ControlObjectTests
         var probe = new Probe(ctx);
         GameBase? control = null;
         var f = new Fake();
-        var hooks = new GameConnection.Hooks();
-        hooks.ControlObject = () => control;
+        var hooks = new GameConnection.Hooks
+        {
+            ControlObject = () => control
+        };
         var c = new GameConnection(2049, f.Transport(), hooks);
 
         // Without a control object moves are counted and dropped (6.2).
-        Move[] three = MoveArray(3);
+        var three = MoveArray(3);
         three[1].Forward = 1;
         three[2].Turn = 0.5f;
-        byte[] p = MovePacket(0, three);
+        var p = MovePacket(0, three);
         c.Receive(p);
         Assert.True(c.MoveCount == 3 && probe.Calls.Count == 0);
 
@@ -548,12 +581,12 @@ public class ControlObjectTests
         control = probe;
         p = MovePacket(3, three);
         c.Receive(p);
-        Assert.True(c.MoveCount == 6 && probe.Calls.SequenceEqual(new[] { 3 }));
+        Assert.True(c.MoveCount == 6 && probe.Calls.SequenceEqual([3]));
         Assert.True(probe.All[0].Forward == 0 && probe.All[1].Forward == 1 && probe.All[2].Turn == 0.5f);
-        Assert.True(MathF.Abs(probe.Fov - 169.0f / 255.0f * 135.0f * 3.14159265f / 180.0f) < 1e-6f);
+        Assert.True(MathF.Abs(probe.Fov - (169.0f / 255.0f * 135.0f * 3.14159265f / 180.0f)) < 1e-6f);
 
         // A resend that overlaps: the moves the server has are skipped, the rest applied.
-        Move[] five = MoveArray(5);
+        var five = MoveArray(5);
         five[3].Jet = true;
         five[4].Jump = true;
         p = MovePacket(4, five);
@@ -566,7 +599,7 @@ public class ControlObjectTests
         Assert.True(c.MoveCount == 9 && probe.Calls.Count == 2);
         // A gap (first index after the next expected move) is an invalid packet: the connection reports it and reads
         // nothing more (docs/game-stream.md 6.6).
-        int invalidCalls = 0;
+        var invalidCalls = 0;
         var hooks2 = new GameConnection.Hooks { ControlObject = hooks.ControlObject, InvalidPacket = () => ++invalidCalls };
         var d = new GameConnection(2049, f.Transport(), hooks2);
         p = MovePacket(0, three);
@@ -579,17 +612,17 @@ public class ControlObjectTests
         d.Receive(p);
         Assert.True(d.MoveCount == 3 && invalidCalls == 1); // reported once, then ignored
         // The index is compared with 32-bit wrap: a huge index is a gap, not an overflow.
-        foreach (uint firstIndex in new[] { 0x7fffffffu, 0x80000000u })
+        foreach (var firstIndex in new[] { 0x7fffffffu, 0x80000000u })
         {
             var e = new GameConnection(2049, f.Transport(), hooks2);
             p = MovePacket(firstIndex, three);
             e.Receive(p);
             Assert.True(e.MoveCount == 0 && e.Invalid());
         }
-        Assert.True(probe.Calls.Count == 3);
+        Assert.Equal(3, probe.Calls.Count);
 
         // At most 30 new moves of one packet are taken (D13); the client resends the rest.
-        Move[] many = MoveArray(45);
+        var many = MoveArray(45);
         p = MovePacket(9, many);
         c.Receive(p);
         Assert.True(c.MoveCount == 39 && probe.Calls[^1] == 30);
@@ -600,19 +633,27 @@ public class ControlObjectTests
         Assert.True(!b.Flag() && !b.Flag() && !b.Flag() && b.Flag());
         b.U(3);
         b.Flag();
-        Assert.True(b.U(32) == 38);
+        Assert.Equal(38u, b.U(32));
     }
 
     private sealed class ServerPsc
     {
-        public uint Mode, LastMove, Flash, Ghost, State;
-        public bool Flag6a, Control, InvReset;
-        public readonly List<(uint Index, uint Shop, uint Buy)> Items = new(); // mode 4 rows
-        public readonly List<(uint, uint)> Visible = new();                    // mode 1 words
-        public bool Waypoint;
-        public uint WaypointX, WaypointY;
-        public uint CmdFirst, CmdRows;
-        public readonly List<uint> CmdSlots = new();
+        public uint Mode { get; set; }
+        public uint LastMove { get; set; }
+        public uint Flash { get; set; }
+        public uint Ghost { get; set; }
+        public uint State { get; set; }
+        public bool Flag6a { get; set; }
+        public bool Control { get; set; }
+        public bool InvReset { get; set; }
+        public List<(uint Index, uint Shop, uint Buy)> Items { get; } = []; // mode 4 rows
+        public List<(uint, uint)> Visible { get; } = [];                    // mode 1 words
+        public bool Waypoint { get; set; }
+        public uint WaypointX { get; set; }
+        public uint WaypointY { get; set; }
+        public uint CmdFirst { get; set; }
+        public uint CmdRows { get; set; }
+        public List<uint> CmdSlots { get; } = [];
     }
 
     // Decodes the PSC of a server packet that has no events. hasState: the Probe's 8-bit state.
@@ -634,17 +675,17 @@ public class ControlObjectTests
             if (p.Mode == 4)
                 while (b.Flag())
                 {
-                    uint i = b.U(4);
-                    uint shop = b.Flag() ? b.U(32) : 0;
-                    uint buy = b.Flag() ? b.U(32) : 0;
+                    var i = b.U(4);
+                    var shop = b.Flag() ? b.U(32) : 0;
+                    var buy = b.Flag() ? b.U(32) : 0;
                     p.Items.Add((i, shop, buy));
                 }
             p.InvReset = b.Flag();
-            Assert.True(!b.Flag()); // no item count deltas without a Player
+            Assert.False(b.Flag()); // no item count deltas without a Player
             if (p.Mode == 2)
             {
                 p.CmdFirst = b.U(8);
-                uint slot = p.CmdFirst;
+                var slot = p.CmdFirst;
                 while (b.Flag())
                 {
                     ++p.CmdRows;
@@ -655,7 +696,7 @@ public class ControlObjectTests
                         p.CmdSlots.Add(slot + k);
                         Assert.True(b.U(11) == slot + k && b.U(11) == 5 && b.U(3) == 1 && b.U(2) == 2);
                         if (slot + k < 128)
-                            Assert.True(b.U(3) == 3);
+                            Assert.Equal(3u, b.U(3));
                         else
                             Assert.True(b.Flag() && !b.Flag());
                         Assert.True(b.U(6) == 4 && b.U(3) == 6);
@@ -673,12 +714,12 @@ public class ControlObjectTests
                 }
                 while (b.Flag())
                 {
-                    uint i = b.U(3);
+                    var i = b.U(3);
                     p.Visible.Add((i, b.U(32)));
                 }
             }
         }
-        Assert.True(!b.Flag()); // no ghost block
+        Assert.False(b.Flag()); // no ghost block
         Assert.True((b.Pos() + 7) / 8 == d.Length);
         return p;
     }
@@ -705,18 +746,20 @@ public class ControlObjectTests
         GameBase? control = null;
         var input = new PscInput();
         var f = new Fake();
-        var hooks = new GameConnection.Hooks();
-        hooks.ControlObject = () => control;
-        hooks.PscInputFn = i => CopyInput(input, i);
+        var hooks = new GameConnection.Hooks
+        {
+            ControlObject = () => control,
+            PscInputFn = i => CopyInput(input, i)
+        };
         var c = new GameConnection(2049, f.Transport(), hooks);
         uint now = 0;
         // Sends the next packet. Packets older than the last four are reported delivered so the connection never
         // reaches its limit of unacknowledged packets.
-        int acked = 0;
+        var acked = 0;
         ServerPsc Send()
         {
             now += 100;
-            int before = f.Sent.Count;
+            var before = f.Sent.Count;
             c.Tick(now);
             Assert.True(f.Sent.Count == before + 1);
             while (acked + 4 < f.Sent.Count)
@@ -727,9 +770,9 @@ public class ControlObjectTests
         // No control object: the block ends after the flag (6.3).
         c.GuiMode = 1;
         c.Flag6a = true;
-        ServerPsc p = Send();
+        var p = Send();
         Assert.True(p.Mode == 1 && p.Flag6a && p.LastMove == 0xffffffff && !p.Control);
-        Assert.True(c.Ghosts().ScopeObject() == null);
+        Assert.Null(c.Ghosts().ScopeObject());
 
         // Control object that is not ghosted: flash byte, index 0x3ff, no control state. The object becomes the ghost
         // scope object. Play mode: no waypoint, then the visible mask as XOR words against what the client holds (all
@@ -741,31 +784,31 @@ public class ControlObjectTests
         p = Send();
         Assert.True(p.Control && p.Flash == 127 && p.Ghost == 0x3ff && !p.InvReset && !p.Waypoint);
         Assert.True(c.Ghosts().ScopeObject() == probe);
-        Assert.True(p.Visible.SequenceEqual(new[] { (0u, 0x6u), (4u, 0xa800ffffu) }));
-        uint firstCookie = f.Sent[^1].Cookie;
+        Assert.True(p.Visible.SequenceEqual([(0u, 0x6u), (4u, 0xa800ffffu)]));
+        var firstCookie = f.Sent[^1].Cookie;
         // Unchanged mask: nothing. A change: only the changed word, as XOR.
         p = Send();
-        Assert.True(p.Visible.Count == 0);
+        Assert.Empty(p.Visible);
         input.Visible[4] = 0xa800fff0;
         p = Send();
-        Assert.True(p.Visible.SequenceEqual(new[] { (4u, 0xfu) }));
-        uint changeCookie = f.Sent[^1].Cookie;
+        Assert.True(p.Visible.SequenceEqual([(4u, 0xfu)]));
+        var changeCookie = f.Sent[^1].Cookie;
         // 6.4: a lost packet puts its XOR words back, so they are sent again; a delivered one changes nothing.
         c.Notify(firstCookie, true);
         p = Send();
-        Assert.True(p.Visible.Count == 0);
+        Assert.Empty(p.Visible);
         c.Notify(changeCookie, false);
-        Assert.True(c.ClientVisible()[4] == 0xa800ffff);
+        Assert.Equal(0xa800ffff, c.ClientVisible()[4]);
         p = Send();
-        Assert.True(p.Visible.SequenceEqual(new[] { (4u, 0xfu) }));
+        Assert.True(p.Visible.SequenceEqual([(4u, 0xfu)]));
 
         // Inventory reset flag: sent once, re-armed when that packet is lost.
         c.InventoryReset = true;
         p = Send();
         Assert.True(p.InvReset);
-        uint resetCookie = f.Sent[^1].Cookie;
+        var resetCookie = f.Sent[^1].Cookie;
         p = Send();
-        Assert.True(!p.InvReset);
+        Assert.False(p.InvReset);
         c.Notify(resetCookie, false);
         p = Send();
         Assert.True(p.InvReset && !Send().InvReset);
@@ -780,8 +823,8 @@ public class ControlObjectTests
         Assert.True(p.Mode == 4 && p.Visible.Count == 0 && p.Items.Count == 2);
         Assert.True(p.Items[0].Index == 0 && p.Items[0].Shop == 0x3 && p.Items[0].Buy == 0x1);
         Assert.True(p.Items[1].Index == 6 && p.Items[1].Shop == 0x80 && p.Items[1].Buy == 0);
-        uint itemCookie = f.Sent[^1].Cookie;
-        Assert.True(Send().Items.Count == 0);
+        var itemCookie = f.Sent[^1].Cookie;
+        Assert.Empty(Send().Items);
         input.Buying[0] = 0;
         p = Send();
         Assert.True(p.Items.Count == 1 && p.Items[0].Shop == 0 && p.Items[0].Buy == 0x1);
@@ -797,7 +840,7 @@ public class ControlObjectTests
         p = Send();
         Assert.True(p.Waypoint && p.WaypointX == 1023 && p.WaypointY == 7);
         input.WaypointChanged = false;
-        Assert.True(!Send().Waypoint);
+        Assert.False(Send().Waypoint);
 
         // Command mode: int(8) first slot, rows of 8 slots while the cursor has not come round (32 rows cover all 256
         // slots). The cursor starts at -8, so the first block starts at slot 0 and each later block 8 further. A slot is
@@ -848,20 +891,22 @@ public class ControlObjectTests
         GhostManager.RegisterGhostClass("Probe", new GhostClass { Tag = 0x3f0, Pack = (_, _, _, _) => 0u });
         c.Ghosts().StartGhosting();
         c.Ghosts().MarkInScope(probe, true);
-        for (int i = 0; i < 6 && c.Ghosts().GhostIndex(probe) < 0; ++i)
+        for (var i = 0; i < 6 && c.Ghosts().GhostIndex(probe) < 0; ++i)
         {
             now += 100;
             c.Tick(now);
             c.Notify(f.Sent[^1].Cookie, true);
         }
-        int index = c.Ghosts().GhostIndex(probe);
+        var index = c.Ghosts().GhostIndex(probe);
         if (index >= 0)
         {
             now += 100;
             c.Tick(now);
             var b = new Bits(f.Sent[^1].Data, (uint)(f.Sent[^1].Data.Length * 8));
             Assert.True(!b.Flag() && !b.Flag() && !b.Flag() && b.Flag());
-            b.U(3); b.Flag(); b.U(32);
+            b.U(3);
+            b.Flag();
+            b.U(32);
             Assert.True(b.Flag() && b.U(8) == 127 && b.U(10) == (uint)index && b.U(8) == 0x5a);
         }
         c.Ghosts().ObjectRemoved(probe);
@@ -879,7 +924,9 @@ public class ControlObjectTests
             c.Tick(now);
             var b = new Bits(f.Sent[^1].Data, (uint)(f.Sent[^1].Data.Length * 8));
             Assert.True(!b.Flag() && !b.Flag() && !b.Flag() && b.Flag());
-            b.U(3); b.Flag(); b.U(32);
+            b.U(3);
+            b.Flag();
+            b.U(32);
             Assert.True(b.Flag());
             b.U(8);
             return b.U(10);
@@ -887,12 +934,12 @@ public class ControlObjectTests
         // Acknowledge everything sent so far except the packets after this point.
         while (acked < f.Sent.Count)
             c.Notify(f.Sent[acked++].Cookie, true);
-        Assert.True(LateIndex() == 0x3ff);          // create in flight
-        int firstCreate = f.Sent.Count - 1;
-        Assert.True(LateIndex() == 0x3ff);          // still unacknowledged
+        Assert.Equal(0x3ffu, LateIndex());          // create in flight
+        var firstCreate = f.Sent.Count - 1;
+        Assert.Equal(0x3ffu, LateIndex());          // still unacknowledged
         Assert.True(c.Ghosts().GhostIndex(late) < 0);
         c.Notify(f.Sent[firstCreate].Cookie, false); // lost: create is sent again
-        Assert.True(LateIndex() == 0x3ff);
+        Assert.Equal(0x3ffu, LateIndex());
         c.Notify(f.Sent[^1].Cookie, true);
         Assert.True(c.Ghosts().GhostIndex(late) >= 0);
         Assert.True(LateIndex() == (uint)c.Ghosts().GhostIndex(late));
@@ -903,7 +950,7 @@ public class ControlObjectTests
 
     private static Fixtures.World FreshWorld(string name)
     {
-        string root = TestPaths.TmpDir(name);
+        var root = TestPaths.TmpDir(name);
         Directory.Delete(root, true);
         Directory.CreateDirectory(Path.Combine(root, "base"));
         return new Fixtures.World(root);
@@ -911,136 +958,136 @@ public class ControlObjectTests
 
     private static void Ownership()
     {
-        Fixtures.World w = FreshWorld("control_object");
-        PlayerManager pm = w.Game.Players;
+        var w = FreshWorld("control_object");
+        var pm = w.Game.Players;
         var maskBits = new List<(int, uint)>();
         pm.SetMaskBitsHook = (o, bits) => maskBits.Add((o.Id(), bits));
-        w.Sim.Server()!.OnUnregister = o => pm.ObjectRemoved(o);
+        w.Sim.Server()!.OnUnregister = pm.ObjectRemoved;
         w.Run("resetPlayerManager();");
         w.Game.AddTeam(0);
         w.Game.AddTeam(1);
         w.Run("instant StaticShape \"a\" { position = \"10 20 30\"; }; instant StaticShape \"b\" { position = \"1 2 3\"; };");
-        GameBase? a = w.Object("a") as GameBase;
-        GameBase? b = w.Object("b") as GameBase;
+        var a = w.Object("a") as GameBase;
+        var b = w.Object("b") as GameBase;
         Assert.True(a != null && b != null);
-        string A = a!.Id().ToString(), B = b!.Id().ToString();
+        string a2 = a!.Id().ToString(), b2 = b!.Id().ToString();
 
-        ClientRecord? c1 = pm.AddClient(2049, "One", "male1", true);
-        ClientRecord? c2 = pm.AddClient(2050, "Two", "male1", true);
+        var c1 = pm.AddClient(2049, "One", "male1", true);
+        var c2 = pm.AddClient(2050, "Two", "male1", true);
         Assert.True(c1 != null && c2 != null && c1.Camera != null && c2.Camera != null && c1.Camera.ClientId == 2049);
         ObserverCamera cam1o = c1!.Camera!, cam2o = c2!.Camera!;
-        string cam1 = cam1o.Id().ToString();
+        var cam1 = cam1o.Id().ToString();
         // The connection's Net::EventManager is a registered object whose pool id comes right before the camera's
         // (live: EventManager n, ObserverCamera n + 1 per client).
-        Assert.True(w.Run("echo(getObjectType(" + (cam1o.Id() - 1) + "));") == "Net::EventManager");
+        Assert.Equal("Net::EventManager", w.Run("echo(getObjectType(" + (cam1o.Id() - 1) + "));"));
         Assert.True(cam2o.Id() == cam1o.Id() + 2);
         // The camera is a registered GameBase: GameBase commands work on it; no links yet.
         Assert.True(w.Run("echo(Client::getObserverCamera(2049));") == cam1);
-        Assert.True(w.Run("echo(GameBase::getControlClient(" + cam1 + "), GameBase::getOwnerClient(" + cam1 + "));") == "-1-1");
-        Assert.True(w.Run("echo(Observer::setFlyMode(2049, \"5 6 7\", \"0 0 1\", true, true));") == "True");
-        Assert.True(w.Run("echo(GameBase::getPosition(" + cam1 + "));") == "5 6 7");
+        Assert.Equal("-1-1", w.Run("echo(GameBase::getControlClient(" + cam1 + "), GameBase::getOwnerClient(" + cam1 + "));"));
+        Assert.Equal("True", w.Run("echo(Observer::setFlyMode(2049, \"5 6 7\", \"0 0 1\", true, true));"));
+        Assert.Equal("5 6 7", w.Run("echo(GameBase::getPosition(" + cam1 + "));"));
 
         // Client::setControlObject (0041d4b8): the object's control client (+0x230) and the record's control object
         // are kept one to one; mask bit 4 marks the GameBase part.
-        Assert.True(w.Run("echo(Client::setControlObject(2049, " + cam1 + "));") == "true");
+        Assert.Equal("true", w.Run("echo(Client::setControlObject(2049, " + cam1 + "));"));
         Assert.True(c1.ControlObject == cam1o.Id() && cam1o.ControlClient == 2049);
         Assert.True(w.Run("echo(Client::getControlObject(2049), GameBase::getControlClient(" + cam1 + "));") == cam1 + "2049");
-        Assert.True(maskBits.SequenceEqual(new[] { (cam1o.Id(), 4u) }));
+        Assert.True(maskBits.SequenceEqual([(cam1o.Id(), 4u)]));
         Assert.True(pm.ControlObjectOf(2049) == cam1o && pm.ControlObjectOf(2050) == null);
         // Same client again: no change, no mask bits.
         maskBits.Clear();
         w.Run("Client::setControlObject(2049, " + cam1 + ");");
-        Assert.True(maskBits.Count == 0);
+        Assert.Empty(maskBits);
         // Another object: the previous one is released first.
-        Assert.True(w.Run("echo(Client::setControlObject(2049, a));") == "true");
+        Assert.Equal("true", w.Run("echo(Client::setControlObject(2049, a));"));
         Assert.True(c1.ControlObject == a.Id() && a.ControlClient == 2049 && cam1o.ControlClient == 0);
-        Assert.True(maskBits.SequenceEqual(new[] { (cam1o.Id(), 4u), (a.Id(), 4u) }));
+        Assert.True(maskBits.SequenceEqual([(cam1o.Id(), 4u), (a.Id(), 4u)]));
         // Another client takes the object: the first client loses it.
-        Assert.True(w.Run("echo(Client::setControlObject(2050, " + A + "));") == "true");
+        Assert.Equal("true", w.Run("echo(Client::setControlObject(2050, " + a2 + "));"));
         Assert.True(c1.ControlObject == 0 && c2.ControlObject == a.Id() && a.ControlClient == 2050);
         // Not an object (-1): the client's current control object is released.
-        Assert.True(w.Run("echo(Client::setControlObject(2050, -1));") == "true");
+        Assert.Equal("true", w.Run("echo(Client::setControlObject(2050, -1));"));
         Assert.True(c2.ControlObject == 0 && a.ControlClient == 0);
-        Assert.True(w.Run("echo(Client::getControlObject(2050), GameBase::getControlClient(a));") == "-1-1");
-        Assert.True(w.Run("echo(Client::setControlObject(2060, a));") == "false");
+        Assert.Equal("-1-1", w.Run("echo(Client::getControlObject(2050), GameBase::getControlClient(a));"));
+        Assert.Equal("false", w.Run("echo(Client::setControlObject(2060, a));"));
 
         // Client::setOwnedObject (0041d3b4): owner (+0x238) and the last non-zero owner (+0x234).
         maskBits.Clear();
-        Assert.True(w.Run("echo(Client::setOwnedObject(2049, a));") == "true");
+        Assert.Equal("true", w.Run("echo(Client::setOwnedObject(2049, a));"));
         Assert.True(c1.OwnedObject == a.Id() && a.OwnerClient == 2049 && a.LastOwnerClient == 2049);
         Assert.True(w.Run("echo(Client::getOwnedObject(2049), GameBase::getOwnerClient(a), Player::getClient(a));") ==
-                    A + "20492049");
-        Assert.True(maskBits.SequenceEqual(new[] { (a.Id(), 4u) }));
+                    a2 + "20492049");
+        Assert.True(maskBits.SequenceEqual([(a.Id(), 4u)]));
         // A client id as an object argument names that client's owned object (00422d18).
         Assert.True(pm.FindServerObject("2049") == a && pm.FindServerObject("2050") == null);
-        Assert.True(pm.FindServerObject(A) == a && pm.FindServerObject("nothing") == null);
-        Assert.True(w.Run("echo(GameBase::getPosition(2049));") == "10 20 30");
-        Assert.True(w.Run("echo(GameBase::getOwnerClient(2049));") == "2049");
+        Assert.True(pm.FindServerObject(a2) == a && pm.FindServerObject("nothing") == null);
+        Assert.Equal("10 20 30", w.Run("echo(GameBase::getPosition(2049));"));
+        Assert.Equal("2049", w.Run("echo(GameBase::getOwnerClient(2049));"));
         // GameBase::getTeam resolves a client id as the client, not as its object (12.3). The client follows the team
         // of its owned object (GB6, 0x004483cd): the answer is the client's team, 1 after the object changed to 1.
-        Assert.True(w.Run("echo(GameBase::getTeam(2049));") == "-1");
+        Assert.Equal("-1", w.Run("echo(GameBase::getTeam(2049));"));
         a.SetTeam(1);
         Assert.True(w.Run("echo(GameBase::getTeam(2049));") == "1" && c1.Team == 1);
         // A team change of the client moves its owned object (5 step 7).
         pm.SetTeam(2049, 0);
-        Assert.True(a.Team == 0);
+        Assert.Equal(0, a.Team);
         // Owning a second object releases the first; the last owner stays.
-        Assert.True(w.Run("echo(Client::setOwnedObject(2049, b));") == "true");
+        Assert.Equal("true", w.Run("echo(Client::setOwnedObject(2049, b));"));
         Assert.True(a.OwnerClient == 0 && a.LastOwnerClient == 2049 && b.OwnerClient == 2049 && c1.OwnedObject == b.Id());
-        Assert.True(w.Run("echo(Client::setOwnedObject(2049, -1));") == "true");
+        Assert.Equal("true", w.Run("echo(Client::setOwnedObject(2049, -1));"));
         Assert.True(c1.OwnedObject == 0 && b.OwnerClient == 0 && b.LastOwnerClient == 2049);
-        Assert.True(w.Run("echo(Client::getOwnedObject(2049), GameBase::getOwnerClient(b));") == "-1-1");
+        Assert.Equal("-1-1", w.Run("echo(Client::getOwnedObject(2049), GameBase::getOwnerClient(b));"));
 
         // Error texts and argument counts.
-        Assert.True(w.Run("echo(GameBase::getOwnerClient());") == "invalid call to GameBase::getOwnerClient(object)\n-1");
-        Assert.True(w.Run("echo(Player::getClient());") == "invalid call to Player::getClient(object)\n-1");
-        Assert.True(w.Run("echo(GameBase::getControlClient(1, 2));") == "invalid call to GameBase::getControlClient(object)\n-1");
-        Assert.True(w.Run("echo(GameBase::getControlClient(nothing));") == "-1");
+        Assert.Equal("invalid call to GameBase::getOwnerClient(object)\n-1", w.Run("echo(GameBase::getOwnerClient());"));
+        Assert.Equal("invalid call to Player::getClient(object)\n-1", w.Run("echo(Player::getClient());"));
+        Assert.Equal("invalid call to GameBase::getControlClient(object)\n-1", w.Run("echo(GameBase::getControlClient(1, 2));"));
+        Assert.Equal("-1", w.Run("echo(GameBase::getControlClient(nothing));"));
 
         // Observer commands: argument counts, return strings (0043a2fc, 0043a404, 0043a518, 0043a670).
-        Assert.True(w.Run("echo(Observer::setOrbitObject(2049, a, 5, 5));") == "false");
-        Assert.True(w.Run("echo(Observer::setOrbitObject(2060, a, 5, 5, 5));") == "false");
-        Assert.True(w.Run("echo(Observer::setOrbitObject(2049, nothing, 5, 5, 5));") == "false");
-        Assert.True(w.Run("echo(Observer::setOrbitObject(2049, 2050, 5, 5, 5));") == "false"); // client without an object
-        Assert.True(w.Run("echo(Observer::setOrbitObject(2049, a, 5, 2, 9, \"0.1 0 0.2\"));") == "True");
-        ObserverCamera cam = cam1o;
-        Assert.True(cam.Mode == ObserverCamera.kOrbitObject && cam.OrbitObject == a);
+        Assert.Equal("false", w.Run("echo(Observer::setOrbitObject(2049, a, 5, 5));"));
+        Assert.Equal("false", w.Run("echo(Observer::setOrbitObject(2060, a, 5, 5, 5));"));
+        Assert.Equal("false", w.Run("echo(Observer::setOrbitObject(2049, nothing, 5, 5, 5));"));
+        Assert.Equal("false", w.Run("echo(Observer::setOrbitObject(2049, 2050, 5, 5, 5));")); // client without an object
+        Assert.Equal("True", w.Run("echo(Observer::setOrbitObject(2049, a, 5, 2, 9, \"0.1 0 0.2\"));"));
+        var cam = cam1o;
+        Assert.True(cam.Mode == ObserverCamera.OrbitObjectMode && cam.OrbitObject == a);
         Assert.True(cam.Distance == 5 && cam.MinDistance == 2 && cam.MaxDistance == 9);
         Assert.True(MathF.Abs(cam.CamRotation[0] - 0.1f) < 1e-6f && MathF.Abs(cam.CamRotation[2] - 0.2f) < 1e-6f);
         Assert.True(cam.Position[0] == 10 && cam.Position[1] == 20 && cam.Position[2] == 30);
-        Assert.True(w.Run("echo(Observer::setDamageObject(2049, b), Observer::setDamageObject(2049, b, 1));") == "truefalse");
+        Assert.Equal("truefalse", w.Run("echo(Observer::setDamageObject(2049, b), Observer::setDamageObject(2049, b, 1));"));
         Assert.True(cam.DamageObject == b);
-        Assert.True(w.Run("echo(Observer::setDamageObject(2049, nothing), Observer::setDamageObject(2060, b));") == "falsefalse");
-        Assert.True(w.Run("echo(Observer::setOrbitPoint(2049, \"1 2 3\", -3, -3, -3));") == "True");
-        Assert.True(cam.Mode == ObserverCamera.kOrbitPoint && cam.OrbitObject == null && cam.DamageObject == null);
+        Assert.Equal("falsefalse", w.Run("echo(Observer::setDamageObject(2049, nothing), Observer::setDamageObject(2060, b));"));
+        Assert.Equal("True", w.Run("echo(Observer::setOrbitPoint(2049, \"1 2 3\", -3, -3, -3));"));
+        Assert.True(cam.Mode == ObserverCamera.OrbitPoint && cam.OrbitObject == null && cam.DamageObject == null);
         Assert.True(cam.Position[0] == 1 && cam.Distance == -3 && cam.CamRotation[0] == 0);
-        Assert.True(w.Run("echo(Observer::setOrbitPoint(2049, \"1 2 3\", 1, 1));") == "false");
-        Assert.True(w.Run("echo(Client::toggleCMDObserver(true), Client::toggleCMDObserver());") == "FalseFalse");
-        Assert.True(w.Run("echo(Client::limitCommandBandwidth(2049, true), Client::limitCommandBandwidth(2060, true), " +
-                          "Client::limitCommandBandwidth(2049));") == "truefalsefalse");
+        Assert.Equal("false", w.Run("echo(Observer::setOrbitPoint(2049, \"1 2 3\", 1, 1));"));
+        Assert.Equal("FalseFalse", w.Run("echo(Client::toggleCMDObserver(true), Client::toggleCMDObserver());"));
+        Assert.Equal("truefalsefalse", w.Run("echo(Client::limitCommandBandwidth(2049, true), Client::limitCommandBandwidth(2060, true), " +
+                          "Client::limitCommandBandwidth(2049));"));
         Assert.True(c1.LimitCommand);
 
         // Deleting an object (GameBase::onRemove 00448180) clears the records that point at it and tells cameras that
         // orbit it.
         w.Run("Observer::setOrbitObject(2050, b, 5, 5, 5); Client::setControlObject(2049, b); Client::setOwnedObject(2050, b);");
         Assert.True(c1.ControlObject == b.Id() && c2.OwnedObject == b.Id() && cam2o.OrbitObject == b);
-        int bid = b.Id();
+        var bid = b.Id();
         w.Sim.Server()!.DeleteObject(b);
         Assert.True(c1.ControlObject == 0 && c2.OwnedObject == 0 && bid != 0);
-        Assert.True(cam2o.OrbitObject == null && cam2o.Mode == ObserverCamera.kOrbitPoint);
+        Assert.True(cam2o.OrbitObject == null && cam2o.Mode == ObserverCamera.OrbitPoint);
 
         // Disconnect: the owned object is deleted with the client, the camera too (4.2).
         w.Run("Client::setOwnedObject(2050, a);");
-        int camId = cam2o.Id();
+        var camId = cam2o.Id();
         pm.RemoveClient(2050);
         Assert.True(w.Sim.Server()!.FindById(camId) == null && w.Object("a") == null);
     }
 
     private static void Visibility()
     {
-        Fixtures.World w = FreshWorld("control_object_vis");
-        PlayerManager pm = w.Game.Players;
-        w.Sim.Server()!.OnUnregister = o => pm.ObjectRemoved(o);
+        var w = FreshWorld("control_object_vis");
+        var pm = w.Game.Players;
+        w.Sim.Server()!.OnUnregister = pm.ObjectRemoved;
         w.Run("resetPlayerManager();");
         w.Game.AddTeam(0);
         w.Game.AddTeam(1);
@@ -1055,34 +1102,34 @@ public class ControlObjectTests
         mk.SetTeam(-1);
         // The sweep (static-sim.md 3.4) sets the own-team bit of the objects it refreshes.
         var sensors = (SensorManager)w.Sim.Server()!.FindById(720)!;
-        foreach (GameBase g in new[] { t0, t1, n, mk })
+        foreach (var g in new[] { t0, t1, n, mk })
             sensors.Update(g);
         // An object is visible to its own team (00439d70); a Marker of team -1 to every team (00486154); nothing to
         // team -1, whose test reads bits 7 and 31 (004495b4).
-        Assert.True(pm.VisibleToTeam(t0, 0) && !pm.VisibleToTeam(t0, 1) && !pm.VisibleToTeam(t0, -1));
-        Assert.True(pm.VisibleToTeam(t1, 1) && !pm.VisibleToTeam(t1, 0));
-        Assert.True(!pm.VisibleToTeam(n, 0) && !pm.VisibleToTeam(n, -1));
-        Assert.True(pm.VisibleToTeam(mk, 0) && pm.VisibleToTeam(mk, 1) && !pm.VisibleToTeam(mk, -1));
+        Assert.True(PlayerManager.VisibleToTeam(t0, 0) && !PlayerManager.VisibleToTeam(t0, 1) && !PlayerManager.VisibleToTeam(t0, -1));
+        Assert.True(PlayerManager.VisibleToTeam(t1, 1) && !PlayerManager.VisibleToTeam(t1, 0));
+        Assert.True(!PlayerManager.VisibleToTeam(n, 0) && !PlayerManager.VisibleToTeam(n, -1));
+        Assert.True(PlayerManager.VisibleToTeam(mk, 0) && PlayerManager.VisibleToTeam(mk, 1) && !PlayerManager.VisibleToTeam(mk, -1));
         mk.SetTeam(1);
-        Assert.True(!pm.VisibleToTeam(mk, 0) && pm.VisibleToTeam(mk, 1));
+        Assert.True(!PlayerManager.VisibleToTeam(mk, 0) && PlayerManager.VisibleToTeam(mk, 1));
         mk.SetTeam(-1);
 
         // Mask: words 0-3 clients by owned object, words 4-7 sensor targets by index.
         w.Game.Targets.Clear();
-        w.Game.Targets.AddRange(new GameBase?[] { t0, t1, null, mk });
-        ClientRecord c = pm.AddClient(2051, "P", "male1", true)!;
+        w.Game.Targets.AddRange([t0, t1, null, mk]);
+        var c = pm.AddClient(2051, "P", "male1", true)!;
         pm.SetOwnerClient(t1, 2051);
-        uint[] mask = new uint[8];
+        var mask = new uint[8];
         pm.VisibleMask(0, mask);
         Assert.True(mask[0] == 0 && mask[4] == 0x9 && mask[5] == 0);
         pm.VisibleMask(1, mask);
         Assert.True(mask[0] == (1u << 3) && mask[4] == 0xa);
         pm.VisibleMask(-1, mask);
-        foreach (uint word in mask)
-            Assert.True(word == 0);
+        foreach (var word in mask)
+            Assert.Equal(0u, word);
 
         // Mission area and command map slots. Without a MissionCenterPos the area is zero.
-        float[] area = { 9, 9, 9, 9 };
+        float[] area = [9, 9, 9, 9];
         Assert.True(!pm.MissionArea(area) && area[0] == 0 && area[3] == 0);
         w.Run("instant MissionCenterPos \"MissionCenter\" { x = \"-100\"; y = \"-200\"; w = \"400\"; h = \"800\"; };");
         Assert.True(pm.MissionArea(area) && area[0] == -100 && area[1] == -200 && area[2] == 400 && area[3] == 800);
@@ -1094,12 +1141,12 @@ public class ControlObjectTests
         // Client slot: the owned object; coordinates ((p - origin) + extent / 2) * 1023 / extent.
         Assert.True(pm.CommandSlot(c, 3, s));
         Assert.True(s.InRange && s.X == 1023 && s.Y == 511 && s.Team == 1 && s.CommandStatus == 3);
-        Assert.True(!pm.CommandSlot(c, 4, s)); // no such client
+        Assert.False(pm.CommandSlot(c, 4, s)); // no such client
         // Target slots start at 128; other teams' targets are absent, the Marker is present.
         var t = new CommandMapSlot();
         Assert.True(pm.CommandSlot(c, 129, t) && t.Team == 1);
         Assert.True(!pm.CommandSlot(c, 128, t) && !pm.CommandSlot(c, 130, t) && pm.CommandSlot(c, 131, t));
-        Assert.True(!pm.CommandSlot(c, 140, t));
+        Assert.False(pm.CommandSlot(c, 140, t));
         // Far outside the area: present but not in range (11-bit coordinates).
         t1.Transform.P[0] = -5000;
         Assert.True(pm.CommandSlot(c, 129, t) && !t.InRange);
@@ -1108,11 +1155,11 @@ public class ControlObjectTests
         // controllable; Marker (GameBase) sends 0 and no flags.
         Assert.True(pm.CommandSlot(c, 129, t) && t.Status == 0 && !t.Active && !t.Controllable);
         t1.Active = true;
-        t1.DamageState = GameBase.kDestroyed;
+        t1.DamageState = GameBase.Destroyed;
         Assert.True(pm.CommandSlot(c, 129, t) && t.Status == 2 && t.Active && !t.Controllable);
-        t1.DamageState = GameBase.kNone;
+        t1.DamageState = GameBase.None;
         Assert.True(pm.CommandSlot(c, 129, t) && t.Status == 3);
-        t1.DamageState = GameBase.kEnabled;
+        t1.DamageState = GameBase.Enabled;
         t1.Active = false;
         Assert.True(pm.CommandSlot(c, 131, t) && t.Status == 0 && !t.Active && !t.Controllable);
         // An ObserverCamera as owned object: status 2 (00434a5c).
@@ -1127,15 +1174,15 @@ public class ControlObjectTests
         // PlayerTeamChangeEvent (0x452) goes to every human; an unchanged team sends nothing (G14 leftover).
         {
             var evs = new List<(int, uint)>();
-            Action<int, OutEvent> oldSend = pm.Send;
+            var oldSend = pm.Send;
             pm.Send = (id, e) => evs.Add((id, e.Tag));
             t1.SetTeam(0);
-            Assert.True(c.Team == 0 && evs.SequenceEqual(new[] { (2051, 0x452u) }));
+            Assert.True(c.Team == 0 && evs.SequenceEqual([(2051, 0x452u)]));
             t1.SetTeam(1);
             Assert.True(c.Team == 1 && evs.Count == 2);
             evs.Clear();
             t1.SetTeam(1);
-            Assert.True(evs.Count == 0);
+            Assert.Empty(evs);
             w.Run("GameBase::setTeam(" + t1.Id() + ", 0);");
             Assert.True(c.Team == 0 && evs.Count == 1);
             t1.SetTeam(1);
@@ -1145,9 +1192,8 @@ public class ControlObjectTests
 
         // Waypoint of a targeted command: (p - origin) * 1023 / extent of the target while it is visible to the
         // client's team; reported once per change and stored in the record.
-        uint wx, wy;
         c.CommandTarget = 129;
-        Assert.True(!pm.UpdateWaypoint(c, out wx, out wy)); // no command (icon -1)
+        Assert.False(pm.UpdateWaypoint(c, out var wx, out var wy)); // no command (icon -1)
         c.CommandIcon = 5;
         Assert.True(pm.UpdateWaypoint(c, out wx, out wy) && wx == 511 && wy == 0);
         Assert.True(c.WaypointX == 511 && c.WaypointY == 0 && !pm.UpdateWaypoint(c, out wx, out wy));
@@ -1157,12 +1203,12 @@ public class ControlObjectTests
         Assert.True(!pm.UpdateWaypoint(c, out wx, out wy) && c.WaypointX == 511);
         t1.Transform.P[0] = 0;
         c.CommandTarget = 128; // team 0's target: not visible to team 1
-        Assert.True(!pm.UpdateWaypoint(c, out wx, out wy));
+        Assert.False(pm.UpdateWaypoint(c, out wx, out wy));
         c.CommandTarget = 3; // client 2051: its owned object t1
         Assert.True(pm.UpdateWaypoint(c, out wx, out wy) && wx == 255 && wy == 1023);
         c.CommandTarget = -1; // waypoint command: no target to follow
         t1.Transform.P[0] = 50;
-        Assert.True(!pm.UpdateWaypoint(c, out wx, out wy));
+        Assert.False(pm.UpdateWaypoint(c, out wx, out wy));
         c.CommandIcon = -1;
         t1.Transform.P[0] = 100;
         t1.Transform.P[1] = -200;
@@ -1172,15 +1218,15 @@ public class ControlObjectTests
         // A Player takes no sensor target slot, whatever its datablock says: SensorManager_addTarget (00439c70) refuses
         // datablock group 3, so it shows only in its client slot.
         w.Run("PlayerData varmor { shapeFile = \"none\"; visibleToSensor = true; };");
-        SimObject? po = w.Object(w.Run("echo(spawnPlayer(varmor, \"0 0 0\", \"0 0 0\"));"));
+        var po = w.Object(w.Run("echo(spawnPlayer(varmor, \"0 0 0\", \"0 0 0\"));"));
         Assert.True(po is GameBase pgb && pgb.TargetIndex == -1);
-        Assert.True(w.Game.Targets.Count == 4);
-        foreach (GameBase? g in w.Game.Targets)
+        Assert.Equal(4, w.Game.Targets.Count);
+        foreach (var g in w.Game.Targets)
             Assert.True(g != po);
         w.Sim.Server()!.DeleteObject(po!); // no MissionCleanup group here to own it
         // Removed targets leave their slot empty.
         w.Sim.Server()!.DeleteObject(t0);
-        Assert.True(w.Game.Targets[0] == null);
+        Assert.Null(w.Game.Targets[0]);
     }
 
     // docs/game-stream.md 1.1: the connection's members as server manager objects.
@@ -1188,26 +1234,26 @@ public class ControlObjectTests
     // The connection object a client id names (Net::PacketStream, a group with the client id).
     private sealed class TestConnection : SimGroup
     {
-        private readonly int mId;
-        public TestConnection(int id) => mId = id;
+        private readonly int _id;
+        public TestConnection(int id) => _id = id;
         public override string ClassName() => "Net::PacketStream";
-        public override int FixedId() => mId;
+        public override int FixedId() => _id;
     }
 
     private static void ConnectionObjects()
     {
-        Fixtures.World w = FreshWorld("connection_objects");
-        PlayerManager pm = w.Game.Players;
-        SimManager m = w.Sim.Server()!;
+        var w = FreshWorld("connection_objects");
+        var pm = w.Game.Players;
+        var m = w.Sim.Server()!;
         w.Run("resetPlayerManager();");
         w.Game.AddTeam(0);
-        Assert.True(w.Run("echo(isObject(37), isObject(715));") == "FalseFalse");
+        Assert.Equal("FalseFalse", w.Run("echo(isObject(37), isObject(715));"));
 
         (TestConnection, ClientRecord) Connect(int id, string name)
         {
             var conn = new TestConnection(id);
             m.AddToRoot(conn);
-            ClientRecord? r = pm.AddClient(id, name, "male1", true);
+            var r = pm.AddClient(id, name, "male1", true);
             Assert.True(r != null && r.Camera != null && r.EventManager != null && r.PlayerPsc != null && r.GhostManager != null);
             return (conn, r!);
         }
@@ -1216,25 +1262,25 @@ public class ControlObjectTests
         // camera's. All three are members of the connection, the two fixed ones named.
         Assert.True(c1.GhostManager!.Id() == 37 && c1.PlayerPsc!.Id() == 715);
         Assert.True(c1.EventManager!.Id() + 1 == c1.Camera!.Id());
-        string em1 = c1.EventManager.Id().ToString();
-        Assert.True(w.Run("echo(isObject(37), isObject(715));") == "TrueTrue");
-        Assert.True(w.Run("echo(getObjectType(37), \"/\", getObjectType(715));") == "Net::GhostManager/PlayerPSC");
-        Assert.True(w.Run("echo(getGroup(37), getGroup(715), getGroup(" + em1 + "));") == "204920492049");
-        Assert.True(w.Run("echo(isObject(\"2049/PlayerPSC\"), isObject(\"2049/GhostManager\"));") == "TrueTrue");
+        var em1 = c1.EventManager.Id().ToString();
+        Assert.Equal("TrueTrue", w.Run("echo(isObject(37), isObject(715));"));
+        Assert.Equal("Net::GhostManager/PlayerPSC", w.Run("echo(getObjectType(37), \"/\", getObjectType(715));"));
+        Assert.Equal("204920492049", w.Run("echo(getGroup(37), getGroup(715), getGroup(" + em1 + "));"));
+        Assert.Equal("TrueTrue", w.Run("echo(isObject(\"2049/PlayerPSC\"), isObject(\"2049/GhostManager\"));"));
 
         // A second connection registers the same ids: its objects shadow the first one's.
         var (conn2, c2) = Connect(2050, "Two");
         Assert.True(c2.GhostManager!.Id() == 37 && c2.PlayerPsc!.Id() == 715);
         Assert.True(c2.EventManager!.Id() == c1.Camera.Id() + 1);
-        Assert.True(w.Run("echo(getGroup(37), getGroup(715));") == "20502050");
+        Assert.Equal("20502050", w.Run("echo(getGroup(37), getGroup(715));"));
 
         // The second one leaves: the first connection's objects are found again.
         pm.RemoveClient(2050);
         m.DeleteObject(conn2);
-        Assert.True(w.Run("echo(getGroup(37), getGroup(715), getObjectType(37));") == "20492049Net::GhostManager");
+        Assert.Equal("20492049Net::GhostManager", w.Run("echo(getGroup(37), getGroup(715), getObjectType(37));"));
         pm.RemoveClient(2049);
         m.DeleteObject(conn1);
-        Assert.True(w.Run("echo(isObject(37), isObject(715), isObject(" + em1 + "));") == "FalseFalseFalse");
+        Assert.Equal("FalseFalseFalse", w.Run("echo(isObject(37), isObject(715), isObject(" + em1 + "));"));
     }
 
     [Fact]

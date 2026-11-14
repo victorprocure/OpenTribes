@@ -1,40 +1,41 @@
 // Tests of the second C8 GUI fixes: the loading progress text, the join mode of +connect, the inventory lists, the score list
 // and the server menu of the Tab key. Synthetic data only (R5).
+namespace OpenTribes.Tests;
+
 using OpenTribes.Client.App;
 using OpenTribes.Game;
 using OpenTribes.Gui;
-using OpenTribes.Script;
-
-namespace OpenTribes.Tests;
 
 public sealed class GuiC8Ui2Tests : IDisposable
 {
-    private readonly string mRoot = Path.Combine(Path.GetTempPath(), "ot-c8ui2-" + Guid.NewGuid().ToString("N"));
-    private ClientApp? mApp;
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "ot-c8ui2-" + Guid.NewGuid().ToString("N"));
+    private ClientApp? _app;
 
     public GuiC8Ui2Tests()
     {
-        Directory.CreateDirectory(Path.Combine(mRoot, "config"));
-        Directory.CreateDirectory(Path.Combine(mRoot, "temp"));
+        Directory.CreateDirectory(Path.Combine(_root, "config"));
+        Directory.CreateDirectory(Path.Combine(_root, "temp"));
     }
 
     public void Dispose()
     {
-        mApp?.Dispose();
-        try { Directory.Delete(mRoot, true); } catch (IOException) { }
+        _app?.Dispose();
+        try
+        { Directory.Delete(_root, true); }
+        catch (IOException) { }
     }
 
     private ClientApp Boot(string consoleCs)
     {
-        File.WriteAllText(Path.Combine(mRoot, "console.cs"),
+        File.WriteAllText(Path.Combine(_root, "console.cs"),
             "newClient(); focusClient();\n" +
             "newObject(MainWindow, SimGui::Canvas, \"Tribes\", 640, 480, True, \"512 384\", \"1024 768\");\n" +
             "function Game::EndFrame() {}\n$ConsoleWorld::DefaultSearchPath = \"config;base;temp\";\n" + consoleCs);
-        ClientOptions opt = ClientOptions.Parse(new[] { "--root", mRoot, "--headless" }, out string err)!;
+        var opt = ClientOptions.Parse(["--root", _root, "--headless"], out var err)!;
         Assert.Equal("", err);
-        mApp = new ClientApp(opt);
-        Assert.True(mApp.Start(out string error), error);
-        return mApp;
+        _app = new ClientApp(opt);
+        Assert.True(_app.Start(out var error), error);
+        return _app;
     }
 
     // ---- loading screen ----
@@ -43,9 +44,9 @@ public sealed class GuiC8Ui2Tests : IDisposable
     public void FormattedTextWithNoHeightGrowsToItsText() // Loading.gui: ProgressText is stored 273 x 0 and a script fills it
     {
         var fx = new GuiFixture();
-        fx.Host.SetFont("sf_white_10.pft", new OpenTribes.Platform.Gfx.PftFont { Flags = OpenTribes.Platform.Gfx.PftFont.FlagFixedWidth, GlyphCellWidth = 5, CellHeight = 10 });
-        GuiControl text = GuiFixture.Make("FearGuiFormattedText", 1, 0, 273, 0);
-        GuiControl root = GuiFixture.Make("SimGui::TSControl", 0, 0, 640, 480);
+        fx.Host.SetFont("sf_white_10.pft", new Platform.Gfx.PftFont { Flags = Platform.Gfx.PftFont.FlagFixedWidth, GlyphCellWidth = 5, CellHeight = 10 });
+        var text = GuiFixture.Make("FearGuiFormattedText", 1, 0, 273, 0);
+        var root = GuiFixture.Make("SimGui::TSControl", 0, 0, 640, 480);
         root.AddChild(text);
         fx.Content(root);
         text.SetValue("<jc><f1>Establishing uplink with satellite network...");
@@ -56,17 +57,17 @@ public sealed class GuiC8Ui2Tests : IDisposable
     public void ConnectFromTheCommandLineIsAJoin() // client-net.md 1.1: onConnection loads Loading.gui only in JOIN mode, which +connect never set
     {
         Boot("$connectAddress = \"127.0.0.1:28001\";");
-        Assert.Equal("", mApp!.Interp.PeekVariable("$pref::PlayGameMode"));
-        mApp.Interp.Evaluate("connect(\"127.0.0.1:28001\");");
-        Assert.Equal("JOIN", mApp.Interp.PeekVariable("$pref::PlayGameMode"));
+        Assert.Equal("", _app!.Interp.PeekVariable("$pref::PlayGameMode"));
+        _app.Interp.Evaluate("connect(\"127.0.0.1:28001\");");
+        Assert.Equal("JOIN", _app.Interp.PeekVariable("$pref::PlayGameMode"));
     }
 
     [Fact]
     public void ConnectKeepsTheModeOfTheMenu()
     {
         Boot("$connectAddress = \"127.0.0.1:28001\"; $pref::PlayGameMode = \"HOST\";");
-        mApp!.Interp.Evaluate("connect(\"127.0.0.1:28001\");");
-        Assert.Equal("HOST", mApp.Interp.PeekVariable("$pref::PlayGameMode"));
+        _app!.Interp.Evaluate("connect(\"127.0.0.1:28001\");");
+        Assert.Equal("HOST", _app.Interp.PeekVariable("$pref::PlayGameMode"));
     }
 
     // ---- inventory lists ----
@@ -82,8 +83,8 @@ public sealed class GuiC8Ui2Tests : IDisposable
             Item(1, "cAmmo", "Bullet", count: 100), Item(2, "bWeapons", "Blaster", count: 1),
             Item(3, "bWeapons", "Chaingun", count: 1), Item(4, "bWeapons", "Mortar"), Item(5, "aArmor", "Light Armor", count: 1),
         };
-        List<GuiInventoryList.Row> rows = GuiInventoryList.Build(items, purchase: false);
-        Assert.Equal(new[] { "aArmor", "Light Armor", "bWeapons", "Blaster", "Chaingun", "cAmmo", "Bullet" }, rows.Select(r => r.IsHeader ? r.Heading : r.Text));
+        var rows = GuiInventoryList.Build(items, purchase: false);
+        Assert.Equal(["aArmor", "Light Armor", "bWeapons", "Blaster", "Chaingun", "cAmmo", "Bullet"], rows.Select(r => r.IsHeader ? r.Heading : r.Text));
         Assert.Equal(100, rows.Last().Value);
         Assert.All(rows.Where(r => !r.IsHeader), r => Assert.True(r.Enabled));
     }
@@ -96,7 +97,7 @@ public sealed class GuiC8Ui2Tests : IDisposable
             Item(2, "bWeapons", "Blaster", price: 85, shop: true, buy: true), Item(3, "bWeapons", "Chaingun", price: 125, shop: true),
             Item(4, "bWeapons", "Mortar", price: 200),
         };
-        List<GuiInventoryList.Row> rows = GuiInventoryList.Build(items, purchase: true);
+        var rows = GuiInventoryList.Build(items, purchase: true);
         Assert.Equal(3, rows.Count);
         Assert.True(rows[0].IsHeader);
         Assert.Equal(85, rows[1].Value);
@@ -109,18 +110,21 @@ public sealed class GuiC8Ui2Tests : IDisposable
     {
         var world = new ClientWorld();
         world.DataBlocks.Counts[5] = 3;
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             world.DataBlocks.Blocks[(5, i)] = new ClientDataBlock
             {
-                Group = 5, Index = i, Class = "item", Fields = new List<DecodedField>
-                {
+                Group = 5,
+                Index = i,
+                Class = "item",
+                Fields =
+                [
                     new("description", "Item" + i), new("heading", "bWeapons"), new("price", (long)(10 * (i + 1))), new("showInventory", i == 2 ? 0L : 1L),
-                },
+                ],
             };
         world.Psc.ItemCounts[1] = 4;
         world.Psc.Shopping[0] = 1u << 1;
         world.Psc.Buying[0] = 1u << 1;
-        IReadOnlyList<InventoryEntry> list = new ClientHudSource(world).InventoryItems;
+        var list = new ClientHudSource(world).InventoryItems;
         Assert.Equal(2, list.Count);
         Assert.Equal(new InventoryEntry(1, "bWeapons", "Item1", 20, 4, true, true), list[1]);
         Assert.False(list[0].Shopping);
@@ -134,7 +138,7 @@ public sealed class GuiC8Ui2Tests : IDisposable
         var src = new ClientHudSource(world);
         Assert.False(src.SensorHudShown);
         world.Psc.ControlGhost = 5;
-        foreach ((string cls, bool shown) in new[] { ("Player", true), ("Vehicle", true), ("Flier", true), ("Turret", false), ("ObserverCamera", false) })
+        foreach ((var cls, var shown) in new[] { ("Player", true), ("Vehicle", true), ("Flier", true), ("Turret", false), ("ObserverCamera", false) })
         {
             world.Psc.ControlClass = cls;
             Assert.Equal(shown, src.SensorHudShown);
@@ -185,7 +189,10 @@ public sealed class GuiC8Ui2Tests : IDisposable
         world.Ghosts.Insert(body);
         world.Psc.ControlState = new Dictionary<string, object?>
         {
-            ["rot"] = new[] { 0.2, 0.0, 1.25 }, ["camMode"] = 3L, ["orbitGhost"] = 7L, ["orbit"] = new[] { 0.0, 10.0, -1.0 },
+            ["rot"] = new[] { 0.2, 0.0, 1.25 },
+            ["camMode"] = 3L,
+            ["orbitGhost"] = 7L,
+            ["orbit"] = new[] { 0.0, 10.0, -1.0 },
         };
         Assert.Equal(2.5, src.Yaw);
         world.Psc.ControlState["orbit"] = new[] { 0.0, 10.0, 5.0 };
@@ -234,13 +241,13 @@ public sealed class GuiC8Ui2Tests : IDisposable
     {
         var fx = new GuiFixture();
         fx.Interp.Evaluate("function InventoryList::onSelect(%i) { $sel = %i; }");
-        fx.Host.SetFont("sf_white_10.pft", new OpenTribes.Platform.Gfx.PftFont { Flags = OpenTribes.Platform.Gfx.PftFont.FlagFixedWidth, GlyphCellWidth = 5, CellHeight = 10 });
+        fx.Host.SetFont("sf_white_10.pft", new Platform.Gfx.PftFont { Flags = Platform.Gfx.PftFont.FlagFixedWidth, GlyphCellWidth = 5, CellHeight = 10 });
         var src = new StaticHudSource();
         src.Inventory.Add(Item(7, "bWeapons", "Blaster", count: 1));
         fx.Host.Hud = src;
         var list = (GuiInventoryList)GuiFixture.Make("FearGuiInventory", 0, 0, 300, 100);
         list.Name = "InventoryList";
-        GuiControl root = GuiFixture.Make("SimGui::TSControl", 0, 0, 640, 480);
+        var root = GuiFixture.Make("SimGui::TSControl", 0, 0, 640, 480);
         root.AddChild(list);
         fx.Content(root);
         list.PreRender();
@@ -257,8 +264,8 @@ public sealed class GuiC8Ui2Tests : IDisposable
     [Fact]
     public void ScoreHeadingDefinesTheColumnPositions() // Score text: "Player Name\t\x78Team\t\xC8Score"
     {
-        string heading = "Player Name\t\x78Team\t\xC8Score";
-        Assert.Equal(new[] { 0, 0x78, 0xC8 }, GuiScoreList.Columns(heading));
+        var heading = "Player Name\t\x78Team\t\xC8Score";
+        Assert.Equal([0, 0x78, 0xC8], GuiScoreList.Columns(heading));
         Assert.Equal("Player Name\tTeam\tScore", GuiScoreList.HeadingText(heading));
     }
 
@@ -266,15 +273,15 @@ public sealed class GuiC8Ui2Tests : IDisposable
     public void ScoreLinesListTeamsThenPlayersAndMarkTheSelectedPlayer()
     {
         var board = new ScoreBoard("Team Name\t\xD6Score", "Player Name\t\x6FTeam",
-            new[] { new ScoreRow(0, "Blood Eagle\t 3", 3), new ScoreRow(1, "Diamond Sword\t 1", 1) },
-            new[] { new ScoreRow(2049, "Ann\tBlood Eagle", 3), new ScoreRow(2050, "Bob\tDiamond Sword", 1) }, 2050);
-        List<GuiScoreList.Line> lines = GuiScoreList.Build(board);
+            [new ScoreRow(0, "Blood Eagle\t 3", 3), new ScoreRow(1, "Diamond Sword\t 1", 1)],
+            [new ScoreRow(2049, "Ann\tBlood Eagle", 3), new ScoreRow(2050, "Bob\tDiamond Sword", 1)], 2050);
+        var lines = GuiScoreList.Build(board);
         Assert.Equal(6, lines.Count);
         Assert.True(lines[0].Heading);
         Assert.True(lines[3].Heading);
         Assert.False(lines[4].Local);
         Assert.False(lines[5].Local);
-        Assert.Equal(new[] { 0, 0x6F }, lines[5].Columns);
+        Assert.Equal([0, 0x6F], lines[5].Columns);
         Assert.True(GuiScoreList.Build(board, 2050)[5].Local);
     }
 
@@ -293,8 +300,8 @@ public sealed class GuiC8Ui2Tests : IDisposable
         world.Players.ClientHeading = "Player Name\t\x78Score";
         world.Players.Clients[2049] = new ClientPlayerRecord { Id = 2049, Name = "Ann", ScoreText = "%n\t1", SortValue = 1 };
         world.Players.Clients[2050] = new ClientPlayerRecord { Id = 2050, Name = "Bob", ScoreText = "%n\t5", SortValue = 5 };
-        ScoreBoard board = new ClientHudSource(world).Scores!;
-        Assert.Equal(new[] { "Bob\t5", "Ann\t1" }, board.Clients.Select(c => c.Text));
+        var board = new ClientHudSource(world).Scores!;
+        Assert.Equal(["Bob\t5", "Ann\t1"], board.Clients.Select(c => c.Text));
         Assert.Equal(2049, board.LocalClient);
     }
 
@@ -304,25 +311,25 @@ public sealed class GuiC8Ui2Tests : IDisposable
     public void ChatMenuOnDisplayFollowsSetCMModeAndDeletion() // remoteNewMenu / remoteCancelMenu of menu.cs
     {
         Boot("");
-        var game = (GameState)typeof(ClientApp).GetField("mGameState", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(mApp)!;
+        var game = (GameState)typeof(ClientApp).GetField("_gameState", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(_app)!;
         Eval("newObject(CurServerMenu, ChatMenu, \"Options\"); addCMCommand(CurServerMenu, \"1Change Teams\", clientMenuSelect, \"changeteams\"); setCMMode(CurServerMenu, 1);");
-        ServerMenuView? view = mApp!.CurrentMenu();
+        var view = _app!.CurrentMenu();
         Assert.NotNull(view);
         Assert.Equal("Options", view!.Title);
         Assert.Equal(('1', "Change Teams"), view.Items[0]);
         Eval("deleteObject(CurServerMenu);");
-        Assert.Null(mApp.CurrentMenu());
+        Assert.Null(_app.CurrentMenu());
         Assert.NotNull(game);
     }
 
-    private string Eval(string text) => mApp!.Interp.Evaluate(text);
+    private string Eval(string text) => _app!.Interp.Evaluate(text);
 
     // ---- scroll policy ----
 
     [Fact]
     public void GameScrollFramesAreNotTabStops() // FearGuiScrollCtrl tabStop 004b8bc4: the score list must not keep the Tab key
     {
-        GuiControl frame = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 0, 0, 100, 100);
+        var frame = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 0, 0, 100, 100);
         Assert.False(frame.WantsTab);
         Assert.False(frame.CanTake());
         Assert.True(GuiFixture.Make("SimGui::ScrollCtrl", 0, 0, 100, 100).WantsTab);
@@ -343,10 +350,7 @@ public sealed class GuiC8Ui2Tests : IDisposable
     [InlineData("FearGui::FGIRCScrollChannel")]
     [InlineData("FearGui::FGMenuCtrl")]
     [InlineData("FearGui::FGHInventory")]
-    public void StubFocusClassesRefuseFocus(string cls)
-    {
-        Assert.False(GuiFixture.Make(cls, 0, 0, 100, 100).CanTake());
-    }
+    public void StubFocusClassesRefuseFocus(string cls) => Assert.False(GuiFixture.Make(cls, 0, 0, 100, 100).CanTake());
 
     [Fact]
     public void OtherListsTakeFocus() => Assert.True(GuiFixture.Make("FearGui::ServerListCtrl", 0, 0, 100, 100).CanTake());

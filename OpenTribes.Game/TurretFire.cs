@@ -4,9 +4,9 @@
 // Math.Atan2, Math.Cos and Math.Sin (portable form of src/core/ldouble.hpp); the 80-bit constant 1 / (2 pi) is the
 // 53-bit rounded double. The Chop class of the files is X87.Chop or Fpu.ChopScope; world::x87::f32 is X87.F32 and a
 // plain float(...) store inside a Chop scope is Fpu.Store.
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>The position of a shape thread as the instance keeps it. Every store is an f32 store toward zero.</summary>
 /// <remarks>Port of namespace turret in src/game/turret.hpp (docs/static-sim.md 14.6).</remarks>
@@ -31,7 +31,7 @@ public static class TurretThread
     /// <remarks>Follows 0x005c01f0 and 0x005c02f0.</remarks>
     public static void ThreadStep(ref float pos, float delta, bool cyclic)
     {
-        float d = X87.F32(Mul(1.0f, delta));
+        var d = X87.F32(Mul(1.0f, delta));
         pos = X87.F32(Add(d, pos));
         ThreadNormalise(ref pos, cyclic);
     }
@@ -56,22 +56,22 @@ public static class TurretThread
 
 public partial class GameBase
 {
-    private const double kPiD = 3.14159265358979323846;
-    private const double kTwoPiD = 6.283185307179586;
-    private const double kHalfPiD = 1.5707963267948966;
-    private const float kTwoPiF = 6.2831855f;
+    private const double PiD = 3.14159265358979323846;
+    private const double TwoPiD = 6.283185307179586;
+    private const double HalfPiD = 1.5707963267948966;
+    private const float TwoPiF = 6.2831855f;
 
     // 1 / (2 pi) as the 80-bit constant at 0x00457070, rounded to 53 bits.
-    private static readonly double kInvTwoPi = (double)0xa2f9836e4e4416f4UL * Math.ScaleB(1.0, -66);
+    private static readonly double InvTwoPi = 0xa2f9836e4e4416f4UL * Math.ScaleB(1.0, -66);
 
     // src/game/turret_fire.cpp turretFire: the function-static R250 of each deflection path.
-    private static readonly R250 sTurretNormalPath = new(0x8377), sTurretSustainedPath = new(0x8377);
+    private static readonly R250 TurretNormalPath = new(0x8377), TurretSustainedPath = new(0x8377);
 
     /// <summary>Resets the two turret random generators to a fresh process state. For tests, which share one process.</summary>
     public static void ResetTurretRandoms()
     {
-        sTurretNormalPath.Reseed(0x8377);
-        sTurretSustainedPath.Reseed(0x8377);
+        TurretNormalPath.Reseed(0x8377);
+        TurretSustainedPath.Reseed(0x8377);
     }
 
     // src/game/turret_fire.cpp stateOf.
@@ -84,57 +84,57 @@ public partial class GameBase
         if (a == 0.0 && b == 0.0)
             return 0; // the original's error handler never returns (DECISIONS D11)
         if (a == 0.0)
-            return double.IsNegative(b) ? (double.IsNegative(a) ? -kPiD : kPiD) : a;
+            return double.IsNegative(b) ? (double.IsNegative(a) ? -PiD : PiD) : a;
         if (b == 0.0)
-            return double.IsNegative(a) ? -kHalfPiD : kHalfPiD;
-        double r = Div(a, b);
-        bool neg = r < 0;
-        double ar = neg ? -r : r;
+            return double.IsNegative(a) ? -HalfPiD : HalfPiD;
+        var r = Div(a, b);
+        var neg = r < 0;
+        var ar = neg ? -r : r;
         double v;
         if (ar == 1)
-            v = Div(kPiD, 4);
+            v = Div(PiD, 4);
         else if (ar < 1)
             v = Math.Atan2(ar, 1.0);
         else
-            v = Sub(Math.Atan2(1.0, ar), kHalfPiD);
+            v = Sub(Math.Atan2(1.0, ar), HalfPiD);
         // atan(r) = neg ? -v : v for ar <= 1; for ar > 1 the branch above holds fpatan(1, ar) - pi/2 = -(atan(ar)), so the
         // sign flips.
-        double t = ar < 1 || ar == 1 ? (neg ? -v : v) : (neg ? v : -v);
+        var t = ar is < 1 or 1 ? (neg ? -v : v) : (neg ? v : -v);
         if (double.IsNegative(b))
-            t = double.IsNegative(a) ? Sub(t, kPiD) : Add(t, kPiD);
+            t = double.IsNegative(a) ? Sub(t, PiD) : Add(t, PiD);
         return t;
     }
 
     // src/game/turret_fire.cpp calcRotation: 0x00452fa8: atan2(y, x) + pi/2 as f32.
-    private static float CalcRotation(float y, float x) => X87.F32(Add(Atan2Borland(y, x), kHalfPiD));
+    private static float CalcRotation(float y, float x) => X87.F32(Add(Atan2Borland(y, x), HalfPiD));
 
     // src/game/turret_fire.cpp calcElevation: 0x00452efc: pitch of the point (x, y, z) in the turret's frame.
     private static float CalcElevation(float x, float y, float z)
     {
-        double h = Atan2Borland(y, x);
-        float t = X87.F32(-h);
-        float c = X87.F32(Mul(Math.Cos(t), x));
-        float r = X87.F32(Sub(c, Mul(Math.Sin(t), y)));
-        float nz = -z;
-        return X87.F32(Sub(Atan2Borland(r, nz), kHalfPiD));
+        var h = Atan2Borland(y, x);
+        var t = X87.F32(-h);
+        var c = X87.F32(Mul(Math.Cos(t), x));
+        var r = X87.F32(Sub(c, Mul(Math.Sin(t), y)));
+        var nz = -z;
+        return X87.F32(Sub(Atan2Borland(r, nz), HalfPiD));
     }
 
     // src/game/turret_fire.cpp wrapRotation: 0x00453120.
     private static void WrapRotation(ref float r)
     {
-        while (r > kTwoPiD)
-            r = X87.F32(Sub(r, kTwoPiD));
+        while (r > TwoPiD)
+            r = X87.F32(Sub(r, TwoPiD));
         while (r < 0.0f)
-            r = X87.F32(Add(r, kTwoPiD));
+            r = X87.F32(Add(r, TwoPiD));
     }
 
     // src/game/turret_fire.cpp wrapElevation: 0x0045317c.
     private static void WrapElevation(ref float e)
     {
-        while (e < -kPiD)
-            e = X87.F32(Add(e, kTwoPiD));
-        while (e > kPiD)
-            e = X87.F32(Sub(e, kTwoPiD));
+        while (e < -PiD)
+            e = X87.F32(Add(e, TwoPiD));
+        while (e > PiD)
+            e = X87.F32(Sub(e, TwoPiD));
     }
 
     // src/game/turret_fire.cpp boxCentre: centre of a container entry box: (max + min) * 0.5, each step stored as f32
@@ -144,13 +144,13 @@ public partial class GameBase
         Span<float> mn = stackalloc float[3], mx = stackalloc float[3];
         if (!Pj.WorldBox(g, o, mn, mx))
         {
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 c[i] = o.Transform.P[i];
             return false;
         }
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
-            float s = X87.F32(Add(mx[i], mn[i]));
+            var s = X87.F32(Add(mx[i], mn[i]));
             c[i] = X87.F32(Mul(s, 0.5f));
         }
         return true;
@@ -166,7 +166,7 @@ public partial class GameBase
     // src/game/turret_fire.cpp seqOf: a missing sequence gives handle 0 (TSThread_setSequence by name 0x005c00c4).
     private static int SeqOf(GameBase t, string name)
     {
-        int s = t.Anim != null ? t.Anim.FindSequence(name) : -1;
+        var s = t.Anim != null ? t.Anim.FindSequence(name) : -1;
         return s < 0 ? 0 : s;
     }
 
@@ -180,9 +180,9 @@ public partial class GameBase
     // node.
     private static bool NodePosition(GameBase t, string node, Span<float> output)
     {
-        GameState g = StateOf(t);
-        ShapeInstance? inst = ShapeState.ShapeInstanceOf(g, t);
-        int n = inst != null ? inst.ShapeData!.FindNode(node) : -1;
+        var g = StateOf(t);
+        var inst = ShapeState.ShapeInstanceOf(g, t);
+        var n = inst != null ? inst.ShapeData!.FindNode(node) : -1;
         if (n < 0 || n >= inst!.Entries.Length)
             return false;
         output[0] = inst.Entries[n].P[0];
@@ -205,28 +205,34 @@ public partial class GameBase
             output = t.Transform;
             return false;
         }
-        var l = new TMat3();
-        l.P = Float3.Of(nodeT);
-        float[] euler = { t.TurretElevation, 0.0f, t.TurretRotation };
+        var l = new TMat3
+        {
+            P = Float3.Of(nodeT)
+        };
+        float[] euler = [t.TurretElevation, 0.0f, t.TurretRotation];
         Shape.EulerMatrix(euler, ref l);
         l.Flags |= 2u;
-        var o = new TMat3();
-        o.Flags = t.Transform.Flags;
-        o.M = t.Transform.M;
-        o.P = t.Transform.P;
-        Shape.TmatMul(l, o, out TMat3 w);
-        output = new Transform();
-        output.Flags = w.Flags;
-        output.M = w.M;
-        output.P = w.P;
+        var o = new TMat3
+        {
+            Flags = t.Transform.Flags,
+            M = t.Transform.M,
+            P = t.Transform.P
+        };
+        Shape.TmatMul(l, o, out var w);
+        output = new Transform
+        {
+            Flags = w.Flags,
+            M = w.M,
+            P = w.P
+        };
         return true;
     }
 
     // src/game/turret_fire.cpp normalise.
     private static void TurretNormalise(Span<float> v)
     {
-        float k = X87.F32(Div(1.0, X87.F32(X87.Len(v))));
-        for (int i = 0; i < 3; ++i)
+        var k = X87.F32(Div(1.0, X87.F32(X87.Len(v))));
+        for (var i = 0; i < 3; ++i)
             v[i] = X87.F32(Mul(v[i], k));
     }
 
@@ -243,14 +249,14 @@ public partial class GameBase
     // transposed rotation (0x00454e16 - 0x004551b6).
     private static void ToNodeSpace(GameBase t, ReadOnlySpan<float> point, Span<float> l)
     {
-        Span<float> nodeT = stackalloc float[3] { 0, 0, 0 };
+        Span<float> nodeT = [0, 0, 0];
         MuzzleNode(t, nodeT);
         ReadOnlySpan<float> m = t.Transform.M;
         Span<float> np = stackalloc float[3];
         X87.MulPoint(nodeT, m, t.Transform.P, np);
-        float[] inv = { m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8] };
-        float[] neg = { -np[0], -np[1], -np[2] };
-        float[] tp = new float[3];
+        float[] inv = [m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]];
+        float[] neg = [-np[0], -np[1], -np[2]];
+        var tp = new float[3];
         X87.MulVector(neg, inv, tp);
         X87.MulPoint(point, inv, tp, l);
     }
@@ -258,13 +264,13 @@ public partial class GameBase
     // src/game/turret_fire.cpp projectileType: projectile class and index of the TurretData (+0x120, +0x124).
     private static bool TurretProjectileType(GameBase t, out int group, out int index, out DataBlockManager.Block? block)
     {
-        GameState g = StateOf(t);
+        var g = StateOf(t);
         group = index = -1;
         block = null;
         if (g.Sim == null || t.DataBlockName == null)
             return false;
-        DataBlockManager.Block? b = g.Sim.DataBlocks().Find(t.DataBlockName);
-        DataBlockManager.Field? f = b != null ? Pj.Field(b, "projectileType") : null;
+        var b = g.Sim.DataBlocks().Find(t.DataBlockName);
+        var f = b != null ? Pj.Field(b, "projectileType") : null;
         if (f == null || f.Elems.Count == 0 || f.Elems[0].I < 0)
             return false;
         group = f.Elems[0].I;
@@ -278,23 +284,15 @@ public partial class GameBase
     {
         if (t.TurretProjectileSpeed >= 0)
             return t.TurretProjectileSpeed;
-        float speed = 50.0f;
-        if (TurretProjectileType(t, out int group, out _, out DataBlockManager.Block? b))
+        var speed = 50.0f;
+        if (TurretProjectileType(t, out var group, out _, out var b))
         {
-            switch (group)
+            speed = group switch
             {
-                case Projectile.kRocketGroup:
-                    speed = Pj.Real(b!, "terminalVelocity", 0.0f);
-                    break;
-                case Projectile.kBulletGroup:
-                case Projectile.kGrenadeGroup:
-                case Projectile.kSeekerGroup:
-                    speed = Pj.Real(b!, "muzzleVelocity", 0.0f);
-                    break;
-                default:
-                    speed = 1.0e7f; // lasers, lightning, repair: the constant at 0x00462920
-                    break;
-            }
+                Projectile.RocketGroup => Pj.Real(b!, "terminalVelocity", 0.0f),
+                Projectile.BulletGroup or Projectile.GrenadeGroup or Projectile.SeekerGroup => Pj.Real(b!, "muzzleVelocity", 0.0f),
+                _ => 1.0e7f,// lasers, lightning, repair: the constant at 0x00462920
+            };
         }
         t.TurretProjectileSpeed = speed;
         return speed;
@@ -303,10 +301,10 @@ public partial class GameBase
     // src/game/turret_fire.cpp leadPoint: Turret_leadPoint (0x00453090).
     private static void LeadPoint(GameBase t, float d, ReadOnlySpan<float> vel, ReadOnlySpan<float> tp, Span<float> output)
     {
-        float k = X87.F32(Div(d, TurretProjectileSpeedOf(t)));
-        for (int i = 0; i < 3; ++i)
+        var k = X87.F32(Div(d, TurretProjectileSpeedOf(t)));
+        for (var i = 0; i < 3; ++i)
         {
-            float a = X87.F32(Mul(vel[i], k));
+            var a = X87.F32(Mul(vel[i], k));
             output[i] = X87.F32(Add(tp[i], a));
         }
     }
@@ -314,9 +312,9 @@ public partial class GameBase
     // src/game/turret_fire.cpp outsideAimLimits: Turret_outsideAimLimits (0x00452ff0).
     private static bool OutsideAimLimits(GameBase t, float elevation, float rotation)
     {
-        bool outside = false;
-        if (rotation > kPiD)
-            rotation = X87.F32(Sub(rotation, kTwoPiF));
+        var outside = false;
+        if (rotation > PiD)
+            rotation = X87.F32(Sub(rotation, TwoPiF));
         if (t.TurretRotationMax != t.TurretRotationMin)
         {
             if ((rotation > 0.0f && rotation > t.TurretRotationMax) || (!(rotation >= 0.0f) && !(rotation >= t.TurretRotationMin)))
@@ -344,21 +342,21 @@ public partial class GameBase
         // 0 and at position 1; a minimum above pi has 2 pi (f32) subtracted.
         TurretElevatePos = 0;
         TurretHasPower = false;
-        bool elevateCyclic = CyclicSeq(this, SeqOf(this, "elevate"));
-        bool limits = false;
+        var elevateCyclic = CyclicSeq(this, SeqOf(this, "elevate"));
+        var limits = false;
         if (Services() != null)
         {
-            GameState g = StateOf(this);
-            ShapeInstance? inst = ShapeState.ShapeInstanceOf(g, this);
-            int node = inst != null ? inst.ShapeData!.FindNode("dummy muzzle") : -1;
+            var g = StateOf(this);
+            var inst = ShapeState.ShapeInstanceOf(g, this);
+            var node = inst != null ? inst.ShapeData!.FindNode("dummy muzzle") : -1;
             if (node >= 0)
             {
-                float lo = Shape.MatrixEulerX(inst!.Entries[node]);
+                var lo = Shape.MatrixEulerX(inst!.Entries[node]);
                 TurretThread.ThreadSetPos(ref TurretElevatePos, 1.0f, elevateCyclic);
                 inst = ShapeState.ShapeInstanceOf(g, this);
-                float hi = Shape.MatrixEulerX(inst!.Entries[node]);
-                if (lo > kPiD)
-                    lo = X87.F32(Sub(lo, kTwoPiF));
+                var hi = Shape.MatrixEulerX(inst!.Entries[node]);
+                if (lo > PiD)
+                    lo = X87.F32(Sub(lo, TwoPiF));
                 TurretMinElevation = lo;
                 TurretMaxElevation = hi;
                 limits = true;
@@ -369,8 +367,8 @@ public partial class GameBase
         {
             // No shape model (synthetic shapes): the keyframe rotations of the node chain.
             TurretThread.ThreadSetPos(ref TurretElevatePos, 1.0f, elevateCyclic);
-            if (plo > kPiD)
-                plo = X87.F32(Sub(plo, kTwoPiF));
+            if (plo > PiD)
+                plo = X87.F32(Sub(plo, TwoPiF));
             TurretMinElevation = plo;
             TurretMaxElevation = phi;
             limits = true;
@@ -402,7 +400,7 @@ public partial class GameBase
         if (!TurretHasPower)
             return false;
         using var chop = X87.Chop();
-        float saved = TurretPowerPos;
+        var saved = TurretPowerPos;
         TurretPowerPos = X87.F32(Div(0.0f, TurretPowerDuration));
         TurretPowerOnFire = false;
         TurretThread.ThreadSetPos(ref TurretPowerPos, saved, CyclicSeq(this, SeqOf(this, "power")));
@@ -437,14 +435,14 @@ public partial class GameBase
         {
             float target;
             if (Math.Abs((double)X87.F32(Sub(TurretRotationMax, TurretRotationMin))) <= (double)1e-5f)
-                target = X87.F32(Mul(kInvTwoPi, TurretRotation));
+                target = X87.F32(Mul(InvTwoPi, TurretRotation));
             else
                 target = X87.F32(Div(Sub(TurretRotation, TurretRotationMin), Sub(TurretRotationMax, TurretRotationMin)));
             TurretThread.ThreadSetPos(ref TurretTurnPos, target, CyclicSeq(this, SeqOf(this, "turn")));
         }
         if (TurretHasPower && TurretMode == 3)
         {
-            string seq = TurretPowerOnFire ? "fire" : "power";
+            var seq = TurretPowerOnFire ? "fire" : "power";
             TurretThread.ThreadAdvance(ref TurretPowerPos, 0.032f, TurretPowerOnFire ? TurretFireDuration : TurretPowerDuration,
                                        CyclicSeq(this, SeqOf(this, seq)));
         }
@@ -457,7 +455,7 @@ public partial class GameBase
     /// <remarks>Follows 0x00455b34 (docs/static-sim.md 4.8). The power and fire thread runs <c>power</c> forward. At 0.99 (f64) it switches to <c>fire</c> at position 1 and the turret is on.</remarks>
     public void TurretActivate(float dt)
     {
-        if (TurretMode != 2 && TurretMode != 3)
+        if (TurretMode is not 2 and not 3)
             SetMaskBits(0x10000);
         if (!TurretUsePower())
         {
@@ -484,9 +482,9 @@ public partial class GameBase
     /// <remarks>Follows 0x00455cc4 (docs/static-sim.md 4.8).</remarks>
     public void TurretDeactivate(float dt)
     {
-        if (TurretMode != 0 && TurretMode != 1)
+        if (TurretMode is not 0 and not 1)
             SetMaskBits(0x10000);
-        int was = TurretMode;
+        var was = TurretMode;
         if (!TurretUsePower())
         {
             TurretMode = 0;
@@ -501,10 +499,10 @@ public partial class GameBase
             // non-positive one up, and the rotation snaps to 0 when the step crosses it. The rotation itself is not
             // wrapped (0x00455f3e).
             SetMaskBits(0x2000);
-            float local = TurretRotation;
+            var local = TurretRotation;
             while (local > 3.141592653589793)
                 local = Store(Sub(local, 6.283185307179586));
-            double prod = Mul(TurretData.Speed, dt);
+            var prod = Mul(TurretData.Speed, dt);
             if (local > 0.0f)
             {
                 TurretRotation = Store(Sub(TurretRotation, prod));
@@ -542,16 +540,16 @@ public partial class GameBase
     {
         if (Services() == null)
             return false;
-        GameState g = StateOf(this);
-        Player? p = pl != null ? Player.From(pl) : null;
-        if (p == null || p.Team == Team || !g.Players.VisibleToTeam(p, Team) || p.Dead)
+        var g = StateOf(this);
+        var p = pl != null ? Player.From(pl) : null;
+        if (p == null || p.Team == Team || !PlayerManager.VisibleToTeam(p, Team) || p.Dead)
             return false;
         if (g.Console != null)
         {
-            string fn = Pj.FindMethod(g, this, "verifyTarget");
+            var fn = Pj.FindMethod(g, this, "verifyTarget");
             if (fn.Length != 0)
             {
-                string r = Pj.CallMethod(g, fn, new[] { Numbers.FormatInt(Id()), Numbers.FormatInt(p.Id()) });
+                var r = Pj.CallMethod(g, fn, [Numbers.FormatInt(Id()), Numbers.FormatInt(p.Id())]);
                 if (r.Length != 0 && (r[0] == 'F' || r[0] == 'f'))
                     return false;
             }
@@ -559,24 +557,24 @@ public partial class GameBase
         float[] tp = new float[3], centre = new float[3];
         TurretTargetPoint(g, p, tp);
         TurretBoxCentre(g, this, centre);
-        float[] diff = new float[3];
-        for (int i = 0; i < 3; ++i)
+        var diff = new float[3];
+        for (var i = 0; i < 3; ++i)
             diff[i] = X87.F32(Sub(centre[i], tp[i]));
-        float d = X87.Lenf(diff);
+        var d = X87.Lenf(diff);
         if (d < range)
             ++TurretInRange;
         if (!(d < limit))
             return false;
-        float[] l = new float[3];
+        var l = new float[3];
         ToNodeSpace(this, tp, l);
-        float elevation = CalcElevation(l[0], l[1], l[2]);
-        float rotation = CalcRotation(-l[1], -l[0]);
+        var elevation = CalcElevation(l[0], l[1], l[2]);
+        var rotation = CalcRotation(-l[1], -l[0]);
         if (OutsideAimLimits(this, elevation, rotation))
             return false;
         // Line of sight in container 7 against terrain and interiors (mask 6), from the turret's box centre to the target
         // point: clear, or the player itself is hit.
         var hit = new RayHit();
-        if (!Projectile.CastWorld(g, centre, tp, 6u, this, ref hit) || hit.Object == p)
+        if (!Projectile.CastWorld(g, centre, tp, 6u, this, ref hit) || hit.HitObject == p)
         {
             limit = d;
             return true;
@@ -594,12 +592,12 @@ public partial class GameBase
         // projectileType unset (-1): no target (the datablock getter cannot tell, docs/datablocks.md PR2).
         if (!TurretProjectileType(this, out _, out _, out _))
             return null;
-        GameState g = StateOf(this);
-        SimManager? m = g.Sim?.Server();
+        var g = StateOf(this);
+        var m = g.Sim?.Server();
         if (m == null)
             return null;
-        float range = TurretData.GunRange == -1.0f ? Store(SensorData.Range) : TurretData.GunRange;
-        float limit = range;
+        var range = TurretData.GunRange == -1.0f ? Store(SensorData.Range) : TurretData.GunRange;
+        var limit = range;
         // The preferred target (Turret::setTarget) is tried first. The original keeps a raw pointer that dangles when the
         // player is deleted (D11): an id that no longer resolves is no target.
         if (TurretPreferred != 0)
@@ -609,9 +607,9 @@ public partial class GameBase
         }
         GameBase? best = null;
         // The player list (+0x340f4, humans and AI, newest first), not the human list.
-        foreach (int cid in g.Players.PlayerIds())
+        foreach (var cid in g.Players.PlayerIds())
         {
-            ClientRecord? r = g.Players.Find(cid);
+            var r = g.Players.Find(cid);
             if (r == null || r.OwnedObject == 0)
                 continue;
             if (m.FindById(r.OwnedObject) is GameBase gb && Player.From(gb) != null && TurretTestTarget(gb, ref limit, range))
@@ -624,9 +622,9 @@ public partial class GameBase
     /// <remarks>Follows 0x00456288 and 0x00457cc0 after the control client, damage state and active tests (docs/static-sim.md 4.4).</remarks>
     public void TurretSearchStep()
     {
-        float now = Manager() != null ? Manager()!.Time() : 0.0f;
+        var now = Manager() != null ? Manager()!.Time() : 0.0f;
         TurretInRange = 0;
-        GameBase? target = TurretFindTarget();
+        var target = TurretFindTarget();
         if (TurretInRange != 0)
             TurretSleep = X87.F32(Add(now, 3.0f));
         if (target != null)
@@ -647,16 +645,16 @@ public partial class GameBase
     // One aim step of rotation and elevation toward the node-space point L (turretTrack and turretSustainedFireTick).
     private int TurretStepAngles(ReadOnlySpan<float> l, float dt)
     {
-        int aimed = 0;
-        float oldRotation = TurretRotation;
-        float step = X87.F32(Mul(TurretData.Speed, dt));
-        float desired = CalcRotation(-l[1], -l[0]);
+        var aimed = 0;
+        var oldRotation = TurretRotation;
+        var step = X87.F32(Mul(TurretData.Speed, dt));
+        var desired = CalcRotation(-l[1], -l[0]);
         while (desired < 0.0f)
-            desired = X87.F32(Add(kTwoPiF, desired));
-        while (desired > kTwoPiD)
-            desired = X87.F32(Sub(desired, kTwoPiF));
-        float delta = X87.F32(Sub(desired, TurretRotation));
-        if (delta > kPiD || delta < -kPiD)
+            desired = X87.F32(Add(TwoPiF, desired));
+        while (desired > TwoPiD)
+            desired = X87.F32(Sub(desired, TwoPiF));
+        var delta = X87.F32(Sub(desired, TurretRotation));
+        if (delta is > (float)PiD or < (float)-PiD)
             step = -step;
         if (delta >= step || -step >= delta)
         {
@@ -674,11 +672,11 @@ public partial class GameBase
         if (TurretRotation != oldRotation)
             SetMaskBits(0x2000);
 
-        float oldElevation = TurretElevation;
+        var oldElevation = TurretElevation;
         step = X87.F32(Mul(TurretData.Speed, dt));
         desired = CalcElevation(l[0], l[1], l[2]);
         delta = X87.F32(Sub(desired, TurretElevation));
-        if (delta > kPiD || delta < -kPiD)
+        if (delta is > (float)PiD or < (float)-PiD)
             step = -step;
         if (delta >= step || -step >= delta)
         {
@@ -706,20 +704,20 @@ public partial class GameBase
     {
         if (Services() == null)
             return;
-        GameState g = StateOf(this);
+        var g = StateOf(this);
         float[] centre = new float[3], tp = new float[3];
         TurretBoxCentre(g, this, centre);
         TurretTargetPoint(g, target, tp);
-        float[] diff = new float[3];
-        for (int i = 0; i < 3; ++i)
+        var diff = new float[3];
+        for (var i = 0; i < 3; ++i)
             diff[i] = X87.F32(Sub(centre[i], tp[i]));
-        float d = X87.Lenf(diff);
-        float[] lead = new float[3];
+        var d = X87.Lenf(diff);
+        var lead = new float[3];
         LeadPoint(this, d, target.Velocity, tp, lead);
-        float[] l = new float[3];
+        var l = new float[3];
         ToNodeSpace(this, lead, l);
-        int aimed = TurretStepAngles(l, dt);
-        float now = Manager() != null ? Manager()!.Time() : 0.0f;
+        var aimed = TurretStepAngles(l, dt);
+        var now = Manager() != null ? Manager()!.Time() : 0.0f;
         if (aimed > 1 && TurretNextFire <= now)
             TurretFire(false, target);
     }
@@ -733,7 +731,7 @@ public partial class GameBase
     {
         if (ShapeClass() != ShapeKind.Turret)
             return Transform;
-        NodeTransform(this, "dummy eye", out Transform eye);
+        NodeTransform(this, "dummy eye", out var eye);
         return eye;
     }
 
@@ -750,8 +748,8 @@ public partial class GameBase
     private static bool PlayerVisibleToTeam(GameState g, Player p, int team)
     {
         if (p.MountId != 0 && g.Sim?.Server()?.FindById(p.MountId) is GameBase gb)
-            return g.Players.VisibleToTeam(gb, team);
-        return g.Players.VisibleToTeam(p, team);
+            return PlayerManager.VisibleToTeam(gb, team);
+        return PlayerManager.VisibleToTeam(p, team);
     }
 
     // src/game/turret_fire.cpp seekerConeTarget: the best Player (set 719) or Vehicle (set 718) in the cone of a seeker
@@ -759,26 +757,26 @@ public partial class GameBase
     // 0x24e000a6), the largest cosine to the eye direction above the cone limit.
     private static GameBase? SeekerConeTarget(GameState g, GameBase t)
     {
-        SimManager? m = g.Sim?.Server();
+        var m = g.Sim?.Server();
         if (m == null)
             return null;
-        Transform eye = t.EyeTransform();
-        float[] fwd = { eye.M[3], eye.M[4], eye.M[5] };
+        var eye = t.EyeTransform();
+        float[] fwd = [eye.M[3], eye.M[4], eye.M[5]];
         TurretNormalise(fwd);
         GameBase? best = null;
-        float bestDot = -2.0f;
+        var bestDot = -2.0f;
         void Consider(GameBase o)
         {
-            float[] c = new float[3];
+            var c = new float[3];
             TurretBoxCentre(g, o, c);
             var hit = new RayHit();
-            if (Projectile.CastWorld(g, eye.P, c, 0x24e000a6u, t, ref hit) && hit.Object != o)
+            if (Projectile.CastWorld(g, eye.P, c, 0x24e000a6u, t, ref hit) && hit.HitObject != o)
                 return;
-            float[] d = new float[3];
-            for (int i = 0; i < 3; ++i)
+            var d = new float[3];
+            for (var i = 0; i < 3; ++i)
                 d[i] = X87.F32(Sub(c[i], t.Transform.P[i]));
             TurretNormalise(d);
-            float dp = X87.F32(X87.Dot(d, fwd));
+            var dp = X87.F32(X87.Dot(d, fwd));
             if (0.0f < dp && bestDot < dp)
             {
                 bestDot = dp;
@@ -786,14 +784,14 @@ public partial class GameBase
             }
         }
         if (m.FindById(719)?.AsSet() is SimSet set719)
-            for (int i = 0; i < set719.Members().Count; ++i)
+            for (var i = 0; i < set719.Members().Count; ++i)
                 if (Player.From(set719.Members()[i]) is Player p && PlayerVisibleToTeam(g, p, t.Team))
                     Consider(p);
         if (m.FindById(718)?.AsSet() is SimSet set718)
-            for (int i = 0; i < set718.Members().Count; ++i)
-                if (Vehicle.From(set718.Members()[i]) is Vehicle v && g.Players.VisibleToTeam(v, t.Team))
+            for (var i = 0; i < set718.Members().Count; ++i)
+                if (Vehicle.From(set718.Members()[i]) is Vehicle v && PlayerManager.VisibleToTeam(v, t.Team))
                     Consider(v);
-        float limit = X87.F32(Shape.CrtCos(X87.F32(Mul(Mul(t.Fov, 0.5f), t.TurretData.TargetableFovRatio))));
+        var limit = X87.F32(Shape.CrtCos(X87.F32(Mul(Mul(t.Fov, 0.5f), t.TurretData.TargetableFovRatio))));
         if (limit > 0.996f)
             limit = 0.996f;
         return best != null && bestDot > limit ? best : null;
@@ -807,40 +805,40 @@ public partial class GameBase
     {
         if (Services() == null)
             return;
-        GameState g = StateOf(this);
-        SimManager? m = Manager();
+        var g = StateOf(this);
+        var m = Manager();
         if (m == null)
             return;
-        TurretProjectileType(this, out int group, out int index, out DataBlockManager.Block? block);
-        float now = m.Time();
+        TurretProjectileType(this, out var group, out var index, out var block);
+        var now = m.Time();
         if (block == null)
         {
             // Script method `onFire(turret)`; no stock script defines one.
             if (g.Console != null)
             {
-                string fn = Pj.FindMethod(g, this, "onFire");
+                var fn = Pj.FindMethod(g, this, "onFire");
                 if (fn.Length != 0)
-                    Pj.CallMethod(g, fn, new[] { Numbers.FormatInt(Id()) });
+                    Pj.CallMethod(g, fn, [Numbers.FormatInt(Id())]);
             }
             return;
         }
-        bool sustained = TurretData.Sustained;
-        float energyNow = Energy;
+        var sustained = TurretData.Sustained;
+        var energyNow = Energy;
         if (!(TurretNextFire <= now) || energyNow < TurretData.MinGunEnergy)
             return;
-        TurretMuzzleTransform(out Transform xf);
-        Projectile? pr = Projectile.Create(g, group, index);
+        TurretMuzzleTransform(out var xf);
+        var pr = Projectile.Create(g, group, index);
         if (pr == null)
             return; // D11: the original dereferences the null result
         if (!byPlayer && TurretData.Deflection != 0.0f)
         {
             // Random aim error on the Euler angles x and z: a function-static R250 per path.
-            R250 rng = sustained ? sTurretSustainedPath : sTurretNormalPath;
-            float[] e = new float[3];
+            var rng = sustained ? TurretSustainedPath : TurretNormalPath;
+            var e = new float[3];
             MissionTransform.MatrixToEuler(xf, e);
-            foreach (int axis in new[] { 0, 2 })
+            foreach (var axis in new[] { 0, 2 })
             {
-                double v = Mul(Sub(Mul((double)rng.Next(), (double)2.3283064e-10f), 0.5f), kTwoPiD);
+                var v = Mul(Sub(Mul(rng.Next(), (double)2.3283064e-10f), 0.5f), TwoPiD);
                 v = Mul(v, TurretData.Deflection);
                 e[axis] = X87.F32(Add(v, e[axis]));
             }
@@ -851,25 +849,25 @@ public partial class GameBase
         {
             // 0x0044bfb4: the eye ray (1200 m) picks the point the projectile is aimed at, unless it is less than 2 m from
             // the muzzle; the position stays the muzzle's.
-            NodeTransform(this, "dummy eye", out Transform eye);
+            NodeTransform(this, "dummy eye", out var eye);
             var hit = new RayHit();
             if (ProjectileFire.ProjectileCastLOS(g, eye, 0xffffffffu, this, 1200.0f, ref hit))
             {
-                float[] d = { X87.F32(Sub(hit.Point[0], xf.P[0])), X87.F32(Sub(hit.Point[1], xf.P[1])), X87.F32(Sub(hit.Point[2], xf.P[2])) };
+                float[] d = [X87.F32(Sub(hit.Point[0], xf.P[0])), X87.F32(Sub(hit.Point[1], xf.P[1])), X87.F32(Sub(hit.Point[2], xf.P[2]))];
                 if (!(X87.Lenf(d) < 2.0f))
                 {
                     float[] dir = new float[3], x = new float[3], z = new float[3];
-                    float k = X87.F32(Div(1.0, X87.F32(X87.Len(d))));
-                    for (int i = 0; i < 3; ++i)
+                    var k = X87.F32(Div(1.0, X87.F32(X87.Len(d))));
+                    for (var i = 0; i < 3; ++i)
                         dir[i] = X87.F32(Mul(d[i], k));
-                    float[] up = { 0, 0, 1 };
+                    float[] up = [0, 0, 1];
                     TurretCross(up, dir, x);
                     if (X87.Len(x) > 0.0)
                     {
                         TurretNormalise(x);
                         TurretCross(x, dir, z);
                         TurretNormalise(z);
-                        for (int i = 0; i < 3; ++i)
+                        for (var i = 0; i < 3; ++i)
                         {
                             xf.M[i] = x[i];
                             xf.M[3 + i] = dir[i];
@@ -880,7 +878,7 @@ public partial class GameBase
                 }
             }
         }
-        float[] zero = { 0, 0, 0 };
+        float[] zero = [0, 0, 0];
         pr.Init(xf, zero, Id());
         if (!sustained)
         {
@@ -889,7 +887,7 @@ public partial class GameBase
                 if (target != null)
                 {
                     // 0x00453539: a mounted Player is followed through its mount object (+0x1028).
-                    GameBase tg = target;
+                    var tg = target;
                     if (Player.From(target) is Player tp && tp.MountId != 0 && m.FindById(tp.MountId) is SimObject mo)
                         tg = mo as GameBase ?? target;
                     pr.SetTarget(tg);
@@ -902,14 +900,14 @@ public partial class GameBase
             }
             if (TurretData.MaxGunEnergy != 0.0f)
             {
-                float used = energyNow > TurretData.MaxGunEnergy ? TurretData.MaxGunEnergy : energyNow;
-                float fraction = X87.F32(Div(used, TurretData.MaxGunEnergy));
+                var used = energyNow > TurretData.MaxGunEnergy ? TurretData.MaxGunEnergy : energyNow;
+                var fraction = X87.F32(Div(used, TurretData.MaxGunEnergy));
                 pr.SetShotEnergy(used, fraction);
                 SetEnergy(X87.F32(Sub(energyNow, used)));
             }
         }
         // The id comes with the registration (a failed one drops the object; the rest still runs).
-        int projectileId = pr.RegisterWith(m) ? pr.Id() : 0;
+        var projectileId = pr.RegisterWith(m) ? pr.Id() : 0;
         if (!sustained)
             TurretNextFire = X87.F32(Add(now, TurretData.ReloadDelay));
         if (TurretHasPower)
@@ -935,7 +933,7 @@ public partial class GameBase
     {
         TurretStamp = TurretTickMs;
         TurretBarrelState = 0;
-        SimManager? m = Manager();
+        var m = Manager();
         if (m != null && TurretBeamProjectile != 0)
             Projectile.From(m.FindById(TurretBeamProjectile))?.ShutOff();
         TurretBeamProjectile = 0;
@@ -948,11 +946,11 @@ public partial class GameBase
     {
         if (Services() == null)
             return;
-        GameState g = StateOf(this);
-        SimManager? m = Manager();
-        if (ControlClient == 0 && DamageState == kEnabled && IsActiveFlag())
+        var g = StateOf(this);
+        var m = Manager();
+        if (ControlClient == 0 && DamageState == Enabled && IsActiveFlag())
         {
-            SimObject? to = m != null && TurretBeamTarget != 0 ? m.FindById(TurretBeamTarget) : null;
+            var to = m != null && TurretBeamTarget != 0 ? m.FindById(TurretBeamTarget) : null;
             if (to is not GameBase target)
             {
                 TurretStopBeam();
@@ -963,8 +961,8 @@ public partial class GameBase
                 TurretStopBeam();
                 return;
             }
-            float range = TurretData.GunRange == -1.0f ? Store(SensorData.Range) : TurretData.GunRange;
-            float limit = range;
+            var range = TurretData.GunRange == -1.0f ? Store(SensorData.Range) : TurretData.GunRange;
+            var limit = range;
             if (!TurretTestTarget(target, ref limit, range))
             {
                 TurretStopBeam();
@@ -974,16 +972,16 @@ public partial class GameBase
             float[] centre = new float[3], tp = new float[3], diff = new float[3], lead = new float[3], l = new float[3];
             TurretBoxCentre(g, this, centre);
             TurretTargetPoint(g, target, tp);
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 diff[i] = X87.F32(Sub(centre[i], tp[i]));
-            float d = X87.Lenf(diff);
+            var d = X87.Lenf(diff);
             LeadPoint(this, d, target.Velocity, tp, lead);
             ToNodeSpace(this, lead, l);
             TurretStepAngles(l, dt);
         }
         if (TurretBeamProjectile != 0 && Projectile.From(m?.FindById(TurretBeamProjectile)) is Projectile pr)
         {
-            NodeTransform(this, "dummy eye", out Transform xf); // vtable +0x110, the eye transform
+            NodeTransform(this, "dummy eye", out var xf); // vtable +0x110, the eye transform
             pr.UpdateTransform(xf);
         }
     }
@@ -993,7 +991,7 @@ public partial class GameBase
     // src/game/turret_control.cpp clampTo.
     private static float ClampTo(float v, float lim)
     {
-        float lo = X87.F32(-(double)lim);
+        var lo = X87.F32(-(double)lim);
         float r;
         if (!(v >= lo))
             r = lo;
@@ -1007,10 +1005,10 @@ public partial class GameBase
     /// <summary>Calls the script method <c>jump(turret)</c> when one is defined. The base scripts define none.</summary>
     public void TurretJump()
     {
-        GameState g = StateOf(this);
-        string fn = Pj.FindMethod(g, this, "jump");
+        var g = StateOf(this);
+        var fn = Pj.FindMethod(g, this, "jump");
         if (fn.Length != 0)
-            Pj.CallMethod(g, fn, new[] { Numbers.FormatInt(Id()) });
+            Pj.CallMethod(g, fn, [Numbers.FormatInt(Id())]);
     }
 
     /// <summary>Updates the aim of the turret for one move.</summary>
@@ -1020,7 +1018,7 @@ public partial class GameBase
     public void TurretUpdateAim(TurretMove? move, float dt)
     {
         using var chop = X87.Chop();
-        bool sustained = TurretData.Sustained;
+        var sustained = TurretData.Sustained;
         if (ControlClient != 0 && TurretMode != 3)
             TurretActivate(dt);
         if (TurretMode != 3)
@@ -1041,8 +1039,8 @@ public partial class GameBase
                 lim = X87.F32(Mul(TurretData.Speed, dt));
                 scale = X87.F32(Mul(dt, 32.0f));
             }
-            float p = ClampTo(mv.Pitch, lim);
-            float y = ClampTo(mv.Turn, lim);
+            var p = ClampTo(mv.Pitch, lim);
+            var y = ClampTo(mv.Turn, lim);
             TurretElevation = X87.F32(Add(Mul(p, scale), TurretElevation));
             TurretRotation = X87.F32(Add(Mul(y, scale), TurretRotation));
             WrapElevation(ref TurretElevation);
@@ -1096,7 +1094,7 @@ public partial class GameBase
     public void TurretApplyMoves(Move[] moves, int count)
     {
         using var chop = X87.Chop();
-        for (int i = 0; i < count; ++i)
+        for (var i = 0; i < count; ++i)
         {
             TurretUpdateAim(TurretLastMove, 0.032f);
             --TurretCredit;
@@ -1114,7 +1112,7 @@ public partial class GameBase
     /// <summary>Writes the turret control state.</summary>
     /// <param name="bs">The stream to write.</param>
     /// <remarks>Follows 0x004572f8.</remarks>
-    public void TurretWriteControlState(BitStream bs)
+    public void TurretWriteControlState(BitBuffer bs)
     {
         bs.WriteF32(TurretRotation);
         bs.WriteF32(TurretElevation);
@@ -1130,7 +1128,7 @@ public partial class GameBase
     /// <remarks>Follows vtable +0x150.</remarks>
     public virtual void ApplyMoves(Move[] moves, int count)
     {
-        if (mShapeClass == ShapeKind.Turret)
+        if (_shapeClass == ShapeKind.Turret)
             TurretApplyMoves(moves, count);
     }
 
@@ -1138,9 +1136,9 @@ public partial class GameBase
     /// <param name="bs">The stream to write.</param>
     /// <param name="ctx">The connection context.</param>
     /// <remarks>Follows vtable +0x15c.</remarks>
-    public virtual void WriteControlState(BitStream bs, ControlContext ctx)
+    public virtual void WriteControlState(BitBuffer bs, ControlContext ctx)
     {
-        if (mShapeClass == ShapeKind.Turret)
+        if (_shapeClass == ShapeKind.Turret)
             TurretWriteControlState(bs);
     }
 }

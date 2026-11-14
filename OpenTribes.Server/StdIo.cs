@@ -1,17 +1,17 @@
-using OpenTribes.Core;
-
 namespace OpenTribes.Server;
+
+using OpenTribes.Core;
 
 /// <summary>The stdio streams of the C++ server. Byte strings go out as their bytes. Stdout is line buffered (<c>setvbuf _IOLBF</c> in src/server/main.cpp).</summary>
 public static class StdIo
 {
-    private static readonly Stream sOut = Console.OpenStandardOutput();
-    private static readonly Stream sErr = Console.OpenStandardError();
-    private static readonly object sLock = new();
+    private static readonly Stream OutWriter = Console.OpenStandardOutput();
+    private static readonly Stream ErrWriter = Console.OpenStandardError();
+    private static readonly Lock Lock = new();
 
     private static string CStr(string s)
     {
-        int nul = s.IndexOf('\0');
+        var nul = s.IndexOf('\0');
         return nul < 0 ? s : s[..nul];
     }
 
@@ -23,26 +23,26 @@ public static class StdIo
     /// <param name="text">The text.</param>
     public static void Write(string text)
     {
-        lock (sLock)
+        lock (Lock)
         {
-            sOut.Write(ByteString.ToBytes(text));
+            OutWriter.Write(ByteString.ToBytes(text));
             if (text.Contains('\n'))
-                sOut.Flush();
+                OutWriter.Flush();
         }
     }
 
     /// <summary>Flushes stdout.</summary>
     public static void Flush()
     {
-        lock (sLock)
-            sOut.Flush();
+        lock (Lock)
+            OutWriter.Flush();
     }
 
     /// <summary>Writes unbuffered text to stderr.</summary>
     /// <param name="text">The text.</param>
     public static void Err(string text)
     {
-        sErr.Write(ByteString.ToBytes(text));
-        sErr.Flush();
+        ErrWriter.Write(ByteString.ToBytes(text));
+        ErrWriter.Flush();
     }
 }

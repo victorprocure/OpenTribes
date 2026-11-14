@@ -1,16 +1,16 @@
+namespace OpenTribes.Gui;
+
 using System.Globalization;
 using OpenTribes.Platform.Gfx;
-
-namespace OpenTribes.Gui;
 
 /// <summary>SimGui::ArrayCtrl and every list class derived from it: one column of (text, id) rows (docs/gui.md 3.3 "Lists and array controls").</summary>
 /// <remarks>The exe has a cell routine per list class (slot 0x110). SimGui::TextList and METextList draw as the exact rule below (0054b65c, cell size 0054b845). The other classes that map to this one (the StandardListCtrl family 004b7948, FGTextList 00489f2c, the command lists and the rest) still draw the common look of this class, which is not one of those routines.</remarks>
 public class GuiList : GuiActive
 {
     /// <summary>The rows as (text, id).</summary>
-    public readonly List<(string Text, int Id)> Entries = new();
+    public List<(string Text, int Id)> Entries { get; } = [];
     /// <summary>The selected row index, -1 for none.</summary>
-    public int Selected = -1;
+    public int Selected { get; set; } = -1;
 
     /// <summary>Gets a value that is true for FGTextList.</summary>
     /// <remarks>Its add-to-manager routine (00489d00) loads the three fonts of the list itself: sf_orange214_10.pft for a row, sf_white_10.pft for the selected row and sf_grey100_10b.pft (the dimmed case, not modelled). It runs after the file is read, so the font tags of the file (all 0 in the stock screens) do not matter. The cell is 640 wide and the orange font height + 4 high.</remarks>
@@ -48,11 +48,14 @@ public class GuiList : GuiActive
     /// <param name="id">The id.</param>
     public virtual void DeleteById(int id)
     {
-        int i = FindId(id);
+        var i = FindId(id);
         if (i < 0)
             return;
         Entries.RemoveAt(i);
-        if (Selected == i) Selected = -1; else if (Selected > i) --Selected;
+        if (Selected == i)
+            Selected = -1;
+        else if (Selected > i)
+            --Selected;
     }
 
     /// <summary>Moves the list so that a row shows.</summary>
@@ -62,8 +65,8 @@ public class GuiList : GuiActive
     {
         if (Parent is not GuiScrollContent pc || pc.Parent is not GuiScroll sc)
             return;
-        int top = row * RowHeight + Y;
-        int dy = top < 1 ? -top : pc.H < top + RowHeight ? pc.H - (top + RowHeight) : 0;
+        var top = (row * RowHeight) + Y;
+        var dy = top < 1 ? -top : pc.H < top + RowHeight ? pc.H - (top + RowHeight) : 0;
         if (dy != 0)
             sc.ScrollBy(0, -dy);
     }
@@ -111,7 +114,7 @@ public class GuiList : GuiActive
     {
         if (IsTextList)
         {
-            int row = Entries.FindIndex(e => string.Equals(e.Text, v, StringComparison.Ordinal));
+            var row = Entries.FindIndex(e => string.Equals(e.Text, v, StringComparison.Ordinal));
             if (row >= 0)
             {
                 Selected = row;
@@ -121,7 +124,7 @@ public class GuiList : GuiActive
             }
             return;
         }
-        if (int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out int i))
+        if (int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i))
             Select(Math.Clamp(i, -1, Entries.Count - 1), notify: false);
     }
 
@@ -142,9 +145,9 @@ public class GuiList : GuiActive
     /// <inheritdoc/>
     public override bool MsDown(GuiEvent e)
     {
-        bool r = base.MsDown(e);
+        var r = base.MsDown(e);
         var (_, ly) = GlobalToLocal(e.X, e.Y);
-        int row = ly / RowHeight;
+        var row = ly / RowHeight;
         if (Active && row >= 0 && row < Entries.Count)
         {
             Select(row);
@@ -166,11 +169,24 @@ public class GuiList : GuiActive
         int dx, dy;
         switch (e.Scan)
         {
-            case 0xc8: dx = 0; dy = -1; break;
-            case 0xcb: dx = -1; dy = 0; break;
-            case 0xcd: dx = 1; dy = 0; break;
-            case 0xd0: dx = 0; dy = 1; break;
-            default: return base.KeyDown(e);
+            case 0xc8:
+                dx = 0;
+                dy = -1;
+                break;
+            case 0xcb:
+                dx = -1;
+                dy = 0;
+                break;
+            case 0xcd:
+                dx = 1;
+                dy = 0;
+                break;
+            case 0xd0:
+                dx = 0;
+                dy = 1;
+                break;
+            default:
+                return base.KeyDown(e);
         }
         if (Entries.Count < 1)
             return true;
@@ -190,11 +206,11 @@ public class GuiList : GuiActive
     {
         int gx = ox + X, gy = oy + Y;
         DrawBase(p, gx, gy);
-        PftFont? f = RowFont;
-        int rh = RowHeight;
-        for (int i = 0; i < Entries.Count; ++i)
+        var f = RowFont;
+        var rh = RowHeight;
+        for (var i = 0; i < Entries.Count; ++i)
         {
-            int y = gy + i * rh;
+            var y = gy + (i * rh);
             if (y > p.Clip.Bottom)
                 break;
             if (y + rh < p.Clip.Top)
@@ -203,7 +219,7 @@ public class GuiList : GuiActive
             {
                 // Cell draw [code 00489f2c]: the selected cell is filled with palette 0xfe (opaque), the text sits at (x + 10, y + vertical offset)
                 // in the white font when selected and the orange font otherwise.
-                bool sel = i == Selected;
+                var sel = i == Selected;
                 if (sel)
                     p.Fill(gx, y, W, rh, 0xfe);
                 p.Text(sel ? Host?.FontByName("sf_white_10.pft") : f, gx + 10, y + (int)U("textVOffset"), Entries[i].Text);
@@ -213,10 +229,10 @@ public class GuiList : GuiActive
             {
                 // [code 0054b65c]: the text at (x + 10, y + vertical offset); the selected cell is filled with palette 0xf9 and its text
                 // uses the highlight font.
-                bool sel = i == Selected;
+                var sel = i == Selected;
                 if (sel)
                     p.Fill(gx, y, W, rh, 0xf9);
-                PftFont? tf = sel ? Host?.FontByTag(U("highlightFontTag")) ?? f : f;
+                var tf = sel ? Host?.FontByTag(U("highlightFontTag")) ?? f : f;
                 p.Text(tf, gx + 10, y + (int)U("textVOffset"), Entries[i].Text);
                 continue;
             }
@@ -244,13 +260,13 @@ public class GuiScroll : GuiControl
     {
         get
         {
-            string? t = Host?.TagText(U("pbaTag"));
-            PbmaArray? a = t == null ? null : Host?.ArrayByName(t.Split(',')[0].Trim());
+            var t = Host?.TagText(U("pbaTag"));
+            var a = t == null ? null : Host?.ArrayByName(t.Split(',')[0].Trim());
             return a != null && a.Bitmaps.Count >= 25 ? a : null;
         }
     }
 
-    private int Piece(PbmaArray? a, int i, bool width, int def) => a == null ? def : width ? a.Bitmaps[i].Width : a.Bitmaps[i].Height;
+    private static int Piece(PbmaArray? a, int i, bool width, int def) => a == null ? def : width ? a.Bitmaps[i].Width : a.Bitmaps[i].Height;
     private int VBarW => Piece(Pieces, 0, true, BarWidth);       // vertical bar width = width of its arrow pieces
     private int HBarH => Piece(Pieces, 6, false, BarWidth);      // horizontal bar height
     private int VArrowTop => Piece(Pieces, 0, false, BarWidth);
@@ -258,18 +274,18 @@ public class GuiScroll : GuiControl
     private int HArrowLeft => Piece(Pieces, 6, true, BarWidth);
     private int HArrowRight => Piece(Pieces, 9, true, BarWidth);
     /// <summary>The horizontal scroll offset.</summary>
-    public int ScrollX;
+    public int ScrollX { get; set; }
     /// <summary>The vertical scroll offset.</summary>
-    public int ScrollY;
+    public int ScrollY { get; set; }
     /// <summary>True when the list inside is disabled, so the border takes its disabled color (+0x270 of the original, 00548944, 004b4584).</summary>
-    public bool Disabled;
-    private int ViewW => W - 2 * mInsetX;
-    private int ViewH => H - 2 * mInsetY;
-    private bool mInsetKnown;
-    private int mInsetX, mInsetY;
-    private int mDragPart;      // 8 vertical thumb, 9 horizontal thumb
-    private int mGrabOffset;
-    private int mRepeatPart;
+    public bool Disabled { get; set; }
+    private int ViewW => W - (2 * _insetX);
+    private int ViewH => H - (2 * _insetY);
+    private bool _insetKnown;
+    private int _insetX, _insetY;
+    private int _dragPart;      // 8 vertical thumb, 9 horizontal thumb
+    private int _grabOffset;
+    private int _repeatPart;
 
     /// <summary>Gets a value that is true unless the class is FearGuiScrollCtrl.</summary>
     /// <remarks>FearGuiScrollCtrl overrides the tab stop slot with a 4 byte stub (004b8bc4), taken as `return false`: the scroll frames of the game screens never hold the keyboard, so Tab and the movement keys reach the action maps while the score list is up. The plain SimGui::ScrollCtrl keeps the base rule.</remarks>
@@ -290,29 +306,29 @@ public class GuiScroll : GuiControl
 
     /// <summary>Gets a value that is true when the vertical bar shows. Policy values: 0 always, 1 never, 2 when needed.</summary>
     /// <remarks>The stock files show the order: CmdInventory.gui (horizontal 1, vertical 0) sizes its list 19 pixels narrower than the frame for a vertical bar and has no use for a horizontal one. command.gui (1, 2) scrolls vertically only.</remarks>
-    private bool VBar => U("verticalPolicy") == 0 || U("verticalPolicy") == 2 && ContentH > ViewH;
+    private bool VBar => U("verticalPolicy") == 0 || (U("verticalPolicy") == 2 && ContentH > ViewH);
     /// <summary>Gets a value that is true when the horizontal bar shows. The policy values are those of <see cref="VBar"/>.</summary>
-    private bool HBar => U("horizontalPolicy") == 0 || U("horizontalPolicy") == 2 && ContentW > ViewW;
+    private bool HBar => U("horizontalPolicy") == 0 || (U("horizontalPolicy") == 2 && ContentW > ViewW);
 
     /// <inheritdoc/>
     /// <remarks>The content keeps the offset its file gives (the Columns options scroll has it at 1, 1 inside its border).</remarks>
     public override void PreRender()
     {
-        GuiControl? c = ContentChild;
+        var c = ContentChild;
         if (c == null)
             return;
         // The content keeps the offset its file gives (the Columns options scroll has it at 1, 1 inside its border).
-        if (!mInsetKnown)
+        if (!_insetKnown)
         {
-            mInsetKnown = true;
-            mInsetX = c.X;
-            mInsetY = c.Y;
+            _insetKnown = true;
+            _insetX = c.X;
+            _insetY = c.Y;
         }
-        int vw = W - (VBar ? VBarW : 0) - 2 * mInsetX, vh = H - (HBar ? HBarH : 0) - 2 * mInsetY;
-        if (c.X != mInsetX || c.Y != mInsetY || c.W != vw || c.H != vh)
+        int vw = W - (VBar ? VBarW : 0) - (2 * _insetX), vh = H - (HBar ? HBarH : 0) - (2 * _insetY);
+        if (c.X != _insetX || c.Y != _insetY || c.W != vw || c.H != vh)
         {
-            c.X = mInsetX;
-            c.Y = mInsetY;
+            c.X = _insetX;
+            c.Y = _insetY;
             c.W = vw;
             c.H = vh;
         }
@@ -340,13 +356,13 @@ public class GuiScroll : GuiControl
     /// <returns>The thumb start and length.</returns>
     private (int top, int len) Thumb(bool vert)
     {
-        int view = vert ? ViewH - (HBar ? HBarH : 0) : ViewW - (VBar ? VBarW : 0);
-        int content = Math.Max(1, vert ? ContentH : ContentW);
+        var view = vert ? ViewH - (HBar ? HBarH : 0) : ViewW - (VBar ? VBarW : 0);
+        var content = Math.Max(1, vert ? ContentH : ContentW);
         int a0 = vert ? VArrowTop : HArrowLeft, a1 = vert ? VArrowBottom : HArrowRight;
-        int track = Math.Max(1, view - a0 - a1);
-        int len = U("constantThumb") != 0 ? BarWidth : Math.Clamp(track * view / content, Math.Min(BarWidth, track), track);
-        int range = Math.Max(1, content - view);
-        int pos = (vert ? ScrollY : ScrollX) * (track - len) / range;
+        var track = Math.Max(1, view - a0 - a1);
+        var len = U("constantThumb") != 0 ? BarWidth : Math.Clamp(track * view / content, Math.Min(BarWidth, track), track);
+        var range = Math.Max(1, content - view);
+        var pos = (vert ? ScrollY : ScrollX) * (track - len) / range;
         return (a0 + pos, len);
     }
 
@@ -356,26 +372,30 @@ public class GuiScroll : GuiControl
     {
         if (ClassName != "FearGui::FearGuiScrollCtrl")
             return 0;
-        if (mDragPart != 0)
-            return mDragPart is 8 or 9 ? CursorGrab : CursorHand;
+        if (_dragPart != 0)
+            return _dragPart is 8 or 9 ? CursorGrab : CursorHand;
         return Part(lx, ly) is 8 or 9 ? CursorOpenHand : CursorHand;
     }
 
     private int Part(int lx, int ly)
     {
-        lx -= mInsetX;
-        ly -= mInsetY;
+        lx -= _insetX;
+        ly -= _insetY;
         if (VBar && lx >= ViewW - VBarW)
         {
-            if (ly < VArrowTop) return 1;
-            if (ly >= ViewH - (HBar ? HBarH : 0) - VArrowBottom) return 2;
+            if (ly < VArrowTop)
+                return 1;
+            if (ly >= ViewH - (HBar ? HBarH : 0) - VArrowBottom)
+                return 2;
             var (t, l) = Thumb(true);
             return ly < t ? 3 : ly >= t + l ? 4 : 8;
         }
         if (HBar && ly >= ViewH - HBarH)
         {
-            if (lx < HArrowLeft) return 5;
-            if (lx >= ViewW - (VBar ? VBarW : 0) - HArrowRight) return 6;
+            if (lx < HArrowLeft)
+                return 5;
+            if (lx >= ViewW - (VBar ? VBarW : 0) - HArrowRight)
+                return 6;
             var (t, l) = Thumb(false);
             return lx < t ? 7 : lx >= t + l ? 10 : 9;
         }
@@ -387,14 +407,32 @@ public class GuiScroll : GuiControl
         int vh = ViewH - (HBar ? HBarH : 0), vw = ViewW - (VBar ? VBarW : 0);
         switch (part)
         {
-            case 1: ScrollBy(0, -ScrollLineY); break;
-            case 2: ScrollBy(0, ScrollLineY); break;
-            case 3: ScrollBy(0, -vh); break;
-            case 4: ScrollBy(0, vh); break;
-            case 5: ScrollBy(-ScrollLineX, 0); break;
-            case 6: ScrollBy(ScrollLineX, 0); break;
-            case 7: ScrollBy(-vw, 0); break;
-            case 10: ScrollBy(vw, 0); break;
+            case 1:
+                ScrollBy(0, -ScrollLineY);
+                break;
+            case 2:
+                ScrollBy(0, ScrollLineY);
+                break;
+            case 3:
+                ScrollBy(0, -vh);
+                break;
+            case 4:
+                ScrollBy(0, vh);
+                break;
+            case 5:
+                ScrollBy(-ScrollLineX, 0);
+                break;
+            case 6:
+                ScrollBy(ScrollLineX, 0);
+                break;
+            case 7:
+                ScrollBy(-vw, 0);
+                break;
+            case 10:
+                ScrollBy(vw, 0);
+                break;
+            default:
+                break;
         }
     }
 
@@ -402,17 +440,17 @@ public class GuiScroll : GuiControl
     public override bool MsDown(GuiEvent e)
     {
         var (lx, ly) = GlobalToLocal(e.X, e.Y);
-        int part = Part(lx, ly);
+        var part = Part(lx, ly);
         if (part == 0)
             return base.MsDown(e);
         Canvas?.LockMouse(this);
         Canvas?.SetFirstResponder(this);
-        mRepeatPart = part;
+        _repeatPart = part;
         if (part is 8 or 9)
         {
-            mDragPart = part;
+            _dragPart = part;
             var (t, _) = Thumb(part == 8);
-            mGrabOffset = (part == 8 ? ly : lx) - t;
+            _grabOffset = (part == 8 ? ly : lx) - t;
         }
         else
             StepPart(part);
@@ -422,26 +460,29 @@ public class GuiScroll : GuiControl
     /// <inheritdoc/>
     public override bool MsRepeat(GuiEvent e)
     {
-        if (mRepeatPart != 0 && mDragPart == 0)
-            StepPart(mRepeatPart);
+        if (_repeatPart != 0 && _dragPart == 0)
+            StepPart(_repeatPart);
         return true;
     }
 
     /// <inheritdoc/>
     public override bool MsDrag(GuiEvent e)
     {
-        if (mDragPart == 0)
+        if (_dragPart == 0)
             return base.MsDrag(e);
         var (lx, ly) = GlobalToLocal(e.X, e.Y);
-        bool vert = mDragPart == 8;
-        int view = vert ? ViewH - (HBar ? HBarH : 0) : ViewW - (VBar ? VBarW : 0);
-        int content = Math.Max(1, vert ? ContentH : ContentW);
+        var vert = _dragPart == 8;
+        var view = vert ? ViewH - (HBar ? HBarH : 0) : ViewW - (VBar ? VBarW : 0);
+        var content = Math.Max(1, vert ? ContentH : ContentW);
         var (start, len) = Thumb(vert);
         int a0 = vert ? VArrowTop : HArrowLeft, a1 = vert ? VArrowBottom : HArrowRight;
-        int track = Math.Max(1, view - a0 - a1) - len;
-        int pos = Math.Clamp((vert ? ly : lx) - mGrabOffset - a0, 0, Math.Max(0, track));
-        int v = track > 0 ? pos * Math.Max(0, content - view) / track : 0;
-        if (vert) ScrollY = v; else ScrollX = v;
+        var track = Math.Max(1, view - a0 - a1) - len;
+        var pos = Math.Clamp((vert ? ly : lx) - _grabOffset - a0, 0, Math.Max(0, track));
+        var v = track > 0 ? pos * Math.Max(0, content - view) / track : 0;
+        if (vert)
+            ScrollY = v;
+        else
+            ScrollX = v;
         PreRender();
         return true;
     }
@@ -449,8 +490,8 @@ public class GuiScroll : GuiControl
     /// <inheritdoc/>
     public override bool MsUp(GuiEvent e)
     {
-        mDragPart = 0;
-        mRepeatPart = 0;
+        _dragPart = 0;
+        _repeatPart = 0;
         Canvas?.UnlockMouse(this);
         return true;
     }
@@ -462,10 +503,20 @@ public class GuiScroll : GuiControl
         {
             switch (e.Scan)
             {
-                case 0xc8: ScrollBy(0, -ScrollLineY); return true;
-                case 0xd0: ScrollBy(0, ScrollLineY); return true;
-                case 0xcb: ScrollBy(-ScrollLineX, 0); return true;
-                case 0xcd: ScrollBy(ScrollLineX, 0); return true;
+                case 0xc8:
+                    ScrollBy(0, -ScrollLineY);
+                    return true;
+                case 0xd0:
+                    ScrollBy(0, ScrollLineY);
+                    return true;
+                case 0xcb:
+                    ScrollBy(-ScrollLineX, 0);
+                    return true;
+                case 0xcd:
+                    ScrollBy(ScrollLineX, 0);
+                    return true;
+                default:
+                    break;
             }
         }
         return base.KeyDown(e);
@@ -476,7 +527,7 @@ public class GuiScroll : GuiControl
     {
         int gx = ox + X, gy = oy + Y;
         // A scroll with a header row (headerY) frames only the part below the header: the header has its own lines.
-        int hy = (int)U("headerY");
+        var hy = (int)U("headerY");
         if (Opaque != 0)
             p.Fill(gx, gy, W, H, FillColor);
         // The frame slot of FearGuiScrollCtrl [code 004c2df4]: a style below 2 is the base frame (the outline here), a style of 2 or
@@ -486,18 +537,18 @@ public class GuiScroll : GuiControl
         else if (Border != 0)
             p.Outline(gx, gy + hy, W, H - hy, Disabled ? DisabledBorder : BorderColor);
         RenderChildren(p, gx, gy);
-        PbmaArray? pc = Pieces;
+        var pc = Pieces;
         if (pc == null)
         {
             DrawPlainBars(p, gx, gy);
             return;
         }
         if (VBar)
-            DrawVBar(p, pc, gx + W - mInsetX - VBarW, gy + mInsetY, ViewH - (HBar ? HBarH : 0));
+            DrawVBar(p, pc, gx + W - _insetX - VBarW, gy + _insetY, ViewH - (HBar ? HBarH : 0));
         if (HBar)
-            DrawHBar(p, pc, gx + mInsetX, gy + H - mInsetY - HBarH, ViewW - (VBar ? VBarW : 0));
+            DrawHBar(p, pc, gx + _insetX, gy + H - _insetY - HBarH, ViewW - (VBar ? VBarW : 0));
         if (VBar && HBar)
-            p.Bitmap(pc.Bitmaps[24], gx + W - mInsetX - VBarW, gy + H - mInsetY - HBarH);
+            p.Bitmap(pc.Bitmaps[24], gx + W - _insetX - VBarW, gy + H - _insetY - HBarH);
     }
 
     /// <summary>Draws the frame of a FearGuiScrollCtrl with a style of 2 or more.</summary>
@@ -536,14 +587,14 @@ public class GuiScroll : GuiControl
     {
         if (VBar)
         {
-            int bh = H - (HBar ? BarWidth : 0);
+            var bh = H - (HBar ? BarWidth : 0);
             p.Fill(gx + W - BarWidth, gy, BarWidth, bh, 0xe9);
             var (t, l) = Thumb(true);
             p.Fill(gx + W - BarWidth + 1, gy + t, BarWidth - 2, l, 0xf0);
         }
         if (HBar)
         {
-            int bw = W - (VBar ? BarWidth : 0);
+            var bw = W - (VBar ? BarWidth : 0);
             p.Fill(gx, gy + H - BarWidth, bw, BarWidth, 0xe9);
             var (t, l) = Thumb(false);
             p.Fill(gx + t, gy + H - BarWidth + 1, l, BarWidth - 2, 0xf0);
@@ -554,51 +605,51 @@ public class GuiScroll : GuiControl
     /// <remarks>Follows 0054a218 (vertical) and 0054a690 (horizontal). Vertical: arrows 0 to 2 (disabled, pressed, normal) and 3 to 5, track 21 to 23 (disabled, pressed, normal), thumb caps 17 and 16 with the middle 15 (30, 29, 28 while dragged when the array has more than 28 pieces). Horizontal: arrows 6 to 8 and 9 to 11, track 18 to 20, thumb 13, 14 and 12 (26, 27, 25 dragged). A bar whose content fits shows the disabled pieces without a thumb.</remarks>
     private void DrawVBar(GuiPaint p, PbmaArray pc, int bx, int by, int length)
     {
-        bool active = !Disabled && ContentH > ViewH - (HBar ? HBarH : 0);
+        var active = !Disabled && ContentH > ViewH - (HBar ? HBarH : 0);
         var bm = pc.Bitmaps;
-        p.Bitmap(bm[!active ? 0 : mRepeatPart == 1 ? 1 : 2], bx, by);
+        p.Bitmap(bm[!active ? 0 : _repeatPart == 1 ? 1 : 2], bx, by);
         int top = by + VArrowTop, end = by + length - VArrowBottom;
         if (!active)
-            Fill(p, bm[21], bx, top, bm[21].Width, end - top, true);
+            Fill(p, bm[21], bx, top, bm[21].Width, end - top);
         else
         {
             var (t, l) = Thumb(true);
-            bool drag = mDragPart == 8 && bm.Count > 28;
+            var drag = _dragPart == 8 && bm.Count > 28;
             PbmpBitmap cap0 = bm[drag ? 30 : 17], mid = bm[drag ? 28 : 15], cap1 = bm[drag ? 29 : 16];
             int ty = by + t, te = ty + l;
-            Fill(p, bm[mRepeatPart == 3 ? 22 : 23], bx, top, bm[23].Width, ty - top, true);
+            Fill(p, bm[_repeatPart == 3 ? 22 : 23], bx, top, bm[23].Width, ty - top);
             p.Bitmap(cap0, bx, ty);
-            Fill(p, mid, bx, ty + cap0.Height, mid.Width, te - cap1.Height - (ty + cap0.Height), true);
+            Fill(p, mid, bx, ty + cap0.Height, mid.Width, te - cap1.Height - (ty + cap0.Height));
             p.Bitmap(cap1, bx, te - cap1.Height);
-            Fill(p, bm[mRepeatPart == 4 ? 22 : 23], bx, te, bm[23].Width, end - te, true);
+            Fill(p, bm[_repeatPart == 4 ? 22 : 23], bx, te, bm[23].Width, end - te);
         }
-        p.Bitmap(bm[!active ? 3 : mRepeatPart == 2 ? 4 : 5], bx, end);
+        p.Bitmap(bm[!active ? 3 : _repeatPart == 2 ? 4 : 5], bx, end);
     }
 
     private void DrawHBar(GuiPaint p, PbmaArray pc, int bx, int by, int length)
     {
-        bool active = !Disabled && ContentW > ViewW - (VBar ? VBarW : 0);
+        var active = !Disabled && ContentW > ViewW - (VBar ? VBarW : 0);
         var bm = pc.Bitmaps;
-        p.Bitmap(bm[!active ? 6 : mRepeatPart == 5 ? 7 : 8], bx, by);
+        p.Bitmap(bm[!active ? 6 : _repeatPart == 5 ? 7 : 8], bx, by);
         int left = bx + HArrowLeft, end = bx + length - HArrowRight;
         if (!active)
-            Fill(p, bm[18], left, by, end - left, bm[18].Height, false);
+            Fill(p, bm[18], left, by, end - left, bm[18].Height);
         else
         {
             var (t, l) = Thumb(false);
-            bool drag = mDragPart == 9 && bm.Count > 25;
+            var drag = _dragPart == 9 && bm.Count > 25;
             PbmpBitmap cap0 = bm[drag ? 26 : 13], mid = bm[drag ? 25 : 12], cap1 = bm[drag ? 27 : 14];
             int tx = bx + t, te = tx + l;
-            Fill(p, bm[mRepeatPart == 7 ? 19 : 20], left, by, tx - left, bm[20].Height, false);
+            Fill(p, bm[_repeatPart == 7 ? 19 : 20], left, by, tx - left, bm[20].Height);
             p.Bitmap(cap0, tx, by);
-            Fill(p, mid, tx + cap0.Width, by, te - cap1.Width - (tx + cap0.Width), mid.Height, false);
+            Fill(p, mid, tx + cap0.Width, by, te - cap1.Width - (tx + cap0.Width), mid.Height);
             p.Bitmap(cap1, te - cap1.Width, by);
-            Fill(p, bm[mRepeatPart == 10 ? 19 : 20], te, by, end - te, bm[20].Height, false);
+            Fill(p, bm[_repeatPart == 10 ? 19 : 20], te, by, end - te, bm[20].Height);
         }
-        p.Bitmap(bm[!active ? 9 : mRepeatPart == 6 ? 10 : 11], end, by);
+        p.Bitmap(bm[!active ? 9 : _repeatPart == 6 ? 10 : 11], end, by);
     }
 
-    private static void Fill(GuiPaint p, PbmpBitmap b, int x, int y, int w, int h, bool vertical)
+    private static void Fill(GuiPaint p, PbmpBitmap b, int x, int y, int w, int h)
     {
         if (w > 0 && h > 0)
             p.BitmapStretch(b, x, y, w, h);
@@ -613,9 +664,9 @@ public sealed class GuiCombo : GuiSimpleText
     public override uint CursorTagAt(int lx, int ly) => CursorHand;
 
     /// <summary>The entries as (text, id).</summary>
-    public readonly List<(string Text, int Id)> Entries = new();
+    public List<(string Text, int Id)> Entries { get; } = [];
     /// <summary>The selected entry index, -1 for none.</summary>
-    public int Selected = -1;
+    public int Selected { get; set; } = -1;
 
     /// <inheritdoc/>
     public override bool WantsTab => false;
@@ -650,7 +701,7 @@ public sealed class GuiCombo : GuiSimpleText
     /// <returns>The index of the entry that has it as its text or as its first word ("OpenGL" finds "OpenGL [renderer]", 004d9228), -1 when not found.</returns>
     public int FindEntryByName(string name)
     {
-        int i = Entries.FindIndex(e => string.Equals(e.Text, name, StringComparison.OrdinalIgnoreCase));
+        var i = Entries.FindIndex(e => string.Equals(e.Text, name, StringComparison.OrdinalIgnoreCase));
         return i >= 0 ? i : Entries.FindIndex(e => string.Equals(GuiHost.FirstWord(e.Text), name, StringComparison.OrdinalIgnoreCase));
     }
     /// <summary>Gets the id of the selected entry, -1 for none.</summary>
@@ -662,7 +713,7 @@ public sealed class GuiCombo : GuiSimpleText
     /// <inheritdoc/>
     protected override void ApplyValue(string v)
     {
-        if (int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out int id))
+        if (int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
             SetSelectedIndex(IndexOfId(id));
     }
 
@@ -687,7 +738,7 @@ public sealed class GuiCombo : GuiSimpleText
     public override void Wake()
     {
         base.Wake();
-        PbmpBitmap? df = Arrow("_DF");
+        var df = Arrow("_DF");
         if (df != null)
             H = df.Height + 4;
         // The filter combos always list "<None>" first (filter 0 or less: none) [code 004d8fe4]; the join screen's file text is a leftover.
@@ -705,19 +756,19 @@ public sealed class GuiCombo : GuiSimpleText
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y;
-        bool dimmed = Dimmed;
+        var dimmed = Dimmed;
         if (ClassName == "FearGui::FGBuddyComboBox")
         {
             // 004b5288: the buddy combo draws only its arrow (no bars, label or entry).
-            PbmpBitmap? ba = dimmed ? Arrow("_NA") : Pressed ? Arrow("_ON") : Over ? Arrow("_MD") : Arrow("_DF");
+            var ba = dimmed ? Arrow("_NA") : Pressed ? Arrow("_ON") : Over ? Arrow("_MD") : Arrow("_DF");
             ba ??= Arrow("_DF");
             if (ba != null)
                 p.Bitmap(ba, gx + W - 7 - ba.Width, gy + 2);
             return;
         }
-        int k = dimmed ? 4 : 0;
-        int[] pal = { 0xf0, 0xef, 0xee, 0xed, 0xec, 0xeb, 0xea, 0xe9 };
-        int bottom = gy + H - 1;
+        var k = dimmed ? 4 : 0;
+        int[] pal = [0xf0, 0xef, 0xee, 0xed, 0xec, 0xeb, 0xea, 0xe9];
+        var bottom = gy + H - 1;
         p.Fill(gx + 4, gy, W - 8, 1, pal[k + 1]);
         p.Fill(gx + 3, gy + 1, W - 6, 1, pal[k]);
         p.Fill(gx + 3, gy + 1, 1, 1, pal[k + 2]);
@@ -726,29 +777,29 @@ public sealed class GuiCombo : GuiSimpleText
         p.Fill(gx + 4, bottom, W - 8, 1, pal[k + 1]);
         p.Fill(gx + 3, bottom - 1, 1, 1, pal[k + 2]);
         p.Fill(gx + W - 4, bottom - 1, 1, 1, pal[k + 2]);
-        int left = gx + 10;
-        string label = S("popupName");
+        var left = gx + 10;
+        var label = S("popupName");
         if (label.Length > 0)
         {
-            PftFont? lf = Tag(150121);
+            var lf = Tag(150121);
             p.Text(Tag(150173), left, gy + 1, label);
             p.Text(dimmed ? Tag(150131) : lf, left + 1, gy, label);
             left += GuiPaint.TextWidth(lf, label) + 6;
         }
-        PbmpBitmap? arrow = dimmed ? Arrow("_NA") : Pressed ? Arrow("_ON") : Over ? Arrow("_MD") : Arrow("_DF");
+        var arrow = dimmed ? Arrow("_NA") : Pressed ? Arrow("_ON") : Over ? Arrow("_MD") : Arrow("_DF");
         arrow ??= Arrow("_DF");
         if (arrow == null)
             return;
         p.Bitmap(arrow, gx + W - 7 - arrow.Width, gy + 2);
-        int room = gx + W - arrow.Width - 14 - left;
-        PftFont? f = dimmed ? Tag(150134) : Tag(150114);
-        PftFont? sh = Tag(150172);
-        string t = Text;
+        var room = gx + W - arrow.Width - 14 - left;
+        var f = dimmed ? Tag(150134) : Tag(150114);
+        var sh = Tag(150172);
+        var t = Text;
         if (f == null)
             return;
         if (GuiPaint.TextWidth(f, t) >= room)
         {
-            int dots = GuiPaint.TextWidth(f, "...");
+            var dots = GuiPaint.TextWidth(f, "...");
             if (dots > room)
                 return;
             while (t.Length > 0 && GuiPaint.TextWidth(f, t) > room - dots)
@@ -763,8 +814,8 @@ public sealed class GuiCombo : GuiSimpleText
 /// <summary>The popup list of a combo, pushed over the screen: a click on an entry selects it, any other click closes it.</summary>
 public sealed class ComboPopup : GuiControl
 {
-    private readonly GuiCombo mCombo;
-    private readonly int mGx, mGy;
+    private readonly GuiCombo _combo;
+    private readonly int _gx, _gy;
     private const int RowH = 14;
 
     /// <summary>Creates a popup under a combo.</summary>
@@ -774,20 +825,20 @@ public sealed class ComboPopup : GuiControl
     public ComboPopup(GuiCombo combo, int gx, int gy)
     {
         ClassName = "FearGui::ComboPopup";
-        mCombo = combo;
-        mGx = gx;
-        mGy = gy;
+        _combo = combo;
+        _gx = gx;
+        _gy = gy;
         Flags = 3 | 4;
     }
 
     /// <inheritdoc/>
     public override bool MsDown(GuiEvent e)
     {
-        int row = (e.Y - mGy) / RowH;
-        bool inside = e.X >= mGx && e.X < mGx + mCombo.W && e.Y >= mGy && row >= 0 && row < mCombo.Entries.Count;
+        var row = (e.Y - _gy) / RowH;
+        var inside = e.X >= _gx && e.X < _gx + _combo.W && e.Y >= _gy && row >= 0 && row < _combo.Entries.Count;
         Canvas?.PopDialog(0, force: true);
         if (inside)
-            mCombo.SetSelectedIndex(row, notify: true);
+            _combo.SetSelectedIndex(row, notify: true);
         return true;
     }
 
@@ -802,15 +853,15 @@ public sealed class ComboPopup : GuiControl
     /// <inheritdoc/>
     public override void Render(GuiPaint p, int ox, int oy)
     {
-        PftFont? f = Host?.FontByName("sf_white_10.pft");
-        int h = mCombo.Entries.Count * RowH;
-        p.Fill(mGx, mGy, mCombo.W, h, 0xf4);
-        GuiBox.Bevel(p, mGx, mGy, mCombo.W, h, false);
-        for (int i = 0; i < mCombo.Entries.Count; ++i)
+        var f = Host?.FontByName("sf_white_10.pft");
+        var h = _combo.Entries.Count * RowH;
+        p.Fill(_gx, _gy, _combo.W, h, 0xf4);
+        GuiBox.Bevel(p, _gx, _gy, _combo.W, h, false);
+        for (var i = 0; i < _combo.Entries.Count; ++i)
         {
-            if (i == mCombo.Selected)
-                p.Fill(mGx + 1, mGy + i * RowH, mCombo.W - 2, RowH, 0xf8);
-            p.Text(f, mGx + 4, mGy + i * RowH + 1, mCombo.Entries[i].Text);
+            if (i == _combo.Selected)
+                p.Fill(_gx + 1, _gy + (i * RowH), _combo.W - 2, RowH, 0xf8);
+            p.Text(f, _gx + 4, _gy + (i * RowH) + 1, _combo.Entries[i].Text);
         }
     }
 }

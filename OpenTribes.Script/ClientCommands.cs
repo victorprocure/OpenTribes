@@ -1,23 +1,23 @@
+namespace OpenTribes.Script;
+
 using System.Text;
 using OpenTribes.Core;
-
-namespace OpenTribes.Script;
 
 /// <summary>An input event of a binding (parser 005228fc): device, object, action and modifiers.</summary>
 public struct InputEvent : IEquatable<InputEvent>
 {
     /// <summary>The device type: 1 device, 2 mouse, 3 keyboard, 4 joystick.</summary>
-    public byte DeviceType;
+    public byte DeviceType { get; set; }
     /// <summary>The trailing number of the device word.</summary>
-    public byte DeviceInst;
+    public byte DeviceInst { get; set; }
     /// <summary>The object type: 2 button, 3 to 9 POV, 10 key, 11 to 16 axes, 17 slider.</summary>
-    public byte ObjType;
+    public byte ObjType { get; set; }
     /// <summary>The key code for keys, the trailing number otherwise.</summary>
-    public byte ObjInst;
+    public byte ObjInst { get; set; }
     /// <summary>The action: 1 make, 2 break, 3 move.</summary>
-    public byte Action;
+    public byte Action { get; set; }
     /// <summary>The modifier bits: 1 and 2 shift, 4 and 8 control, 16 and 32 alt, for left and right.</summary>
-    public byte Modifiers;
+    public byte Modifiers { get; set; }
 
     /// <summary>Tests two events for equality.</summary>
     /// <param name="o">The other event.</param>
@@ -50,42 +50,47 @@ public sealed class ActionBinding
     /// <summary>The binding flag bits: None, Value, Flip, Center, Square, Cube, DeadZone and Scale.</summary>
     public const uint None = 1, Value = 2, Flip = 4, Center = 8, Square = 16, Cube = 32, DeadZone = 64, Scale = 128;
     /// <summary>The bound input event.</summary>
-    public InputEvent Event;
+    public ref InputEvent Event => ref _event;
+    private InputEvent _event;
     /// <summary>Whether the binding runs a command instead of an action.</summary>
-    public bool IsCommand;
+    public bool IsCommand { get; set; }
     /// <summary>The command text (bindCommand and bind).</summary>
-    public string Command = "";
+    public string Command { get; set; } = "";
     /// <summary>The action tag id (bindAction).</summary>
-    public int Action;
+    public int Action { get; set; }
     /// <summary>The flag bits.</summary>
-    public uint Flags;
+    public uint Flags { get; set; }
     /// <summary>The value, the dead zone and the scale.</summary>
-    public float ValueF, DeadZoneF, ScaleF = 1;
+    public float ValueF { get; set; }
+    /// <inheritdoc cref="ValueF"/>
+    public float DeadZoneF { get; set; }
+    /// <inheritdoc cref="ValueF"/>
+    public float ScaleF { get; set; } = 1;
 }
 
 /// <summary>An action map, a list of bindings.</summary>
 public sealed class ActionMap
 {
     /// <summary>The resource name, ending in ".sae".</summary>
-    public string Name = "";
+    public string Name { get; set; } = "";
     /// <summary>The bindings.</summary>
-    public readonly List<ActionBinding> Bindings = new();
+    public List<ActionBinding> Bindings { get; } = [];
 }
 
 /// <summary>The state of the client-side commands: the action maps and the current map.</summary>
 public sealed class ClientState
 {
     /// <summary>The name of the map set by editActionMap or newActionMap, empty when unset.</summary>
-    public string CurrentMap = "";
+    public string CurrentMap { get; set; } = "";
     /// <summary>The action maps.</summary>
-    public readonly List<ActionMap> Maps = new();
+    public List<ActionMap> Maps { get; } = [];
 
     /// <summary>Finds an action map by name.</summary>
     /// <param name="name">The map name, matched ASCII case-insensitively.</param>
     /// <returns>The map, or null.</returns>
     public ActionMap? FindMap(string name)
     {
-        foreach (ActionMap m in Maps)
+        foreach (var m in Maps)
             if (ClientCommands.EqualNoCase(m.Name, name))
                 return m;
         return null;
@@ -114,33 +119,33 @@ public static class ClientCommands
     private readonly record struct NameValue(string Name, byte Value);
 
     // Name tables of the input plugin (0x00637860, 0x00637888, 0x006378a8, 0x00637930, 0x00637980).
-    private static readonly NameValue[] kDevices = { new("keyboard", 3), new("mouse", 2), new("joystick", 4), new("device", 1) };
-    private static readonly NameValue[] kEventActions = { new("make", 1), new("break", 2), new("move", 3) };
-    private static readonly NameValue[] kObjects =
-    {
+    private static readonly NameValue[] Devices = [new("keyboard", 3), new("mouse", 2), new("joystick", 4), new("device", 1)];
+    private static readonly NameValue[] EventActions = [new("make", 1), new("break", 2), new("move", 3)];
+    private static readonly NameValue[] Objects =
+    [
         new("xaxis", 11), new("yaxis", 12), new("zaxis", 13), new("rxaxis", 14), new("ryaxis", 15), new("rzaxis", 16),
         new("slider", 17), new("pov", 3), new("xpov", 4), new("ypov", 5), new("upov", 6), new("dpov", 7),
         new("lpov", 8), new("rpov", 9), new("button", 2), new("key", 10),
-    };
-    private static readonly NameValue[] kModifiers =
-    {
+    ];
+    private static readonly NameValue[] Modifiers =
+    [
         new("shift", 3), new("control", 12), new("alt", 48), new("l_shift", 1), new("r_shift", 2),
         new("l_control", 4), new("r_control", 8), new("l_alt", 16), new("r_alt", 32),
-    };
-    private static readonly NameValue[] kFlags =
-    {
+    ];
+    private static readonly NameValue[] Flags =
+    [
         new("None", 1), new("Value", 2), new("Flip", 4), new("Center", 8),
         new("Square", 16), new("Cube", 32), new("DeadZone", 64), new("Scale", 128),
-    };
+    ];
 
-    private static char UpperAscii(char c) => (c >= 'a' && c <= 'z') ? (char)(c - 0x20) : c;
+    private static char UpperAscii(char c) => (c is >= 'a' and <= 'z') ? (char)(c - 0x20) : c;
 
     // src/script/client_commands.cpp equalNoCase.
     internal static bool EqualNoCase(string a, string b)
     {
         if (a.Length != b.Length)
             return false;
-        for (int i = 0; i < a.Length; ++i)
+        for (var i = 0; i < a.Length; ++i)
             if (UpperAscii(a[i]) != UpperAscii(b[i]))
                 return false;
         return true;
@@ -149,9 +154,9 @@ public static class ClientCommands
     // src/script/client_commands.cpp hasPrefixNoCase: strnicmp(word + from, prefix, strlen(prefix)) == 0.
     private static bool HasPrefixNoCase(string word, int from, string prefix)
     {
-        for (int i = 0; i < prefix.Length; ++i)
+        for (var i = 0; i < prefix.Length; ++i)
         {
-            char w = from + i < word.Length ? word[from + i] : '\0';
+            var w = from + i < word.Length ? word[from + i] : '\0';
             if (UpperAscii(w) != UpperAscii(prefix[i]))
                 return false;
         }
@@ -161,7 +166,7 @@ public static class ClientCommands
     // src/script/client_commands.cpp lookupPrefix (0x00520af4): the first entry that is a prefix of the word.
     private static byte LookupPrefix(NameValue[] table, string word)
     {
-        foreach (NameValue e in table)
+        foreach (var e in table)
             if (HasPrefixNoCase(word, 0, e.Name))
                 return e.Value;
         return 0;
@@ -170,7 +175,7 @@ public static class ClientCommands
     // src/script/client_commands.cpp nameOf.
     private static string NameOf(NameValue[] table, byte value)
     {
-        foreach (NameValue e in table)
+        foreach (var e in table)
             if (e.Value == value)
                 return e.Name;
         return "";
@@ -179,7 +184,7 @@ public static class ClientCommands
     // src/script/client_commands.cpp trailingNumber (0x00520b3c): the decimal number that ends the word, 0 without one.
     private static byte TrailingNumber(string word)
     {
-        int i = word.Length;
+        var i = word.Length;
         while (i > 0 && word[i - 1] >= '0' && word[i - 1] <= '9')
             --i;
         return i == word.Length ? (byte)0 : unchecked((byte)Numbers.BorlandAtoi(word[i..]));
@@ -188,7 +193,7 @@ public static class ClientCommands
     // src/script/client_commands.cpp keyFromChar.
     private static byte KeyFromChar(char c)
     {
-        foreach (KeyName k in ClientKeyTable.Keys)
+        foreach (var k in ClientKeyTable.Keys)
             if (c == k.Lower || c == k.Upper)
                 return k.Code;
         return 0;
@@ -197,7 +202,7 @@ public static class ClientCommands
     // src/script/client_commands.cpp keyFromName.
     private static byte KeyFromName(string name)
     {
-        foreach (KeyName k in ClientKeyTable.Keys)
+        foreach (var k in ClientKeyTable.Keys)
             if (k.Name != null && EqualNoCase(name, k.Name))
                 return k.Code;
         return 0;
@@ -206,7 +211,7 @@ public static class ClientCommands
     // src/script/client_commands.cpp keyByCode.
     private static KeyName? KeyByCode(byte code)
     {
-        foreach (KeyName k in ClientKeyTable.Keys)
+        foreach (var k in ClientKeyTable.Keys)
             if (k.Code == code)
                 return k;
         return null;
@@ -219,11 +224,11 @@ public static class ClientCommands
     private static string Expand(string tpl, string[] argv)
     {
         var output = new StringBuilder();
-        for (int p = 0; p < tpl.Length; ++p)
+        for (var p = 0; p < tpl.Length; ++p)
         {
             if (tpl[p] == '{' && p + 2 < tpl.Length && tpl[p + 1] >= '1' && tpl[p + 1] <= '9' && tpl[p + 2] == '}')
             {
-                int k = tpl[p + 1] - '0';
+                var k = tpl[p + 1] - '0';
                 if (k < argv.Length)
                     output.Append(argv[k]);
                 p += 2;
@@ -239,10 +244,10 @@ public static class ClientCommands
     // src/script/client_commands.cpp printLines.
     private static void PrintLines(Interpreter interp, string text)
     {
-        int start = 0;
+        var start = 0;
         while (start < text.Length)
         {
-            int end = text.IndexOf('\n', start);
+            var end = text.IndexOf('\n', start);
             interp.Print(1, end < 0 ? text[start..] : text[start..end]);
             start = end < 0 ? text.Length : end + 1;
         }
@@ -253,7 +258,7 @@ public static class ClientCommands
     /// <returns>The resource name.</returns>
     public static string ActionMapName(string name)
     {
-        int dot = name.LastIndexOf('.');
+        var dot = name.LastIndexOf('.');
         if (dot >= 0 && EqualNoCase(name[dot..], ".sae"))
             return name;
         return name + ".sae";
@@ -268,13 +273,13 @@ public static class ClientCommands
         int i = 0, n = w.Count;
         if (n == 0)
             return false;
-        ev.DeviceType = LookupPrefix(kDevices, w[0]);
+        ev.DeviceType = LookupPrefix(Devices, w[0]);
         ev.DeviceInst = TrailingNumber(w[0]);
         ++i;
         if (i == n || ev.DeviceType == 0)
             return false;
-        ev.Action = LookupPrefix(kEventActions, w[i]);
-        bool button = ev.Action == 1 || ev.Action == 2;
+        ev.Action = LookupPrefix(EventActions, w[i]);
+        var button = ev.Action is 1 or 2;
         if (button)
             ++i;
         if (i == n)
@@ -282,7 +287,7 @@ public static class ClientCommands
         ev.Modifiers = 0;
         for (; i < n; ++i)
         {
-            byte m = LookupPrefix(kModifiers, w[i]);
+            var m = LookupPrefix(Modifiers, w[i]);
             if (m == 0)
                 break;
             ev.Modifiers |= m;
@@ -298,7 +303,7 @@ public static class ClientCommands
             }
             return false;
         }
-        string o = w[i];
+        var o = w[i];
         if (button)
         {
             if (HasPrefixNoCase(o, 0, "button"))
@@ -315,14 +320,14 @@ public static class ClientCommands
             }
             else
             {
-                ev.ObjType = LookupPrefix(kObjects, o);
+                ev.ObjType = LookupPrefix(Objects, o);
                 ev.ObjInst = TrailingNumber(o);
             }
         }
         else
         {
             ev.Action = 3;
-            ev.ObjType = LookupPrefix(kObjects, o);
+            ev.ObjType = LookupPrefix(Objects, o);
             ev.ObjInst = TrailingNumber(o);
             if (ev.ObjType == 0)
                 return false;
@@ -336,7 +341,7 @@ public static class ClientCommands
     /// <returns>False when the TO section is malformed.</returns>
     public static bool ParseActionTarget(List<string> w, ActionBinding b)
     {
-        int n = w.Count;
+        var n = w.Count;
         if (n == 0)
             return false;
         b.Action = Numbers.BorlandAtoi(w[0]);
@@ -346,8 +351,8 @@ public static class ClientCommands
         b.ValueF = 0;
         b.DeadZoneF = 0;
         b.ScaleF = 1;
-        int i = 1;
-        if (i < n && ScanFloat(w[i], out float value))
+        var i = 1;
+        if (i < n && ScanFloat(w[i], out var value))
         {
             b.ValueF = value;
             b.Flags |= ActionBinding.Value;
@@ -356,7 +361,7 @@ public static class ClientCommands
         for (; i < n; ++i)
         {
             NameValue? flag = null;
-            foreach (NameValue f in kFlags)
+            foreach (var f in Flags)
                 if (EqualNoCase(w[i], f.Name))
                 {
                     flag = f;
@@ -365,11 +370,11 @@ public static class ClientCommands
             if (flag == null)
                 return false;
             b.Flags |= flag.Value.Value;
-            if (flag.Value.Value == ActionBinding.DeadZone || flag.Value.Value == ActionBinding.Scale)
+            if (flag.Value.Value is (byte)ActionBinding.DeadZone or (byte)ActionBinding.Scale)
             {
                 if (++i == n)
                     return false;
-                float v = Fpu.Store(Numbers.BorlandAtof(w[i]));
+                var v = Fpu.Store(Numbers.BorlandAtof(w[i]));
                 v = v >= 1.0f ? 1.0f : v;
                 v = v <= 0.0f ? 0.0f : v;
                 if (flag.Value.Value == ActionBinding.DeadZone)
@@ -389,11 +394,11 @@ public static class ClientCommands
     public static bool ScanFloat(string s, out float f)
     {
         f = 0;
-        int i = 0;
+        var i = 0;
         while (i < s.Length && (s[i] == ' ' || (s[i] >= '\t' && s[i] <= '\r')))
             ++i;
-        int start = i;
-        bool negative = false;
+        var start = i;
+        var negative = false;
         if (i < s.Length && (s[i] == '+' || s[i] == '-'))
             negative = s[i++] == '-';
         bool Word(string w) => i + w.Length <= s.Length && string.Compare(s, i, w, 0, w.Length, StringComparison.OrdinalIgnoreCase) == 0;
@@ -407,18 +412,18 @@ public static class ClientCommands
             f = (float)(negative ? Numbers.NegNaN : Numbers.NaN);
             return true;
         }
-        static bool Hex(char c) => (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+        static bool Hex(char c) => c is (>= '0' and <= '9') or (>= 'a' and <= 'f') or (>= 'A' and <= 'F');
         if (i + 2 < s.Length && s[i] == '0' && (s[i + 1] == 'x' || s[i + 1] == 'X') &&
             (Hex(s[i + 2]) || (s[i + 2] == '.' && i + 3 < s.Length && Hex(s[i + 3]))))
         {
             // Hexadecimal: mantissa digits, optional point, optional binary exponent.
             i += 2;
             double m = 0;
-            int scale = 0;
-            bool point = false;
+            var scale = 0;
+            var point = false;
             for (; i < s.Length; ++i)
             {
-                char c = s[i];
+                var c = s[i];
                 if (c == '.' && !point)
                 {
                     point = true;
@@ -426,28 +431,28 @@ public static class ClientCommands
                 }
                 if (!Hex(c))
                     break;
-                m = m * 16 + (c <= '9' ? c - '0' : (c | 0x20) - 'a' + 10);
+                m = (m * 16) + (c <= '9' ? c - '0' : (c | 0x20) - 'a' + 10);
                 if (point)
                     scale -= 4;
             }
             if (i < s.Length && (s[i] == 'p' || s[i] == 'P'))
             {
-                int j = i + 1;
-                bool eneg = false;
+                var j = i + 1;
+                var eneg = false;
                 if (j < s.Length && (s[j] == '+' || s[j] == '-'))
                     eneg = s[j++] == '-';
                 if (j < s.Length && s[j] >= '0' && s[j] <= '9')
                 {
-                    int e = 0;
+                    var e = 0;
                     while (j < s.Length && s[j] >= '0' && s[j] <= '9')
-                        e = Math.Min(e * 10 + (s[j++] - '0'), 100000);
+                        e = Math.Min((e * 10) + (s[j++] - '0'), 100000);
                     scale += eneg ? -e : e;
                 }
             }
             f = Fpu.Store(Math.ScaleB(negative ? -m : m, scale));
             return true;
         }
-        int digits = 0;
+        var digits = 0;
         while (i < s.Length && s[i] >= '0' && s[i] <= '9')
         {
             ++i;
@@ -466,7 +471,7 @@ public static class ClientCommands
             return false;
         if (i < s.Length && (s[i] == 'e' || s[i] == 'E'))
         {
-            int j = i + 1;
+            var j = i + 1;
             if (j < s.Length && (s[j] == '+' || s[j] == '-'))
                 ++j;
             if (j < s.Length && s[j] >= '0' && s[j] <= '9')
@@ -476,7 +481,7 @@ public static class ClientCommands
                 i = j;
             }
         }
-        string num = s[start..i];
+        var num = s[start..i];
         f = Fpu.Store(Numbers.Strtod(num));
         // A scale the engine itself printed (`%f`, six decimals) reads back to a float that prints the same text (client-scripts.md E7).
         if (Fpu.IsPrintedDecimal(num, 6))
@@ -490,14 +495,14 @@ public static class ClientCommands
     /// <returns>The line.</returns>
     public static string FormatBinding(ActionBinding b, Func<int, string>? tagName)
     {
-        InputEvent ev = b.Event;
+        var ev = b.Event;
         var line = new StringBuilder(b.IsCommand ? "bindCommand(" : "bindAction(");
-        line.Append(NameOf(kDevices, ev.DeviceType) + Numbers.FormatInt(ev.DeviceInst) + ", ");
-        if (ev.Action == 1 || ev.Action == 2)
+        line.Append(NameOf(Devices, ev.DeviceType) + Numbers.FormatInt(ev.DeviceInst) + ", ");
+        if (ev.Action is 1 or 2)
         {
-            line.Append(NameOf(kEventActions, ev.Action) + ", ");
-            byte mod = ev.Modifiers;
-            foreach (NameValue m in kModifiers)
+            line.Append(NameOf(EventActions, ev.Action) + ", ");
+            var mod = ev.Modifiers;
+            foreach (var m in Modifiers)
                 if ((mod & m.Value) == m.Value)
                 {
                     line.Append(m.Name + ", ");
@@ -507,7 +512,7 @@ public static class ClientCommands
             {
                 if (ev.ObjInst != 0)
                 {
-                    KeyName? k = KeyByCode(ev.ObjInst);
+                    var k = KeyByCode(ev.ObjInst);
                     if (k != null && k.Value.Name != null)
                         line.Append("\"" + k.Value.Name + "\", ");
                     else if (k != null && k.Value.Lower == '\\')
@@ -518,12 +523,12 @@ public static class ClientCommands
             }
             else
             {
-                line.Append(NameOf(kObjects, ev.ObjType) + Numbers.FormatInt(ev.ObjInst) + ", ");
+                line.Append(NameOf(Objects, ev.ObjType) + Numbers.FormatInt(ev.ObjInst) + ", ");
             }
         }
         else
         {
-            line.Append(NameOf(kObjects, ev.ObjType) + Numbers.FormatInt(ev.ObjInst) + ", ");
+            line.Append(NameOf(Objects, ev.ObjType) + Numbers.FormatInt(ev.ObjInst) + ", ");
         }
         line.Append("TO, ");
         if (b.IsCommand)
@@ -535,7 +540,7 @@ public static class ClientCommands
             line.Append(tagName != null ? tagName(b.Action) : "");
             if ((b.Flags & ActionBinding.Value) != 0)
                 line.Append(", " + FloatText(b.ValueF));
-            foreach (NameValue f in kFlags)
+            foreach (var f in Flags)
                 if ((b.Flags & f.Value) != 0 && (b.Flags & ActionBinding.Value) == 0)
                 {
                     line.Append(", " + f.Name);
@@ -560,7 +565,7 @@ public static class ClientCommands
     // src/script/client_commands.cpp addBinding (0x00509240): a binding of the same event is removed, the new one goes to the end.
     private static void AddBinding(ActionMap map, ActionBinding b)
     {
-        for (int k = 0; k < map.Bindings.Count; ++k)
+        for (var k = 0; k < map.Bindings.Count; ++k)
             if (map.Bindings[k].Event == b.Event)
             {
                 map.Bindings.RemoveAt(k);
@@ -572,7 +577,7 @@ public static class ClientCommands
     // src/script/client_commands.cpp countBeforeTo: index of the first "to" word in argv[1..], or argv.size() - 1 without one.
     private static int CountBeforeTo(string[] argv)
     {
-        int i = 1;
+        var i = 1;
         while (i < argv.Length && !EqualNoCase(argv[i], "to"))
             ++i;
         return i - 1;
@@ -588,7 +593,7 @@ public static class ClientCommands
         interp.Print(1, c + " mouse[0-n] move[x,y,z,r,u,v] ");
     }
 
-    private static List<string> Slice(string[] argv, int from, int to) => argv[from..to].ToList();
+    private static List<string> Slice(string[] argv, int from, int to) => [.. argv[from..to]];
 
     // src/script/client_commands.cpp registerActionMaps.
     private static void RegisterActionMaps(Interpreter interp, ResourceManager? res, string rootDir, ClientState st)
@@ -603,7 +608,7 @@ public static class ClientCommands
                 return "False";
             }
             st.CurrentMap = ActionMapName(argv[1]);
-            ActionMap? m = st.FindMap(st.CurrentMap);
+            var m = st.FindMap(st.CurrentMap);
             if (m != null)
             {
                 if (clear)
@@ -625,7 +630,7 @@ public static class ClientCommands
                 Usage(i, "bindAction");
                 return "False";
             }
-            ActionMap? map = st.FindMap(st.CurrentMap);
+            var map = st.FindMap(st.CurrentMap);
             if (map == null)
             {
                 i.Print(1, "bindAction error: must call 'editActionMap' or 'newActionMap' first. (" + st.CurrentMap + ")");
@@ -635,17 +640,20 @@ public static class ClientCommands
             {
                 i.Print(1, "bindAction event TO action - error: malformed '" + section + "'.");
                 var echo = new StringBuilder("-->bindAction ");
-                foreach (string a in argv)
+                foreach (var a in argv)
                     echo.Append(a + " ");
                 i.Print(1, echo.ToString());
                 return "False";
             }
-            int before = CountBeforeTo(argv);
+            var before = CountBeforeTo(argv);
             var b = new ActionBinding();
-            if (!ParseInputEvent(Slice(argv, 1, 1 + before), ref b.Event))
+            var bindEvent = b.Event;
+            var parsed = ParseInputEvent(Slice(argv, 1, 1 + before), ref bindEvent);
+            b.Event = bindEvent;
+            if (!parsed)
                 return Fail("Device section");
-            int after = before + 2; // first word behind "TO"
-            if (!ParseActionTarget(after < argv.Length ? Slice(argv, after, argv.Length) : new List<string>(), b))
+            var after = before + 2; // first word behind "TO"
+            if (!ParseActionTarget(after < argv.Length ? Slice(argv, after, argv.Length) : [], b))
                 return Fail("TO section");
             AddBinding(map, b);
             return "False";
@@ -659,7 +667,7 @@ public static class ClientCommands
                 Usage(i, name);
                 return "False";
             }
-            ActionMap? map = st.FindMap(simGame ? "SimGame.sae" : st.CurrentMap);
+            var map = st.FindMap(simGame ? "SimGame.sae" : st.CurrentMap);
             if (map == null)
             {
                 if (simGame)
@@ -668,10 +676,13 @@ public static class ClientCommands
                     i.Print(1, "bindAction error: must call 'editActionMap' or 'newActionMap' first. (" + st.CurrentMap + ")");
                 return "False";
             }
-            int before = CountBeforeTo(argv);
+            var before = CountBeforeTo(argv);
             var b = new ActionBinding();
             // Without a word behind "TO" the original reads past argv (rejected, D11).
-            if (!ParseInputEvent(Slice(argv, 1, 1 + before), ref b.Event) || before + 2 >= argv.Length)
+            var bindEvent = b.Event;
+            var parsed = ParseInputEvent(Slice(argv, 1, 1 + before), ref bindEvent);
+            b.Event = bindEvent;
+            if (!parsed || before + 2 >= argv.Length)
             {
                 i.Print(1, name + " event TO command - error: malformed 'Device section'.");
                 return "False";
@@ -691,8 +702,8 @@ public static class ClientCommands
                 i.Print(1, "saveactionMap filename.cs mapname1 {mapname2 ...}");
                 return "False";
             }
-            string file = argv[1];
-            int dot = file.LastIndexOf('.');
+            var file = argv[1];
+            var dot = file.LastIndexOf('.');
             if (dot < 0 || !EqualNoCase(file[dot..], ".cs"))
                 file += ".cs";
             if (!Builtins.IsWriteablePath(file))
@@ -712,17 +723,17 @@ public static class ClientCommands
             }
             using (f)
             {
-                for (int k = 2; k < argv.Length; ++k)
+                for (var k = 2; k < argv.Length; ++k)
                 {
-                    string name = ActionMapName(argv[k]);
-                    ActionMap? map = st.FindMap(name);
+                    var name = ActionMapName(argv[k]);
+                    var map = st.FindMap(name);
                     if (map == null)
                     {
                         i.Print(1, "Unknown map '" + name + "'");
                         continue;
                     }
                     f.Write(ByteString.ToBytes("NewActionMap(\"" + name + "\");\n"));
-                    foreach (ActionBinding b in map.Bindings)
+                    foreach (var b in map.Bindings)
                         f.Write(ByteString.ToBytes(FormatBinding(b, id => i.TagName(id)) + "\r\n"));
                 }
             }
@@ -731,7 +742,7 @@ public static class ClientCommands
 
         // pushActionMap/popActionMap (cases 16, 17) act on the client world's input set;
         // a server has none, so only the result is visible.
-        foreach (string name in new[] { "pushActionMap", "popActionMap" })
+        foreach (var name in new[] { "pushActionMap", "popActionMap" })
             interp.AddCommand(name, (i, argv) => argv.Length == 2 ? "True" : "False");
     }
 
@@ -742,14 +753,14 @@ public static class ClientCommands
     {
         ActionMap? Find(Interpreter i, string name)
         {
-            ActionMap? m = st.FindMap(name);
+            var m = st.FindMap(name);
             if (m == null)
                 i.Print(1, "error: must call 'editActionMap' or 'newActionMap' first. (" + name + ")");
             return m;
         }
         static ActionBinding? Axis(ActionMap m, byte objType)
         {
-            foreach (ActionBinding b in m.Bindings)
+            foreach (var b in m.Bindings)
                 if (b.Event.DeviceType != 3 && b.Event.Action != 1 && b.Event.Action != 2 && !b.IsCommand &&
                     b.Event.ObjType == objType)
                     return b;
@@ -764,14 +775,14 @@ public static class ClientCommands
             }
             if (argv[1].Length == 0)
                 return "1";
-            string r = "-1";
-            ActionMap? m = Find(i, argv[1]);
-            ActionBinding? b = m != null ? Axis(m, 11) : null;
+            var r = "-1";
+            var m = Find(i, argv[1]);
+            var b = m != null ? Axis(m, 11) : null;
             if (b != null)
                 r = Numbers.FormatFloat(b.ScaleF);
             return r;
         });
-        foreach (bool y in new[] { false, true })
+        foreach (var y in new[] { false, true })
             interp.AddCommand(y ? "Client::getMouseYAxisFlip" : "Client::getMouseXAxisFlip", (i, argv) =>
             {
                 if (argv.Length != 2)
@@ -779,11 +790,11 @@ public static class ClientCommands
                     i.Print(1, "invalid call to " + argv[0] + "(actionMap)");
                     return "";
                 }
-                string r = "FALSE";
+                var r = "FALSE";
                 if (argv[1].Length == 0)
                     return r;
-                ActionMap? m = Find(i, argv[1]);
-                ActionBinding? b = m != null ? Axis(m, (byte)(y ? 12 : 11)) : null;
+                var m = Find(i, argv[1]);
+                var b = m != null ? Axis(m, (byte)(y ? 12 : 11)) : null;
                 if (b != null)
                     r = (b.Flags & ActionBinding.Flip) != 0 ? "FALSE" : "TRUE";
                 return r;
@@ -796,7 +807,7 @@ public static class ClientCommands
     // here; docs/script.md 5.2 open question).
     private static void RegisterLandscape(Interpreter interp)
     {
-        bool created = false;
+        var created = false;
         var types = new List<string>();
         interp.AddCommand("LS::Create", (i, argv) =>
         {
@@ -805,12 +816,12 @@ public static class ClientCommands
             created = true;
             return "False";
         });
-        string[] kNames = { "Rules", "Textures", "Script", "ApplyTextures", "ApplyLandScape", "Editor",
+        string[] kNames = [ "Rules", "Textures", "Script", "ApplyTextures", "ApplyLandScape", "Editor",
                             "flushTextures", "addTerrainTexture", "addTerrainType", "flushRules", "addRule",
-                            "flushCommands", "addCommand", "parseCommands", "createGridFile" };
-        foreach (string baseName in kNames)
+                            "flushCommands", "addCommand", "parseCommands", "createGridFile" ];
+        foreach (var baseName in kNames)
         {
-            string name = "LS::" + baseName;
+            var name = "LS::" + baseName;
             interp.AddCommand(name, (i, argv) =>
             {
                 if (!created)
@@ -821,8 +832,8 @@ public static class ClientCommands
                         i.Print(1, name + ": must call LSCreate first");
                     return "False";
                 }
-                int n = argv.Length - 1;
-                string b = baseName;
+                var n = argv.Length - 1;
+                var b = baseName;
                 if (b == "Rules")
                 {
                     i.Print(1, n == 1 ? "LSRules: Could not load rules " + argv[1] : "LSRules terrain.rules.dat");
@@ -935,14 +946,14 @@ public static class ClientCommands
         CreateMap(st, res, "SimGame.sae");
 
         // Table-driven commands: output depends only on the argument count and texts.
-        Rule[] rules = ClientCommandTable.Rules;
-        int count = rules.Length;
-        for (int first = 0; first < count;)
+        var rules = ClientCommandTable.Rules;
+        var count = rules.Length;
+        for (var first = 0; first < count;)
         {
-            int last = first;
+            var last = first;
             while (last + 1 < count && rules[last + 1].Name == rules[first].Name)
                 ++last;
-            string nm = rules[first].Name;
+            var nm = rules[first].Name;
             if (nm.StartsWith("LS::", StringComparison.Ordinal) || nm == "ircNick" || nm == "ircName" ||
                 nm == "ircListPeople" || nm == "Console::enable")
             {
@@ -952,8 +963,8 @@ public static class ClientCommands
             int lo = first, hi = last;
             interp.AddCommand(nm, (i, argv) =>
             {
-                int n = argv.Length - 1;
-                for (int k = lo; k <= hi; ++k)
+                var n = argv.Length - 1;
+                for (var k = lo; k <= hi; ++k)
                     if (n >= rules[k].Lo && n <= rules[k].Hi)
                     {
                         PrintLines(i, Expand(rules[k].Out, argv));

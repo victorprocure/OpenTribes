@@ -11,7 +11,7 @@ public static partial class GhostClasses
 
     internal static void RegisterClient()
     {
-        void R(uint tag, string name, ClientUnpackFn fn) => ClientGhostManager.RegisterClass(tag, name, fn);
+        static void R(uint tag, string name, ClientUnpackFn fn) => ClientGhostManager.RegisterClass(tag, name, fn);
         R(0x001, "SimVolume", (r, g, n) => r.Add("file", r.Str()));
         R(0x002, "SimTerrain", UnTerrain);
         R(0x003, "SimPalette", (r, g, n) => r.Add("file", r.Str()));
@@ -23,13 +23,13 @@ public static partial class GhostClasses
         R(0x216, "Snowfall", UnSnowfall);
         R(0x217, "Explosion", (r, g, n) => UnGameBase(r, g));
         R(0x21b, "Marker", UnMarker);
-        R(0x21e, "Mine", (r, g, n) => UnItem(r, g, n, 23));
+        R(0x21e, "Mine", (r, g, _) => UnItem(r, g, 23));
         R(0x21f, "Trigger", UnTrigger);
         R(0x220, "Moveable", UnMoveable);
         R(0x221, "StaticShape", UnStatic);
         R(0x223, "Flier", (r, g, n) => UnVehicle(r, g, n, 10));
         R(0x229, "Sensor", UnSensor);
-        R(0x22a, "Item", (r, g, n) => UnItem(r, g, n, 5));
+        R(0x22a, "Item", (r, g, _) => UnItem(r, g, 5));
         R(0x22c, "Vehicle", (r, g, n) => UnVehicle(r, g, n, 9));
         R(0x22f, "Planet", UnPlanet);
         R(0x230, "Sky", UnSky);
@@ -45,21 +45,21 @@ public static partial class GhostClasses
     {
         if (!r.Flag())
             return;
-        r.Add("team", (long)r.Int(4));
+        r.Add("team", (long)r.Bits(4));
         if (r.Flag())
         {
-            int id = (int)r.Int(7) + 0x800;
+            var id = (int)r.Bits(7) + 0x800;
             r.Add("controlClient", (long)id);
-            foreach (ClientPlayerRecord rec in r.World.Players.Clients.Values.Where(x => x.ControlGhost == g.Index))
+            foreach (var rec in r.World.Players.Clients.Values.Where(x => x.ControlGhost == g.Index))
                 rec.ControlGhost = -1;
             if (r.World.Players.Get(id) is ClientPlayerRecord c)
                 c.ControlGhost = g.Index;
         }
         if (r.Flag())
         {
-            int id = (int)r.Int(7) + 0x800;
+            var id = (int)r.Bits(7) + 0x800;
             r.Add("ownerClient", (long)id);
-            foreach (ClientPlayerRecord rec in r.World.Players.Clients.Values.Where(x => x.OwnedGhost == g.Index))
+            foreach (var rec in r.World.Players.Clients.Values.Where(x => x.OwnedGhost == g.Index))
                 rec.OwnedGhost = -1;
             if (r.World.Players.Get(id) is ClientPlayerRecord c)
                 c.OwnedGhost = g.Index;
@@ -73,15 +73,15 @@ public static partial class GhostClasses
         if (r.Flag())
         {
             r.Add("flashNormal", r.Normal(7));
-            r.Add("flashAmount", r.Unit(8) * 10 - 5);
+            r.Add("flashAmount", (r.Unit(8) * 10) - 5);
         }
         if (r.Flag())
         {
             var th = new List<object?>();
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 if (r.Flag())
                 {
-                    long seq = r.Int(4), state = r.Int(2);
+                    long seq = r.Bits(4), state = r.Bits(2);
                     bool fwd = r.Flag(), end = r.Flag();
                     th.Add(i + ":seq=" + seq + " state=" + state + " fwd=" + (fwd ? 1 : 0) + " end=" + (end ? 1 : 0));
                 }
@@ -114,9 +114,12 @@ public static partial class GhostClasses
 
     private static void UnTerrain(ClientReader r, ClientGhost g, bool isNew)
     {
-        if (r.Flag()) r.Add("ted", r.Str());
-        if (r.Flag()) r.Add("visible/haze/hazeVMin/hazeVMax", new[] { (double)r.F32(), r.F32(), r.F32(), r.F32() });
-        if (r.Flag()) r.Add("perspectiveDistance/screenSize", new[] { (double)r.F32(), r.F32() });
+        if (r.Flag())
+            r.Add("ted", r.Str());
+        if (r.Flag())
+            r.Add("visible/haze/hazeVMin/hazeVMax", new[] { (double)r.F32(), r.F32(), r.F32(), r.F32() });
+        if (r.Flag())
+            r.Add("perspectiveDistance/screenSize", new[] { (double)r.F32(), r.F32() });
         if (r.Flag())
         {
             r.AddVec("position");
@@ -129,18 +132,26 @@ public static partial class GhostClasses
             r.AddF32("contHeight");
         }
         r.AddFlag("flag6a4");
-        if (r.Flag()) r.Add("crc", r.Int(32).ToString("x8", System.Globalization.CultureInfo.InvariantCulture));
+        if (r.Flag())
+            r.Add("crc", r.Bits(32).ToString("x8", System.Globalization.CultureInfo.InvariantCulture));
     }
 
     private static void UnSimLight(ClientReader r, ClientGhost g, bool isNew)
     {
-        if (r.Flag()) r.AddFlag("isStatic");
-        if (r.Flag()) r.AddInt("type", 3);
-        if (r.Flag()) r.AddF32("range");
-        if (r.Flag()) r.AddVec("color");
-        if (r.Flag()) r.AddVec("ambient");
-        if (r.Flag()) r.AddVec("position");
-        if (r.Flag()) r.AddVec("aim");
+        if (r.Flag())
+            r.AddFlag("isStatic");
+        if (r.Flag())
+            r.AddInt("type", 3);
+        if (r.Flag())
+            r.AddF32("range");
+        if (r.Flag())
+            r.AddVec("color");
+        if (r.Flag())
+            r.AddVec("ambient");
+        if (r.Flag())
+            r.AddVec("position");
+        if (r.Flag())
+            r.AddVec("aim");
     }
 
     private static void UnInterior(ClientReader r, ClientGhost g, bool isNew)
@@ -152,16 +163,16 @@ public static partial class GhostClasses
             r.Add("isContainer", (long)r.SInt(2));
             r.AddVec("pos");
             r.AddVec("rot");
-            long n = r.Int(32);
+            long n = r.Bits(32);
             var states = new List<object?>();
             for (long i = 0; i < n; ++i)
-                states.Add((long)r.Int(32));
+                states.Add((long)r.Bits(32));
             r.Add("states", states);
-            long m = r.Int(32);
+            long m = r.Bits(32);
             var lights = new List<byte>();
             for (long i = 0; i < m; ++i)
                 lights.AddRange(r.Bytes(16));
-            r.Add("lights", lights.Count == 0 ? "-" : Convert.ToHexString(lights.ToArray()).ToLowerInvariant());
+            r.Add("lights", lights.Count == 0 ? "-" : Convert.ToHexString([.. lights]).ToLowerInvariant());
             g.State["lightCount"] = m;
             r.AddFlag("flag41c");
             return;
@@ -173,7 +184,7 @@ public static partial class GhostClasses
         }
         if (r.Flag())
         {
-            if (!g.State.TryGetValue("lightCount", out object? mc))
+            if (!g.State.TryGetValue("lightCount", out var mc))
                 throw new UnsupportedException("InteriorShape light flags without the initial update");
             var on = new List<object?>();
             for (long i = 0; i < (long)mc!; ++i)
@@ -186,8 +197,10 @@ public static partial class GhostClasses
 
     private static void UnSnowfall(ClientReader r, ClientGhost g, bool isNew)
     {
-        if (r.Flag()) r.AddF32("intensity");
-        if (r.Flag()) r.AddVec("wind");
+        if (r.Flag())
+            r.AddF32("intensity");
+        if (r.Flag())
+            r.AddVec("wind");
         r.AddFlag("flagf0");
         r.AddFlag("flagf1");
     }
@@ -200,8 +213,8 @@ public static partial class GhostClasses
         r.AddF32("f11c");
         r.AddF32("f124");
         var tex = new List<object?>();
-        for (int i = 0; i < 16; ++i)
-            tex.Add((long)r.Int(4));
+        for (var i = 0; i < 16; ++i)
+            tex.Add((long)r.Bits(4));
         r.Add("textures", tex);
     }
 
@@ -223,7 +236,7 @@ public static partial class GhostClasses
         r.AddFlag("flagAF");
         r.AddFlag("flagB0");
         var c = new double[9];
-        for (int i = 0; i < 9; ++i)
+        for (var i = 0; i < 9; ++i)
             c[i] = r.F32();
         r.Add("data7c", c);
         r.AddFlag("flagAE");
@@ -251,7 +264,7 @@ public static partial class GhostClasses
             UnDatablock(r, 8);
     }
 
-    private static void UnItem(ClientReader r, ClientGhost g, bool isNew, int group)
+    private static void UnItem(ClientReader r, ClientGhost g, int group)
     {
         UnShapeBase(r, g);
         if (r.Flag())
@@ -338,7 +351,7 @@ public static partial class GhostClasses
         if (r.Flag())
         {
             var b = new double[6];
-            for (int i = 0; i < 6; ++i)
+            for (var i = 0; i < 6; ++i)
                 b[i] = r.F32();
             r.Add("box", b);
         }
@@ -389,18 +402,18 @@ public static partial class GhostClasses
 
     // Scaled byte 0046f9d4 on the wire; the reader scales it back. Stream_readScaledByte is Q11 of client-net.md: the
     // scale below is the writer's.
-    private static double ScaledByte(ClientReader r, double scale) => r.Int(8) * scale;
+    private static double ScaledByte(ClientReader r, double scale) => r.Bits(8) * scale;
 
     // Byte vector 0046f8fc: magnitude as a scaled byte, then a direction byte (4 bits azimuth, 4 bits elevation) when the
     // magnitude is not 0.
     private static double[] ByteVector(ClientReader r, double scale)
     {
-        double mag = ScaledByte(r, scale);
+        var mag = ScaledByte(r, scale);
         if (mag == 0)
-            return new double[] { 0, 0, 0 };
-        uint d = r.Int(8);
-        double az = (d & 15) * (2 * Math.PI / 16), el = (d >> 4) * (Math.PI / 16) - Math.PI / 2;
-        return new[] { mag * Math.Cos(el) * Math.Cos(az), mag * Math.Cos(el) * Math.Sin(az), mag * Math.Sin(el) };
+            return [0, 0, 0];
+        var d = r.Bits(8);
+        double az = (d & 15) * (2 * Math.PI / 16), el = ((d >> 4) * (Math.PI / 16)) - (Math.PI / 2);
+        return [mag * Math.Cos(el) * Math.Cos(az), mag * Math.Cos(el) * Math.Sin(az), mag * Math.Sin(el)];
     }
 
     private static void UnDebris(ClientReader r, ClientGhost g, bool isNew)
@@ -414,9 +427,12 @@ public static partial class GhostClasses
             UnDatablock(r, 22);
             r.AddInt("f344", 32);
             r.Add("shape", r.Str());
-            if (r.Flag()) r.Add("mass", r.Int(8) * 50.0);
-            if (r.Flag()) r.AddInt("f248", 4);
-            if (r.Flag()) r.Add("f24c", r.Int(8) / 10.0);
+            if (r.Flag())
+                r.Add("mass", r.Bits(8) * 50.0);
+            if (r.Flag())
+                r.AddInt("f248", 4);
+            if (r.Flag())
+                r.Add("f24c", r.Bits(8) / 10.0);
         }
     }
 
@@ -428,7 +444,7 @@ public static partial class GhostClasses
         r.Add("radius", ScaledByte(r, 0.5));
         r.Add("velocity", ByteVector(r, 0.1));
         r.Add("strength", ScaledByte(r, 50.0));
-        uint angle = r.Int(8);
+        var angle = r.Bits(8);
         if (angle == 0xff)
             r.Add("angle", Math.PI);
         else

@@ -1,18 +1,18 @@
 // The Video options lists (docs/gui.md 3.3, code 004d9228, 004d946c): synthetic modes and renderer text only (R5).
+namespace OpenTribes.Tests;
+
 using OpenTribes.Client.App;
 using OpenTribes.Gui;
-
-namespace OpenTribes.Tests;
 
 public class VideoOptionsTests
 {
     private static (GuiFixture Fx, GuiControl Root) Screen()
     {
         var fx = new GuiFixture();
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        foreach (int id in new[] { VideoOptions.WindowedCombo, VideoOptions.FullscreenCombo, VideoOptions.ResolutionCombo })
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        foreach (var id in new[] { VideoOptions.WindowedCombo, VideoOptions.FullscreenCombo, VideoOptions.ResolutionCombo })
         {
-            GuiControl c = GuiFixture.Make("FearGui::FGStandardComboBox", 0, 0, 200, 19);
+            var c = GuiFixture.Make("FearGui::FGStandardComboBox", 0, 0, 200, 19);
             c.Id = (uint)id;
             root.AddChild(c);
         }
@@ -29,13 +29,13 @@ public class VideoOptionsTests
         fx.Host.SetVar("$pref::VideoFullScreenDriver", "OpenGL");
         fx.Host.SetVar("$pref::VideoWindowedDriver", "Software");
         fx.Host.SetVar("$pref::VideoFullScreenRes", "800x600");
-        VideoOptions.Fill(root, fx.Host, "Test GPU", new[] { (640, 480), (800, 600) }, "Software", "OpenGL");
-        GuiCombo fs = Combo(root, VideoOptions.FullscreenCombo);
-        Assert.Equal(new[] { "Software", "OpenGL [Test GPU]" }, fs.Entries.Select(e => e.Text));
+        VideoOptions.Fill(root, fx.Host, "Test GPU", [(640, 480), (800, 600)], "Software", "OpenGL");
+        var fs = Combo(root, VideoOptions.FullscreenCombo);
+        Assert.Equal(["Software", "OpenGL [Test GPU]"], fs.Entries.Select(e => e.Text));
         Assert.Equal("OpenGL [Test GPU]", fs.GetValue());
         Assert.Equal("Software", Combo(root, VideoOptions.WindowedCombo).GetValue());
-        GuiCombo res = Combo(root, VideoOptions.ResolutionCombo);
-        Assert.Equal(new[] { "640x480", "800x600" }, res.Entries.Select(e => e.Text));
+        var res = Combo(root, VideoOptions.ResolutionCombo);
+        Assert.Equal(["640x480", "800x600"], res.Entries.Select(e => e.Text));
         Assert.Equal("800x600", res.GetValue());
     }
 
@@ -43,7 +43,7 @@ public class VideoOptionsTests
     public void WithoutSavedChoicesTheDeviceInUseAndTheFirstModeShow()
     {
         var (fx, root) = Screen();
-        VideoOptions.Fill(root, fx.Host, null, new[] { (640, 480), (1024, 768) }, "Software", "OpenGL");
+        VideoOptions.Fill(root, fx.Host, null, [(640, 480), (1024, 768)], "Software", "OpenGL");
         Assert.Equal("OpenGL", Combo(root, VideoOptions.FullscreenCombo).GetValue());
         Assert.Equal("640x480", Combo(root, VideoOptions.ResolutionCombo).GetValue());
     }
@@ -52,8 +52,8 @@ public class VideoOptionsTests
     public void FindEntryTakesTheFirstWordOfAnEntry()
     {
         var (fx, root) = Screen();
-        VideoOptions.Fill(root, fx.Host, "Test GPU", new[] { (640, 480) }, "Software", "OpenGL");
-        GuiCombo fs = Combo(root, VideoOptions.FullscreenCombo);
+        VideoOptions.Fill(root, fx.Host, "Test GPU", [(640, 480)], "Software", "OpenGL");
+        var fs = Combo(root, VideoOptions.FullscreenCombo);
         Assert.Equal(1, fs.FindEntryByName("opengl"));
         Assert.Equal(-1, fs.FindEntryByName("Glide"));
     }
@@ -62,9 +62,9 @@ public class VideoOptionsTests
     public void FullscreenWindowedCheckFollowsTheFullscreenRadioAndWritesThePref()
     {
         var (fx, root) = Screen();
-        foreach (int id in new[] { VideoOptions.WindowedRadio, VideoOptions.FullscreenRadio })
+        foreach (var id in new[] { VideoOptions.WindowedRadio, VideoOptions.FullscreenRadio })
         {
-            GuiControl r = GuiFixture.Make("FearGui::FGUniversalButton", 0, 0, 18, 15);
+            var r = GuiFixture.Make("FearGui::FGUniversalButton", 0, 0, 18, 15);
             r.Id = (uint)id;
             root.AddChild(r);
         }

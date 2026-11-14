@@ -4,8 +4,6 @@
 // (+0x8b8), the fire count, the state (+0x8cc) and the energy straight into the ghost, and Turret_clientUpdate 00456428 (vtable +0x154)
 // replays the buffered moves of the client through Turret_updateAim 00456874 for the control turret, in the tick loop of the other
 // control objects. A turret nobody controls gets updateAim with no move and the elapsed time (the ghost branch).
-using OpenTribes.Net;
-
 namespace OpenTribes.Game;
 
 /// <summary>The datablock and shape values the aim step reads.</summary>
@@ -25,29 +23,31 @@ public sealed class TurretControl
     private const float Pi = 3.1415927f;
 
     /// <summary>True while a turret is the control object.</summary>
-    public bool Active;
+    public bool Active { get; set; }
     /// <summary>The ghost index of the turret, -1 for none.</summary>
-    public int Ghost = -1;
+    public int Ghost { get; set; } = -1;
     /// <summary>The rotation.</summary>
-    public float Rotation;
+    public ref float Rotation => ref _rotation;
+    private float _rotation;
     /// <summary>The elevation.</summary>
-    public float Elevation;
+    public ref float Elevation => ref _elevation;
+    private float _elevation;
     /// <summary>The energy.</summary>
-    public float Energy;
+    public float Energy { get; set; }
     /// <summary>The turret mode.</summary>
-    public int Mode;
+    public int Mode { get; set; }
     /// <summary>The fire count.</summary>
-    public int FireCount;
+    public int FireCount { get; set; }
     /// <summary>True while the turret fires a beam.</summary>
-    public bool Beam;
+    public bool Beam { get; set; }
     /// <summary>The time of the first buffered move (+0x218).</summary>
-    public uint SimTime;
+    public uint SimTime { get; set; }
     /// <summary>The number of steps run.</summary>
-    public long Steps;
+    public long Steps { get; set; }
     /// <summary>The datablock and shape values of the control ghost.</summary>
-    public TurretAimParams Params;
+    public TurretAimParams Params { get; set; }
     /// <summary>Resolves the datablock and shape values of a control ghost. Returns null while they are not known, and the aim then stays at the server state.</summary>
-    public Func<ClientGhost, TurretAimParams?>? Resolve;
+    public Func<ClientGhost, TurretAimParams?>? Resolve { get; set; }
 
     /// <summary>Releases the control turret.</summary>
     public void Release()
@@ -73,7 +73,7 @@ public sealed class TurretControl
         Energy = F(s, "energy");
         if (Resolve?.Invoke(g) is { } p)
             Params = p;
-        SimTime = unchecked((uint)((int)((receiveTime - 1) & ~31u) - (psc.Moves.Count - 1) * 32));
+        SimTime = unchecked((uint)((int)((receiveTime - 1) & ~31u) - ((psc.Moves.Count - 1) * 32)));
         Active = true;
     }
 
@@ -86,11 +86,11 @@ public sealed class TurretControl
     {
         if (!Active)
             return 0;
-        int steps = 0;
+        var steps = 0;
         while ((int)(SimTime - now) < 0)
         {
-            uint next = Math.Min((SimTime + 32) & ~31u, now);
-            if (ClientPrediction.MoveForTick(psc, SimTime, now, out Move bm, out _))
+            var next = Math.Min((SimTime + 32) & ~31u, now);
+            if (ClientPrediction.MoveForTick(psc, SimTime, now, out var bm, out _))
             {
                 Aim(ClientPrediction.ServerMove(bm), (float)((next - SimTime) * 0.001));
                 ++steps;
@@ -121,8 +121,8 @@ public sealed class TurretControl
             scale = dt * 32.0f;
         }
         float p = Clamp(move.Pitch, lim), y = Clamp(move.Turn, lim);
-        Elevation = p * scale + Elevation;
-        Rotation = y * scale + Rotation;
+        Elevation = (p * scale) + Elevation;
+        Rotation = (y * scale) + Rotation;
         WrapElevation(ref Elevation);                        // Turret_wrapElevation 0045317c
         if (Params.MaxElevation != Params.MinElevation)
         {
@@ -137,7 +137,7 @@ public sealed class TurretControl
     // The clamp of updateAim: the lower bound wins when the limit is negative, NaN falls to -limit.
     private static float Clamp(float v, float lim)
     {
-        float r = -lim;
+        var r = -lim;
         if (r <= v)
         {
             r = v;
@@ -163,6 +163,6 @@ public sealed class TurretControl
             e -= TwoPi;
     }
 
-    private static float F(Dictionary<string, object?> s, string k) => s.TryGetValue(k, out object? v) && v is double d ? (float)d : 0.0f;
-    private static long L(Dictionary<string, object?> s, string k) => s.TryGetValue(k, out object? v) && v is long l ? l : 0;
+    private static float F(Dictionary<string, object?> s, string k) => s.TryGetValue(k, out var v) && v is double d ? (float)d : 0.0f;
+    private static long L(Dictionary<string, object?> s, string k) => s.TryGetValue(k, out var v) && v is long l ? l : 0;
 }

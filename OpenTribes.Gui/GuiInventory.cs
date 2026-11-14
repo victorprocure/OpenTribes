@@ -1,14 +1,14 @@
+namespace OpenTribes.Gui;
+
 using System.Globalization;
 using OpenTribes.Platform.Gfx;
-
-namespace OpenTribes.Gui;
 
 /// <summary>The inventory and purchase lists of CmdInventory.gui: FearGuiInventory (the items the player carries) and FearGuiPurchase (the items a station sells).</summary>
 /// <remarks>Follows the stock row rebuild (0048afcc, 0048b05c), row insert (0048a700), row draw (0048ac04) and select (0048aaa4).</remarks>
 public sealed class GuiInventoryList : GuiList
 {
     /// <summary>The list kind: false lists the carried items with their count, true lists the items for sale with their price.</summary>
-    public bool Purchase;
+    public bool Purchase { get; set; }
 
     /// <summary>Gets a value that is always false: both classes answer no to the tab stop query (0048a6c4), so the inventory key reaches the action maps while the screen is up.</summary>
     public override bool WantsTab => false;
@@ -49,9 +49,9 @@ public sealed class GuiInventoryList : GuiList
     }
 
     /// <summary>The rows shown, rebuilt before each render.</summary>
-    public readonly List<Row> Rows = new();
+    public List<Row> Rows { get; } = [];
     /// <summary>The item index of the selected row, -1 for none.</summary>
-    public int SelectedItem = -1;
+    public int SelectedItem { get; set; } = -1;
 
     private PftFont? NormalFont => Host?.FontByTag(NormalFontTag) ?? Host?.FontByName("sf_white_10.pft");
     /// <summary>Gets the pixel height of one row.</summary>
@@ -65,14 +65,14 @@ public sealed class GuiInventoryList : GuiList
     public static List<Row> Build(IEnumerable<InventoryEntry> items, bool purchase)
     {
         var rows = new List<Row>();
-        foreach (InventoryEntry e in items)
+        foreach (var e in items)
         {
             if (purchase ? !e.Shopping : e.Count == 0)
                 continue;
-            string heading = e.Heading.Length > 0 ? e.Heading : " ";
+            var heading = e.Heading.Length > 0 ? e.Heading : " ";
             var item = new Row(heading, e.Description.Length > 0 ? e.Description : "item " + e.Index.ToString(CultureInfo.InvariantCulture),
-                purchase ? e.Price : e.Count, e.Index, purchase ? e.Buying : true);
-            int at = 0;
+                purchase ? e.Price : e.Count, e.Index, !purchase || e.Buying);
+            var at = 0;
             while (at < rows.Count && (sbyte)rows[at].Heading[0] < (sbyte)heading[0])
                 ++at;
             if (at == rows.Count || rows[at].Heading[0] != heading[0])
@@ -90,11 +90,11 @@ public sealed class GuiInventoryList : GuiList
         Rows.Clear();
         if (Host?.Hud is IHudSource src && src.HasPlayerState)
             Rows.AddRange(Build(src.InventoryItems, Purchase));
-        int sel = Rows.FindIndex(r => IsActiveRow(r) && r.Item == SelectedItem);
+        var sel = Rows.FindIndex(r => IsActiveRow(r) && r.Item == SelectedItem);
         if (sel < 0)
             SelectedItem = -1;
         Selected = sel;
-        int h = Rows.Count * CellHeight;
+        var h = Rows.Count * CellHeight;
         if (h != H)
             H = h;
     }
@@ -106,7 +106,7 @@ public sealed class GuiInventoryList : GuiList
     /// <inheritdoc/>
     protected override void ApplyValue(string v)
     {
-        if (int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out int i))
+        if (int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i))
             SelectedItem = i;
     }
 
@@ -126,7 +126,7 @@ public sealed class GuiInventoryList : GuiList
         }
         SelectedItem = Rows[row].Item;
         Selected = row;
-        string arg = SelectedItem.ToString(CultureInfo.InvariantCulture);
+        var arg = SelectedItem.ToString(CultureInfo.InvariantCulture);
         if (Name != null && Host != null && Host.HasFunction(Name + "::onSelect"))
             Host.Call(Name + "::onSelect", arg);
         if (doubleClick && Name != null && Host != null && Host.HasFunction(Name + "::onDoubleClick"))
@@ -137,7 +137,7 @@ public sealed class GuiInventoryList : GuiList
     /// <inheritdoc/>
     public override bool MsDown(GuiEvent e)
     {
-        bool r = base.MsDown(e);
+        var r = base.MsDown(e);
         var (_, ly) = GlobalToLocal(e.X, e.Y);
         if (Active && CellHeight > 0)
             SelectRow(ly / CellHeight, e.ClickCount >= 2);
@@ -152,19 +152,19 @@ public sealed class GuiInventoryList : GuiList
     {
         int gx = ox + X, gy = oy + Y;
         DrawBase(p, gx, gy);
-        int rh = CellHeight;
-        PftFont? normal = NormalFont;
-        PftFont? selected = Host?.FontByTag(SelectedFontTag) ?? normal;
-        PftFont? disabled = Host?.FontByTag(DisabledFontTag) ?? normal;
-        PbmpBitmap? star = Host?.BitmapByName("I_Favorite.bmp");
-        for (int i = 0; i < Rows.Count; ++i)
+        var rh = CellHeight;
+        var normal = NormalFont;
+        var selected = Host?.FontByTag(SelectedFontTag) ?? normal;
+        var disabled = Host?.FontByTag(DisabledFontTag) ?? normal;
+        var star = Host?.BitmapByName("I_Favorite.bmp");
+        for (var i = 0; i < Rows.Count; ++i)
         {
-            int y = gy + i * rh;
+            var y = gy + (i * rh);
             if (y > p.Clip.Bottom)
                 break;
             if (y + rh < p.Clip.Top)
                 continue;
-            Row row = Rows[i];
+            var row = Rows[i];
             if (row.IsHeader)
             {
                 // The cell is 300 wide and starts one pixel left of the control, so only its top and bottom edges show (0048ac04, cell origin 0053ccd8).
@@ -175,11 +175,11 @@ public sealed class GuiInventoryList : GuiList
                 continue;
             }
             p.Fill(gx, y, W, rh, 0);
-            PftFont? f = !row.Enabled ? disabled : row.Item == SelectedItem ? selected : normal;
+            var f = !row.Enabled ? disabled : row.Item == SelectedItem ? selected : normal;
             p.Text(f, gx + TextX, y + TextY, row.Text);
             p.Text(f, gx + ValueX, y + TextY, row.Value.ToString(CultureInfo.InvariantCulture));
             if (star != null && Host != null && Host.Favorites.Contains(row.Item))
-                p.Bitmap(star, gx + StarX, y + (rh - star.Height) / 2);
+                p.Bitmap(star, gx + StarX, y + ((rh - star.Height) / 2));
         }
         RenderChildren(p, gx, gy);
     }

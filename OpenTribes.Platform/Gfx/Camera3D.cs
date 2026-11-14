@@ -1,14 +1,14 @@
-using System.Runtime.InteropServices;
-
 namespace OpenTribes.Platform.Gfx;
+
+using System.Runtime.InteropServices;
 
 /// <summary>A 3D texture owned by the device (docs/renderer.md 5.6 item 5: RGBA8 for everything).</summary>
 public interface IGfxTexture : IDisposable
 {
     /// <summary>Gets the width in pixels.</summary>
-    int Width { get; }
+    public int Width { get; }
     /// <summary>Gets the height in pixels.</summary>
-    int Height { get; }
+    public int Height { get; }
 }
 
 /// <summary>The creation options of a 3D texture.</summary>
@@ -23,7 +23,29 @@ public readonly record struct TextureOptions(bool Mipmaps, bool Repeat, bool Lin
 public struct Vertex3D
 {
     /// <summary>The position, the texture coordinate, the light map coordinate, the shade colour and alpha, and the haze (0 clear, 1 fully the haze colour).</summary>
-    public float X, Y, Z, U, V, Lu, Lv, R, G, B, A, Haze;
+    public float X { get; set; }
+    /// <inheritdoc cref="X"/>
+    public float Y { get; set; }
+    /// <inheritdoc cref="X"/>
+    public float Z { get; set; }
+    /// <inheritdoc cref="X"/>
+    public float U { get; set; }
+    /// <inheritdoc cref="X"/>
+    public float V { get; set; }
+    /// <inheritdoc cref="X"/>
+    public float Lu { get; set; }
+    /// <inheritdoc cref="X"/>
+    public float Lv { get; set; }
+    /// <inheritdoc cref="X"/>
+    public float R { get; set; }
+    /// <inheritdoc cref="X"/>
+    public float G { get; set; }
+    /// <inheritdoc cref="X"/>
+    public float B { get; set; }
+    /// <inheritdoc cref="X"/>
+    public float A { get; set; }
+    /// <inheritdoc cref="X"/>
+    public float Haze { get; set; }
 
     /// <summary>Creates a vertex.</summary>
     /// <param name="x">The x position.</param>
@@ -41,7 +63,18 @@ public struct Vertex3D
     public Vertex3D(float x, float y, float z, float u, float v, float lu, float lv, float haze, float r = 1, float g = 1,
                     float b = 1, float a = 1)
     {
-        X = x; Y = y; Z = z; U = u; V = v; Lu = lu; Lv = lv; R = r; G = g; B = b; A = a; Haze = haze;
+        X = x;
+        Y = y;
+        Z = z;
+        U = u;
+        V = v;
+        Lu = lu;
+        Lv = lv;
+        R = r;
+        G = g;
+        B = b;
+        A = a;
+        Haze = haze;
     }
 }
 
@@ -72,13 +105,27 @@ public readonly record struct DrawState3D(IGfxTexture? Texture = null, IGfxTextu
 public struct Camera3D
 {
     /// <summary>The position, the yaw and pitch in radians, and the horizontal field of view in radians.</summary>
-    public double X, Y, Z, Yaw, Pitch, HorizontalFov;
+    public double X { get; set; }
+    /// <inheritdoc cref="X"/>
+    public double Y { get; set; }
+    /// <inheritdoc cref="X"/>
+    public double Z { get; set; }
+    /// <inheritdoc cref="X"/>
+    public double Yaw { get; set; }
+    /// <inheritdoc cref="X"/>
+    public double Pitch { get; set; }
+    /// <inheritdoc cref="X"/>
+    public double HorizontalFov { get; set; }
     /// <summary>The rotation about the view axis, the y word of the Euler transform. A positive roll turns the right vector toward -up.</summary>
-    public double Roll;
+    public double Roll { get; set; }
     /// <summary>The viewport size in pixels.</summary>
-    public int Width, Height;
+    public int Width { get; set; }
+    /// <inheritdoc cref="Width"/>
+    public int Height { get; set; }
     /// <summary>The near and far plane distances.</summary>
-    public double Near, Far;
+    public double Near { get; set; }
+    /// <inheritdoc cref="Near"/>
+    public double Far { get; set; }
 
     /// <summary>Creates a camera from angles in degrees.</summary>
     /// <param name="x">The x position.</param>
@@ -96,11 +143,16 @@ public struct Camera3D
                     int height, double near, double far, double rollDegrees = 0)
     {
         Roll = rollDegrees * Math.PI / 180;
-        X = x; Y = y; Z = z;
+        X = x;
+        Y = y;
+        Z = z;
         Yaw = yawDegrees * Math.PI / 180;
         Pitch = pitchDegrees * Math.PI / 180;
         HorizontalFov = fovDegrees * Math.PI / 180;
-        Width = width; Height = height; Near = near; Far = far;
+        Width = width;
+        Height = height;
+        Near = near;
+        Far = far;
     }
 
     /// <summary>Gets the view direction.</summary>
@@ -112,9 +164,9 @@ public struct Camera3D
     {
         get
         {
-            var f = Forward;
+            var (x, y, z) = Forward;
             double rx = Math.Cos(Yaw), ry = Math.Sin(Yaw);
-            return (ry * f.z, -rx * f.z, rx * f.y - ry * f.x); // right x forward
+            return (ry * z, -rx * z, (rx * y) - (ry * x)); // right x forward
         }
     }
 
@@ -125,9 +177,9 @@ public struct Camera3D
         {
             if (Roll == 0)
                 return (Math.Cos(Yaw), Math.Sin(Yaw), 0);
-            var u = LevelUp;
+            var (x, y, z) = LevelUp;
             double c = Math.Cos(Roll), s = Math.Sin(Roll);
-            return (Math.Cos(Yaw) * c - u.x * s, Math.Sin(Yaw) * c - u.y * s, -u.z * s);
+            return ((Math.Cos(Yaw) * c) - (x * s), (Math.Sin(Yaw) * c) - (y * s), -z * s);
         }
     }
 
@@ -136,9 +188,9 @@ public struct Camera3D
     {
         get
         {
-            var f = Forward;
+            var (x, y, z) = Forward;
             var r = Right;
-            return (r.y * f.z - r.z * f.y, r.z * f.x - r.x * f.z, r.x * f.y - r.y * f.x); // right x forward
+            return ((r.y * z) - (r.z * y), (r.z * x) - (r.x * z), (r.x * y) - (r.y * x)); // right x forward
         }
     }
 
@@ -164,10 +216,10 @@ public struct Camera3D
     public readonly (double x, double y, double z) ToCamera(double wx, double wy, double wz)
     {
         double dx = wx - X, dy = wy - Y, dz = wz - Z;
-        var r = Right;
+        var (x, y, z) = Right;
         var f = Forward;
         var u = Up;
-        return (dx * r.x + dy * r.y + dz * r.z, dx * f.x + dy * f.y + dz * f.z, dx * u.x + dy * u.y + dz * u.z);
+        return ((dx * x) + (dy * y) + (dz * z), (dx * f.x) + (dy * f.y) + (dz * f.z), (dx * u.x) + (dy * u.y) + (dz * u.z));
     }
 
     /// <summary>Projects a world point to the surface.</summary>
@@ -184,9 +236,9 @@ public struct Camera3D
         sx = sy = depth = 0;
         if (cy < Near)
             return false;
-        double fl = FocalLength;
-        sx = Width / 2.0 + cx * fl / cy;
-        sy = Height / 2.0 - cz * fl / cy;
+        var fl = FocalLength;
+        sx = (Width / 2.0) + (cx * fl / cy);
+        sy = (Height / 2.0) - (cz * fl / cy);
         depth = Near / cy;
         return true;
     }
@@ -195,19 +247,19 @@ public struct Camera3D
     /// <param name="m">Receives 16 floats.</param>
     public readonly void ViewProjection(Span<float> m)
     {
-        var r = Right;
+        var (x, y, z) = Right;
         var f = Forward;
         var u = Up;
         double fx = 2 * FocalLength / Width, fy = 2 * FocalLength / Height;
         // reversed depth (renderer.md 5.2): the device stores near / d, so ndc z = 2 near / d - 1 and clip z = 2 near - w
         double a = -1, b = 2 * Near;
-        double pr = r.x * X + r.y * Y + r.z * Z, pu = u.x * X + u.y * Y + u.z * Z, pf = f.x * X + f.y * Y + f.z * Z;
+        double pr = (x * X) + (y * Y) + (z * Z), pu = (u.x * X) + (u.y * Y) + (u.z * Z), pf = (f.x * X) + (f.y * Y) + (f.z * Z);
         // rows: x = fx * right, y = fy * up, z = a * forward + b (a = -1), w = forward; stored column-major
-        double[] c0 = { fx * r.x, fy * u.x, a * f.x, f.x };
-        double[] c1 = { fx * r.y, fy * u.y, a * f.y, f.y };
-        double[] c2 = { fx * r.z, fy * u.z, a * f.z, f.z };
-        double[] c3 = { -fx * pr, -fy * pu, -a * pf + b, -pf };
-        for (int i = 0; i < 4; ++i)
+        double[] c0 = [fx * x, fy * u.x, a * f.x, f.x];
+        double[] c1 = [fx * y, fy * u.y, a * f.y, f.y];
+        double[] c2 = [fx * z, fy * u.z, a * f.z, f.z];
+        double[] c3 = [-fx * pr, -fy * pu, (-a * pf) + b, -pf];
+        for (var i = 0; i < 4; ++i)
         {
             m[i] = (float)c0[i];
             m[4 + i] = (float)c1[i];

@@ -11,8 +11,8 @@ public static class FullscreenPlan
     {
         if (text == null)
             return null;
-        string[] wh = text.Trim().Split('x', 'X');
-        if (wh.Length == 2 && int.TryParse(wh[0], out int w) && int.TryParse(wh[1], out int h) && w > 0 && h > 0)
+        var wh = text.Trim().Split('x', 'X');
+        if (wh.Length == 2 && int.TryParse(wh[0], out var w) && int.TryParse(wh[1], out var h) && w > 0 && h > 0)
             return (w, h);
         return null;
     }
@@ -25,11 +25,11 @@ public static class FullscreenPlan
     public static (int W, int H)? NearestMode(IReadOnlyList<(int W, int H)> modes, int w, int h)
     {
         (int W, int H)? best = null;
-        long bestDist = long.MaxValue;
-        foreach ((int W, int H) m in modes)
+        var bestDist = long.MaxValue;
+        foreach (var m in modes)
         {
-            long d = Math.Abs((long)m.W - w) + Math.Abs((long)m.H - h);
-            if (d < bestDist || d == bestDist && best is { } b && (long)m.W * m.H > (long)b.W * b.H)
+            var d = Math.Abs((long)m.W - w) + Math.Abs((long)m.H - h);
+            if (d < bestDist || (d == bestDist && best is { } b && (long)m.W * m.H > (long)b.W * b.H))
             {
                 best = m;
                 bestDist = d;
@@ -53,7 +53,7 @@ public static class FullscreenPlan
     /// <param name="pref">The <c>$pref::OpenTribes::FullscreenWindowed</c> value.</param>
     /// <returns>True when the option was given, or the pref is "1" or "true" in any case.</returns>
     public static bool UseDesktopMode(bool optionGiven, string? pref)
-        => optionGiven || pref != null && (pref.Trim() == "1" || pref.Trim().Equals("true", StringComparison.OrdinalIgnoreCase));
+        => optionGiven || (pref != null && (pref.Trim() == "1" || pref.Trim().Equals("true", StringComparison.OrdinalIgnoreCase)));
 
     /// <summary>Computes the destination of a canvas in a window: scaled to fit, aspect kept, centred.</summary>
     /// <param name="canvas">The canvas size.</param>

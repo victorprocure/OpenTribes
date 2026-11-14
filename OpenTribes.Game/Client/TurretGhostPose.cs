@@ -25,10 +25,10 @@ public sealed class TurretGhostPose
 
     /// <summary>Gets whether the shape has the <c>power</c> and <c>fire</c> sequences. Without them there is no thread, and activate and deactivate end at once.</summary>
     public bool HasThread { get; }
-    private readonly double mPowerDuration, mFireDuration;
-    private readonly bool mPowerCyclic, mFireCyclic;
+    private readonly double _powerDuration, _fireDuration;
+    private readonly bool _powerCyclic, _fireCyclic;
     // Datablock rotation speed (+0x114) in radians per second.
-    private readonly double mSpeed;
+    private readonly double _speed;
 
     /// <summary>Creates the pose.</summary>
     /// <param name="hasThread">True when the shape has the <c>power</c> and <c>fire</c> sequences.</param>
@@ -40,31 +40,31 @@ public sealed class TurretGhostPose
     public TurretGhostPose(bool hasThread, double powerDuration, bool powerCyclic, double fireDuration, bool fireCyclic, double speed)
     {
         HasThread = hasThread;
-        mPowerDuration = powerDuration > 1e-6 ? powerDuration : 1e-6;
-        mFireDuration = fireDuration > 1e-6 ? fireDuration : 1e-6;
-        mPowerCyclic = powerCyclic;
-        mFireCyclic = fireCyclic;
-        mSpeed = speed;
+        _powerDuration = powerDuration > 1e-6 ? powerDuration : 1e-6;
+        _fireDuration = fireDuration > 1e-6 ? fireDuration : 1e-6;
+        _powerCyclic = powerCyclic;
+        _fireCyclic = fireCyclic;
+        _speed = speed;
         // Turret_onNewDataBlock: the thread starts on `power` at position 0.
     }
 
     private void Set(double pos)
     {
-        bool cyclic = OnFire ? mFireCyclic : mPowerCyclic;
+        var cyclic = OnFire ? _fireCyclic : _powerCyclic;
         Position = Normalise(pos, cyclic);
     }
 
     private static double Normalise(double p, bool cyclic)
     {
-        if (p < 0 || p > 1)
+        if (p is < 0 or > 1)
             return cyclic ? p - Math.Floor(p) : Math.Clamp(p, 0, 1);
         return p;
     }
 
     private void Advance(double dt)
     {
-        double dur = OnFire ? mFireDuration : mPowerDuration;
-        Set(Position + dt / dur);
+        var dur = OnFire ? _fireDuration : _powerDuration;
+        Set(Position + (dt / dur));
     }
 
     // Turret_setPowerSequence: the thread takes `power` and keeps its position.
@@ -145,10 +145,10 @@ public sealed class TurretGhostPose
             PowerSound = -1;
         if (Rotation != 0)
         {
-            double local = Rotation;
+            var local = Rotation;
             while (local > Math.PI)
                 local -= TwoPi;
-            double step = mSpeed * dt;
+            var step = _speed * dt;
             if (local > 0)
             {
                 Rotation -= step;

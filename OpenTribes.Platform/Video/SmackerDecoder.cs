@@ -4,17 +4,17 @@ namespace OpenTribes.Platform.Video;
 public sealed class SmackerAudioTrack
 {
     /// <summary>The sample rate.</summary>
-    public int Rate;
+    public int Rate { get; set; }
     /// <summary>The channel count.</summary>
-    public int Channels = 1;
+    public int Channels { get; set; } = 1;
     /// <summary>The bits per sample, 8 or 16.</summary>
-    public int Bits = 8;
+    public int Bits { get; set; } = 8;
     /// <summary>Whether the track is Huffman DPCM packed rather than raw PCM.</summary>
-    public bool Packed;
+    public bool Packed { get; set; }
     /// <summary>Whether the track carries data.</summary>
-    public bool HasData;
+    public bool HasData { get; set; }
     /// <summary>The largest unpacked buffer of one frame in bytes (header field).</summary>
-    public int MaxBytes;
+    public int MaxBytes { get; set; }
 }
 
 /// <summary>A Smacker (SMK2 and SMK4) movie decoder.</summary>
@@ -23,13 +23,13 @@ public sealed class SmackerDecoder
 {
     private const int MaxTracks = 7;
 
-    private readonly byte[] mData;
-    private readonly int[] mFrameStart;
-    private readonly int[] mFrameSize;
-    private readonly byte[] mFrameType;
-    private readonly BigTree[] mTrees = new BigTree[4];
+    private readonly byte[] _data;
+    private readonly int[] _frameStart;
+    private readonly int[] _frameSize;
+    private readonly byte[] _frameType;
+    private readonly BigTree[] _trees = new BigTree[4];
     private const int TreeMmap = 0, TreeMclr = 1, TreeFull = 2, TreeType = 3;
-    private static readonly int[] sBlockRuns = BuildRuns();
+    private static readonly int[] BlockRuns = BuildRuns();
 
     /// <summary>Gets the picture width in pixels.</summary>
     public int Width { get; }
@@ -62,19 +62,19 @@ public sealed class SmackerDecoder
 
     private SmackerDecoder(byte[] data, int w, int h, int frames, uint flags, long usec, int[] starts, int[] sizes, byte[] types)
     {
-        mData = data;
+        _data = data;
         Width = w;
         Height = h;
         FrameCount = frames;
         Flags = flags;
         FrameMicroseconds = usec;
-        mFrameStart = starts;
-        mFrameSize = sizes;
-        mFrameType = types;
+        _frameStart = starts;
+        _frameSize = sizes;
+        _frameType = types;
         Pixels = new byte[w * h];
     }
 
-    private int mTreesAt, mTreeSize;
+    private int _treesAt, _treeSize;
 
     /// <summary>Tests whether data starts with a Smacker signature.</summary>
     /// <param name="d">The file bytes.</param>
@@ -96,21 +96,21 @@ public sealed class SmackerDecoder
         }
         uint U(int o) => BitConverter.ToUInt32(d, o);
         long w = U(4), h = U(8), frames = U(12);
-        int rate = (int)U(16);
-        uint flags = U(20);
+        var rate = (int)U(16);
+        var flags = U(20);
         if (w < 4 || h < 4 || w > 4096 || h > 4096 || frames == 0 || frames > 1_000_000)
         {
             error = "bad Smacker header";
             return null;
         }
         long ring = (flags & 1) != 0 ? 1 : 0;
-        int total = (int)(frames + ring);
-        long usec = rate > 0 ? rate * 1000L : rate < 0 ? -rate * 10L : 100_000;
-        int treeSize = (int)U(0x34);
-        int sizesAt = 0x68;
-        int typesAt = sizesAt + total * 4;
-        int treesAt = typesAt + total;
-        int dataAt = treesAt + treeSize;
+        var total = (int)(frames + ring);
+        var usec = rate > 0 ? rate * 1000L : rate < 0 ? -rate * 10L : 100_000;
+        var treeSize = (int)U(0x34);
+        var sizesAt = 0x68;
+        var typesAt = sizesAt + (total * 4);
+        var treesAt = typesAt + total;
+        var dataAt = treesAt + treeSize;
         if (dataAt > d.Length || treeSize < 0)
         {
             error = "Smacker header runs past the file";
@@ -120,9 +120,9 @@ public sealed class SmackerDecoder
         var sizes = new int[total];
         var types = new byte[total];
         long pos = dataAt;
-        for (int i = 0; i < total; ++i)
+        for (var i = 0; i < total; ++i)
         {
-            sizes[i] = (int)(U(sizesAt + i * 4) & ~3u);
+            sizes[i] = (int)(U(sizesAt + (i * 4)) & ~3u);
             types[i] = d[typesAt + i];
             starts[i] = (int)pos;
             pos += sizes[i];
@@ -130,7 +130,7 @@ public sealed class SmackerDecoder
         if (pos > d.Length)
         {
             // A truncated file plays what is there; trim the frame list to the last whole frame.
-            int keep = 0;
+            var keep = 0;
             while (keep < total && starts[keep] + sizes[keep] <= d.Length)
                 ++keep;
             if (keep == 0)
@@ -141,9 +141,9 @@ public sealed class SmackerDecoder
             total = keep;
         }
         var dec = new SmackerDecoder(d, (int)w, (int)h, total, flags, usec, starts, sizes, types);
-        for (int t = 0; t < MaxTracks; ++t)
+        for (var t = 0; t < MaxTracks; ++t)
         {
-            uint r = U(0x48 + t * 4);
+            var r = U(0x48 + (t * 4));
             dec.Audio[t] = new SmackerAudioTrack
             {
                 Rate = (int)(r & 0xFFFFFF),
@@ -151,13 +151,13 @@ public sealed class SmackerDecoder
                 HasData = (r & 0x40000000) != 0,
                 Bits = (r & 0x20000000) != 0 ? 16 : 8,
                 Channels = (r & 0x10000000) != 0 ? 2 : 1,
-                MaxBytes = (int)U(0x18 + t * 4),
+                MaxBytes = (int)U(0x18 + (t * 4)),
             };
         }
         try
         {
-            dec.mTreesAt = treesAt;
-            dec.mTreeSize = treeSize;
+            dec._treesAt = treesAt;
+            dec._treeSize = treeSize;
             dec.ReadTrees();
         }
         catch (Exception e) when (e is InvalidDataException or IndexOutOfRangeException or ArgumentException)
@@ -171,9 +171,9 @@ public sealed class SmackerDecoder
     private static int[] BuildRuns()
     {
         var r = new int[64];
-        for (int i = 0; i < 59; ++i)
+        for (var i = 0; i < 59; ++i)
             r[i] = i + 1;
-        for (int i = 59; i < 64; ++i)
+        for (var i = 59; i < 64; ++i)
             r[i] = 128 << (i - 59);
         return r;
     }
@@ -182,24 +182,24 @@ public sealed class SmackerDecoder
 
     private sealed class BitReader
     {
-        private readonly byte[] mD;
-        private readonly int mEnd;
-        public int Bit;                // bit offset from the start of mD
+        private readonly byte[] _d;
+        private readonly int _end;
+        public int Bit { get; set; }                // bit offset from the start of mD
 
         public BitReader(byte[] d, int start, int length)
         {
-            mD = d;
+            _d = d;
             Bit = start * 8;
-            mEnd = (start + length) * 8;
+            _end = (start + length) * 8;
         }
 
-        public int BitsLeft => mEnd - Bit;
+        public int BitsLeft => _end - Bit;
 
         public int Get1()
         {
-            if (Bit >= mEnd)
+            if (Bit >= _end)
                 throw new InvalidDataException("bit stream ended");
-            int v = (mD[Bit >> 3] >> (Bit & 7)) & 1;
+            var v = (_d[Bit >> 3] >> (Bit & 7)) & 1;
             ++Bit;
             return v;
         }
@@ -207,8 +207,8 @@ public sealed class SmackerDecoder
         // Bits come least significant first.
         public int Get(int n)
         {
-            int v = 0;
-            for (int i = 0; i < n; ++i)
+            var v = 0;
+            for (var i = 0; i < n; ++i)
                 v |= Get1() << i;
             return v;
         }
@@ -217,7 +217,9 @@ public sealed class SmackerDecoder
     // A binary tree over a node array: Left[i] < 0 marks a leaf holding Value[i].
     private sealed class ByteTree
     {
-        public readonly List<int> Left = new(), Right = new(), Value = new();
+        public List<int> Left { get; } = [];
+        public List<int> Right { get; } = [];
+        public List<int> Value { get; } = [];
 
         public static ByteTree Read(BitReader br)
         {
@@ -230,7 +232,7 @@ public sealed class SmackerDecoder
         {
             if (depth > 64)
                 throw new InvalidDataException("tree too deep");
-            int id = Left.Count;
+            var id = Left.Count;
             Left.Add(-1);
             Right.Add(-1);
             Value.Add(0);
@@ -239,8 +241,8 @@ public sealed class SmackerDecoder
                 Value[id] = br.Get(8);
                 return id;
             }
-            int l = Node(br, depth + 1);
-            int r = Node(br, depth + 1);
+            var l = Node(br, depth + 1);
+            var r = Node(br, depth + 1);
             Left[id] = l;
             Right[id] = r;
             return id;
@@ -248,7 +250,7 @@ public sealed class SmackerDecoder
 
         public int Decode(BitReader br)
         {
-            int n = 0;
+            var n = 0;
             while (Left[n] >= 0)
                 n = br.Get1() == 0 ? Left[n] : Right[n];
             return Value[n];
@@ -260,8 +262,10 @@ public sealed class SmackerDecoder
     // at 0 at the start of every frame.
     private sealed class BigTree
     {
-        public readonly List<int> Left = new(), Right = new(), Value = new();
-        public readonly int[] Slot = new int[3];
+        public List<int> Left { get; } = [];
+        public List<int> Right { get; } = [];
+        public List<int> Value { get; } = [];
+        public int[] Slot { get; } = new int[3];
 
         public static BigTree ReadEmpty()
         {
@@ -283,16 +287,16 @@ public sealed class SmackerDecoder
         {
             if (depth > 100000)
                 throw new InvalidDataException("tree too deep");
-            int id = Left.Count;
+            var id = Left.Count;
             Left.Add(-1);
             Right.Add(-1);
             Value.Add(0);
             if (br.Get1() == 0)
             {
-                int lo = low?.Decode(br) ?? 0;
-                int hi = high?.Decode(br) ?? 0;
-                int v = lo | (hi << 8);
-                int k = Array.IndexOf(esc, v);
+                var lo = low?.Decode(br) ?? 0;
+                var hi = high?.Decode(br) ?? 0;
+                var v = lo | (hi << 8);
+                var k = Array.IndexOf(esc, v);
                 if (k >= 0)
                 {
                     Slot[k] = id;
@@ -301,8 +305,8 @@ public sealed class SmackerDecoder
                 Value[id] = v;
                 return id;
             }
-            int l = Node(br, low, high, esc, depth + 1);
-            int r = Node(br, low, high, esc, depth + 1);
+            var l = Node(br, low, high, esc, depth + 1);
+            var r = Node(br, low, high, esc, depth + 1);
             Left[id] = l;
             Right[id] = r;
             return id;
@@ -318,10 +322,10 @@ public sealed class SmackerDecoder
 
         public int Decode(BitReader br)
         {
-            int n = 0;
+            var n = 0;
             while (Left[n] >= 0)
                 n = br.Get1() == 0 ? Left[n] : Right[n];
-            int v = Value[n];
+            var v = Value[n];
             if (v != Value[Slot[0]])
             {
                 Value[Slot[2]] = Value[Slot[1]];
@@ -334,12 +338,12 @@ public sealed class SmackerDecoder
 
     private void ReadTrees()
     {
-        var br = new BitReader(mData, mTreesAt, mTreeSize);
-        for (int i = 0; i < 4; ++i)
+        var br = new BitReader(_data, _treesAt, _treeSize);
+        for (var i = 0; i < 4; ++i)
         {
             if (br.Get1() == 0)
             {
-                mTrees[i] = BigTree.ReadEmpty();
+                _trees[i] = BigTree.ReadEmpty();
                 continue;
             }
             ByteTree? low = null, high = null;
@@ -354,7 +358,7 @@ public sealed class SmackerDecoder
                 br.Get1();
             }
             var esc = new[] { br.Get(16), br.Get(16), br.Get(16) };
-            mTrees[i] = BigTree.Read(br, low, high, esc);
+            _trees[i] = BigTree.Read(br, low, high, esc);
             br.Get1();
         }
         TreeBitsLeft = br.BitsLeft;
@@ -379,48 +383,48 @@ public sealed class SmackerDecoder
     {
         if (NextFrame >= FrameCount)
             return false;
-        int i = NextFrame++;
-        ReadOnlySpan<byte> chunk = new ReadOnlySpan<byte>(mData, mFrameStart[i], mFrameSize[i]);
-        int p = 0;
+        var i = NextFrame++;
+        var chunk = new ReadOnlySpan<byte>(_data, _frameStart[i], _frameSize[i]);
+        var p = 0;
         PaletteChanged = false;
-        byte type = mFrameType[i];
+        var type = _frameType[i];
         if ((type & 1) != 0 && chunk.Length > 0)
         {
-            int len = chunk[0] * 4;
-            ReadPalette(chunk.Slice(1, Math.Min(len, chunk.Length) - 1));
+            var len = chunk[0] * 4;
+            ReadPalette(chunk[1..Math.Min(len, chunk.Length)]);
             PaletteChanged = true;
             p += len;
         }
-        for (int t = 0; t < MaxTracks && p < chunk.Length; ++t)
+        for (var t = 0; t < MaxTracks && p < chunk.Length; ++t)
         {
             if ((type & (2 << t)) == 0)
                 continue;
-            int alen = (int)BitConverter.ToUInt32(chunk.Slice(p, 4));
+            var alen = (int)BitConverter.ToUInt32(chunk.Slice(p, 4));
             p += Math.Max(alen, 4);
         }
         if (p < chunk.Length)
-            DecodeVideo(chunk.Slice(Math.Min(p, chunk.Length)));
+            DecodeVideo(chunk[Math.Min(p, chunk.Length)..]);
         return true;
     }
 
     private void ReadPalette(ReadOnlySpan<byte> d)
     {
-        byte[] old = (byte[])Palette.Clone();
+        var old = (byte[])Palette.Clone();
         int i = 0, j = 0;
         while (i < 256 && j < d.Length)
         {
-            byte b = d[j++];
+            var b = d[j++];
             if ((b & 0x80) != 0)
             {
                 i += (b & 0x7F) + 1;
             }
             else if ((b & 0x40) != 0)
             {
-                int n = (b & 0x3F) + 1;
+                var n = (b & 0x3F) + 1;
                 if (j >= d.Length)
                     break;
                 int s = d[j++];
-                for (int k = 0; k < n && i + k < 256 && s + k < 256; ++k)
+                for (var k = 0; k < n && i + k < 256 && s + k < 256; ++k)
                     Array.Copy(old, (s + k) * 3, Palette, (i + k) * 3, 3);
                 i += n;
             }
@@ -430,8 +434,8 @@ public sealed class SmackerDecoder
                     break;
                 int r = b & 0x3F, g = d[j++] & 0x3F, bl = d[j++] & 0x3F;
                 Palette[i * 3] = Scale6(r);
-                Palette[i * 3 + 1] = Scale6(g);
-                Palette[i * 3 + 2] = Scale6(bl);
+                Palette[(i * 3) + 1] = Scale6(g);
+                Palette[(i * 3) + 2] = Scale6(bl);
                 ++i;
             }
         }
@@ -442,23 +446,23 @@ public sealed class SmackerDecoder
 
     private void DecodeVideo(ReadOnlySpan<byte> data)
     {
-        byte[] copy = data.ToArray();
+        var copy = data.ToArray();
         var br = new BitReader(copy, 0, copy.Length);
         int bw = (Width + 3) / 4, bh = (Height + 3) / 4, blocks = bw * bh;
-        int blk = 0;
-        foreach (BigTree t in mTrees)
+        var blk = 0;
+        foreach (var t in _trees)
             t.ResetCache();
         try
         {
             while (blk < blocks)
             {
-                int sym = mTrees[TreeType].Decode(br);
-                int btype = sym & 3;
-                int run = sBlockRuns[(sym >> 2) & 0x3F];
-                int extra = sym >> 8;
-                for (int k = 0; k < run && blk < blocks; ++k, ++blk)
+                var sym = _trees[TreeType].Decode(br);
+                var btype = sym & 3;
+                var run = BlockRuns[(sym >> 2) & 0x3F];
+                var extra = sym >> 8;
+                for (var k = 0; k < run && blk < blocks; ++k, ++blk)
                 {
-                    int bx = (blk % bw) * 4, by = (blk / bw) * 4;
+                    int bx = blk % bw * 4, by = blk / bw * 4;
                     switch (btype)
                     {
                         case 0:
@@ -470,7 +474,9 @@ public sealed class SmackerDecoder
                         case 3:
                             SolidBlock(bx, by, (byte)extra);
                             break;
-                        // 2: void, the block keeps the previous picture.
+                        default:
+                            // 2: void, the block keeps the previous picture.
+                            break;
                     }
                 }
             }
@@ -484,28 +490,28 @@ public sealed class SmackerDecoder
 
     private void MonoBlock(BitReader br, int bx, int by)
     {
-        int colors = mTrees[TreeMclr].Decode(br);
-        int map = mTrees[TreeMmap].Decode(br);
+        var colors = _trees[TreeMclr].Decode(br);
+        var map = _trees[TreeMmap].Decode(br);
         byte hi = (byte)(colors >> 8), lo = (byte)colors;
-        for (int row = 0; row < 4; ++row)
+        for (var row = 0; row < 4; ++row)
         {
-            int y = by + row;
-            for (int col = 0; col < 4; ++col)
+            var y = by + row;
+            for (var col = 0; col < 4; ++col)
             {
-                int x = bx + col;
+                var x = bx + col;
                 if (x < Width && y < Height)
-                    Pixels[y * Width + x] = (map & (1 << (row * 4 + col))) != 0 ? hi : lo;
+                    Pixels[(y * Width) + x] = (map & (1 << ((row * 4) + col))) != 0 ? hi : lo;
             }
         }
     }
 
     private void FullBlock(BitReader br, int bx, int by)
     {
-        for (int row = 0; row < 4; ++row)
+        for (var row = 0; row < 4; ++row)
         {
-            int y = by + row;
-            int right = mTrees[TreeFull].Decode(br);
-            int left = mTrees[TreeFull].Decode(br);
+            var y = by + row;
+            var right = _trees[TreeFull].Decode(br);
+            var left = _trees[TreeFull].Decode(br);
             Put(bx + 2, y, (byte)right);
             Put(bx + 3, y, (byte)(right >> 8));
             Put(bx, y, (byte)left);
@@ -516,13 +522,13 @@ public sealed class SmackerDecoder
     private void Put(int x, int y, byte v)
     {
         if (x < Width && y < Height)
-            Pixels[y * Width + x] = v;
+            Pixels[(y * Width) + x] = v;
     }
 
     private void SolidBlock(int bx, int by, byte c)
     {
-        for (int row = 0; row < 4; ++row)
-            for (int col = 0; col < 4; ++col)
+        for (var row = 0; row < 4; ++row)
+            for (var col = 0; col < 4; ++col)
                 Put(bx + col, by + row, c);
     }
 
@@ -533,29 +539,29 @@ public sealed class SmackerDecoder
     /// <returns>The PCM bytes, or null when the track carries no audio.</returns>
     public byte[]? ReadAudio(int track)
     {
-        SmackerAudioTrack a = Audio[track];
+        var a = Audio[track];
         if (!a.HasData || a.Rate <= 0)
             return null;
         var pcm = new MemoryStream();
-        for (int i = 0; i < FrameCount; ++i)
+        for (var i = 0; i < FrameCount; ++i)
         {
-            if ((mFrameType[i] & (2 << track)) == 0)
+            if ((_frameType[i] & (2 << track)) == 0)
                 continue;
-            ReadOnlySpan<byte> chunk = new ReadOnlySpan<byte>(mData, mFrameStart[i], mFrameSize[i]);
-            int p = (mFrameType[i] & 1) != 0 && chunk.Length > 0 ? chunk[0] * 4 : 0;
-            for (int t = 0; t < MaxTracks && p + 4 <= chunk.Length; ++t)
+            var chunk = new ReadOnlySpan<byte>(_data, _frameStart[i], _frameSize[i]);
+            var p = (_frameType[i] & 1) != 0 && chunk.Length > 0 ? chunk[0] * 4 : 0;
+            for (var t = 0; t < MaxTracks && p + 4 <= chunk.Length; ++t)
             {
-                if ((mFrameType[i] & (2 << t)) == 0)
+                if ((_frameType[i] & (2 << t)) == 0)
                     continue;
-                int alen = (int)BitConverter.ToUInt32(chunk.Slice(p, 4));
+                var alen = (int)BitConverter.ToUInt32(chunk.Slice(p, 4));
                 if (alen < 4 || p + alen > chunk.Length)
                     break;
                 if (t == track)
                 {
-                    ReadOnlySpan<byte> body = chunk.Slice(p + 4, alen - 4);
+                    var body = chunk.Slice(p + 4, alen - 4);
                     if (a.Packed)
                     {
-                        byte[]? dec = UnpackAudio(body, a);
+                        var dec = UnpackAudio(body);
                         if (dec != null)
                             pcm.Write(dec);
                     }
@@ -573,24 +579,24 @@ public sealed class SmackerDecoder
 
     // One Huffman DPCM audio chunk: the unpacked byte count, three flag bits (data, stereo, 16 bit), 1 << (stereo + 16 bit) byte
     // trees, the start value of each channel (the right channel first) and then one delta per sample.
-    private static byte[]? UnpackAudio(ReadOnlySpan<byte> body, SmackerAudioTrack a)
+    private static byte[]? UnpackAudio(ReadOnlySpan<byte> body)
     {
         if (body.Length < 5)
             return null;
-        int unpacked = (int)BitConverter.ToUInt32(body.Slice(0, 4));
-        if (unpacked <= 0 || unpacked > 64 * 1024 * 1024)
+        var unpacked = (int)BitConverter.ToUInt32(body[..4]);
+        if (unpacked is <= 0 or > (64 * 1024 * 1024))
             return null;
-        byte[] bytes = body.Slice(4).ToArray();
+        var bytes = body[4..].ToArray();
         var br = new BitReader(bytes, 0, bytes.Length);
         try
         {
             if (br.Get1() == 0)
                 return new byte[unpacked];
-            int stereo = br.Get1();
-            int wide = br.Get1();
-            int nTrees = 1 << (stereo + wide);
+            var stereo = br.Get1();
+            var wide = br.Get1();
+            var nTrees = 1 << (stereo + wide);
             var trees = new ByteTree[nTrees];
-            for (int i = 0; i < nTrees; ++i)
+            for (var i = 0; i < nTrees; ++i)
             {
                 if (br.Get1() == 0)
                     throw new InvalidDataException("audio tree missing");
@@ -598,21 +604,21 @@ public sealed class SmackerDecoder
                 br.Get1();
             }
             var pred = new int[2];
-            for (int c = stereo; c >= 0; --c)
+            for (var c = stereo; c >= 0; --c)
                 pred[c] = wide == 1 ? Swap16(br.Get(16)) : br.Get(8);
             var o = new byte[unpacked];
-            int bps = wide == 1 ? 2 : 1;
-            int n = unpacked / bps;
-            int idx = 0;
-            for (int c = 0; c <= stereo && idx < n; ++c, ++idx)
+            var bps = wide == 1 ? 2 : 1;
+            var n = unpacked / bps;
+            var idx = 0;
+            for (var c = 0; c <= stereo && idx < n; ++c, ++idx)
                 Store(o, idx, bps, pred[c]);
             for (; idx < n; ++idx)
             {
-                int ch = idx & stereo;
+                var ch = idx & stereo;
                 if (wide == 1)
                 {
-                    int lo = trees[ch * 2].Decode(br);
-                    int hi = trees[ch * 2 + 1].Decode(br);
+                    var lo = trees[ch * 2].Decode(br);
+                    var hi = trees[(ch * 2) + 1].Decode(br);
                     pred[ch] = (short)(pred[ch] + (short)(lo | (hi << 8)));
                 }
                 else
@@ -636,7 +642,7 @@ public sealed class SmackerDecoder
         if (bps == 2)
         {
             o[idx * 2] = (byte)v;
-            o[idx * 2 + 1] = (byte)(v >> 8);
+            o[(idx * 2) + 1] = (byte)(v >> 8);
         }
         else
         {

@@ -1,6 +1,6 @@
-using OpenTribes.Core;
-
 namespace OpenTribes.Script;
+
+using OpenTribes.Core;
 
 /// <summary>The simulation-side object access of the interpreter (original interface at console+0x10, docs/script.md 3.10).</summary>
 public interface IObjectInterface
@@ -8,33 +8,33 @@ public interface IObjectInterface
     /// <summary>Starts a datablock.</summary>
     /// <param name="className">The class name.</param>
     /// <param name="name">The datablock name.</param>
-    void BeginDataBlock(string className, string name);
+    public void BeginDataBlock(string className, string name);
     /// <summary>Ends the current datablock.</summary>
-    void EndDataBlock();
+    public void EndDataBlock();
     /// <summary>Starts an object.</summary>
     /// <param name="className">The class name.</param>
     /// <param name="name">The object name.</param>
-    void BeginObject(string className, string name);
+    public void BeginObject(string className, string name);
     /// <summary>Ends the current object.</summary>
-    void EndObject();
+    public void EndObject();
     /// <summary>Assigns a slot inside a datablock or object body.</summary>
     /// <param name="field">The field name.</param>
     /// <param name="values">The values.</param>
     /// <param name="index">The subscript, empty when none.</param>
-    void SetSlot(string field, IReadOnlyList<string> values, string index);
+    public void SetSlot(string field, IReadOnlyList<string> values, string index);
     /// <summary>Reads a field of a named or numbered object.</summary>
     /// <param name="obj">The object name or id.</param>
     /// <param name="field">The field name.</param>
     /// <param name="index">The subscript, empty when none.</param>
     /// <param name="output">Receives the value.</param>
     /// <returns>False when the object is missing.</returns>
-    bool GetField(string obj, string field, string index, out string output);
+    public bool GetField(string obj, string field, string index, out string output);
     /// <summary>Writes a field of a named or numbered object.</summary>
     /// <param name="obj">The object name or id.</param>
     /// <param name="field">The field name.</param>
     /// <param name="values">The values.</param>
     /// <param name="index">The subscript, empty when none.</param>
-    void SetField(string obj, string field, IReadOnlyList<string> values, string index);
+    public void SetField(string obj, string field, IReadOnlyList<string> values, string index);
 }
 
 /// <summary>The console script interpreter (docs/script.md section 3): tree-walking, with every value a string.</summary>
@@ -54,42 +54,42 @@ public sealed class Interpreter
     /// <remarks>The console variables and the script functions are shared, like the one console of the stock exe. The commands and the object interface follow the focus (the stock focus pointer DAT_006a8494, set per world by FearWorld_advance 004eba40 and FearWorld_clientAdvance 004eb7ac and by focusServer and focusClient, cases 0x7a and 0x79 of FearGame_consoleCallback).</remarks>
     public sealed class World
     {
-        internal readonly Dictionary<string, Function> Commands = new(StringComparer.Ordinal);
+        internal Dictionary<string, Function> Commands { get; } = new(StringComparer.Ordinal);
         /// <summary>The object interface of this world.</summary>
-        public IObjectInterface? Objects;
+        public IObjectInterface? Objects { get; set; }
     }
 
     internal sealed class Function
     {
-        public Node? Decl;
-        public Command? Builtin;
+        public Node? Decl { get; set; }
+        public Command? Builtin { get; set; }
     }
     private sealed class Frame
     {
-        public readonly Dictionary<string, string> Locals = new(StringComparer.Ordinal);
-        public string Result = "";
+        public Dictionary<string, string> Locals { get; } = new(StringComparer.Ordinal);
+        public string Result { get; set; } = "";
     }
 
-    private readonly StringTable mStrings;
-    private readonly Dictionary<string, string> mGlobals = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, Function> mFunctions = new(StringComparer.Ordinal);
-    private World? mFocus;               // the world whose commands answer first (null: only the shared set)
-    private World? mRegisterTarget;      // AddCommand fills this world while a registration runs
-    private IObjectInterface? mSharedObjects;
-    private readonly List<World> mWorlds = new();
-    private readonly List<Frame> mFrames = new(); // [0] is the global frame
-    private readonly Dictionary<int, string> mTagText = new();
-    private readonly Dictionary<int, string> mTagRaw = new();
-    private readonly Dictionary<string, int> mTagIds = new(StringComparer.Ordinal);
-    private Action<string>? mOutput;
-    private IObjectInterface? mObjects;
-    private ResourceManager? mResources;
-    private int mPrintLevel = 1;
-    private bool mLastHope;
-    private readonly List<string> mReplacedCommands = new();
-    private string mLastValue = "";
-    private readonly Dictionary<string, Action<string>> mBindings = new(StringComparer.Ordinal);
-    private readonly SortedDictionary<string, int> mUnknown = new(StringComparer.Ordinal);
+    private readonly StringTable _strings;
+    private readonly Dictionary<string, string> _globals = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Function> _functions = new(StringComparer.Ordinal);
+    private World? _focus;               // the world whose commands answer first (null: only the shared set)
+    private World? _registerTarget;      // AddCommand fills this world while a registration runs
+    private IObjectInterface? _sharedObjects;
+    private readonly List<World> _worlds = [];
+    private readonly List<Frame> _frames = []; // [0] is the global frame
+    private readonly Dictionary<int, string> _tagText = [];
+    private readonly Dictionary<int, string> _tagRaw = [];
+    private readonly Dictionary<string, int> _tagIds = new(StringComparer.Ordinal);
+    private Action<string>? _output;
+    private IObjectInterface? _objects;
+    private ResourceManager? _resources;
+    private int _printLevel = 1;
+    private bool _lastHope;
+    private readonly List<string> _replacedCommands = [];
+    private string _lastValue = "";
+    private readonly Dictionary<string, Action<string>> _bindings = new(StringComparer.Ordinal);
+    private readonly SortedDictionary<string, int> _unknown = new(StringComparer.Ordinal);
 
     // x87 tests against zero: NaN compares unordered, which the original treats as equal to 0.
     private static bool Truthy(double v) => v != 0 && !double.IsNaN(v);
@@ -98,7 +98,7 @@ public sealed class Interpreter
     {
         if (a.Length != b.Length)
             return false;
-        for (int i = 0; i < b.Length; ++i)
+        for (var i = 0; i < b.Length; ++i)
             if ((a[i] | 0x20) != (b[i] | 0x20))
                 return false;
         return true;
@@ -107,7 +107,7 @@ public sealed class Interpreter
     private static string ConcatArgs(string[] argv, int from)
     {
         var sb = new System.Text.StringBuilder();
-        for (int i = from; i < argv.Length; ++i)
+        for (var i = from; i < argv.Length; ++i)
             sb.Append(argv[i]);
         return sb.ToString();
     }
@@ -116,13 +116,13 @@ public sealed class Interpreter
     /// <param name="strings">The string table, or null for a new one.</param>
     public Interpreter(StringTable? strings = null)
     {
-        mStrings = strings ?? StringTable.Global();
+        _strings = strings ?? StringTable.Global();
         Numbers.EnterScriptFpuMode();
-        mFrames.Add(new Frame());
+        _frames.Add(new Frame());
         // Engine-bound console variables exist from the start (0x005f3a7c) [live].
-        mGlobals[mStrings.Intern("$Console::printLevel")] = "1";
-        mGlobals[mStrings.Intern("$Console::logBufferEnabled")] = "False";
-        mGlobals[mStrings.Intern("$Console::updateMetrics")] = "False";
+        _globals[_strings.Intern("$Console::printLevel")] = "1";
+        _globals[_strings.Intern("$Console::logBufferEnabled")] = "False";
+        _globals[_strings.Intern("$Console::updateMetrics")] = "False";
 
         // Console core commands (0x005f3a7c).
         AddCommand("echo", (interp, argv) =>
@@ -146,7 +146,7 @@ public sealed class Interpreter
                 interp.Print(1, "wrong argcount to sqrt(Value)");
                 return "-1";
             }
-            double v = Numbers.BorlandAtof(argv[1]);
+            var v = Numbers.BorlandAtof(argv[1]);
             return Numbers.FormatFloat(v < 0 ? 0.0 : Fpu.Sqrt(v)); // Borland's matherr turns the domain error into 0
         });
         AddCommand("eval", (interp, argv) =>
@@ -174,36 +174,36 @@ public sealed class Interpreter
     /// <param name="cmd">The command.</param>
     public void AddCommand(string name, Command cmd)
     {
-        string key = mStrings.Intern(name);
-        if (mRegisterTarget != null)
+        var key = _strings.Intern(name);
+        if (_registerTarget != null)
         {
-            mRegisterTarget.Commands[key] = new Function { Builtin = cmd };
+            _registerTarget.Commands[key] = new Function { Builtin = cmd };
             return;
         }
-        if (mFunctions.TryGetValue(key, out Function? f) && f.Builtin != null)
-            mReplacedCommands.Add(name);
-        mFunctions[key] = new Function { Builtin = cmd };
+        if (_functions.TryGetValue(key, out var f) && f.Builtin != null)
+            _replacedCommands.Add(name);
+        _functions[key] = new Function { Builtin = cmd };
     }
 
     /// <summary>Gets the native commands that were registered more than once.</summary>
     /// <returns>The names.</returns>
-    public IReadOnlyList<string> ReplacedCommands() => mReplacedCommands;
+    public IReadOnlyList<string> ReplacedCommands() => _replacedCommands;
     /// <summary>Switches the LastHope 1.30 behaviour on or off (docs/lasthope-1.30.md L5).</summary>
     /// <param name="on">Whether LastHope mode is on.</param>
-    public void SetLastHope(bool on) => mLastHope = on;
+    public void SetLastHope(bool on) => _lastHope = on;
     /// <summary>Gets whether LastHope 1.30 behaviour is on.</summary>
     /// <returns>True when on.</returns>
-    public bool LastHope() => mLastHope;
+    public bool LastHope() => _lastHope;
     /// <summary>Sets the console output sink.</summary>
     /// <param name="output">The sink, or null.</param>
-    public void SetOutput(Action<string>? output) => mOutput = output;
+    public void SetOutput(Action<string>? output) => _output = output;
     /// <summary>Sets the object interface of the focused world.</summary>
     /// <param name="objects">The interface, or null.</param>
     public void SetObjects(IObjectInterface? objects)
     {
-        mSharedObjects = objects;
-        if (mFocus == null)
-            mObjects = objects;
+        _sharedObjects = objects;
+        if (_focus == null)
+            _objects = objects;
     }
 
     /// <summary>Creates a world. Commands registered inside <see cref="Register"/> answer only while it has the focus.</summary>
@@ -211,7 +211,7 @@ public sealed class Interpreter
     public World NewWorld()
     {
         var w = new World();
-        mWorlds.Add(w);
+        _worlds.Add(w);
         return w;
     }
 
@@ -219,9 +219,9 @@ public sealed class Interpreter
     /// <param name="w">The world.</param>
     public void DropWorld(World w)
     {
-        if (mFocus == w)
+        if (_focus == w)
             Focus(null);
-        mWorlds.Remove(w);
+        _worlds.Remove(w);
     }
 
     /// <summary>Runs registrations so that the commands they add belong to a world.</summary>
@@ -229,15 +229,15 @@ public sealed class Interpreter
     /// <param name="registrations">The registrations to run.</param>
     public void Register(World w, Action registrations)
     {
-        World? previous = mRegisterTarget;
-        mRegisterTarget = w;
+        var previous = _registerTarget;
+        _registerTarget = w;
         try
         {
             registrations();
         }
         finally
         {
-            mRegisterTarget = previous;
+            _registerTarget = previous;
         }
     }
 
@@ -246,44 +246,44 @@ public sealed class Interpreter
     /// <param name="names">The command names.</param>
     public void Unregister(World w, params string[] names)
     {
-        foreach (string n in names)
-            w.Commands.Remove(mStrings.Intern(n));
+        foreach (var n in names)
+            w.Commands.Remove(_strings.Intern(n));
     }
 
     /// <summary>Gets the world that has the focus.</summary>
     /// <returns>The world, or null for the shared (client) world.</returns>
-    public World? FocusedWorld() => mFocus;
+    public World? FocusedWorld() => _focus;
 
     /// <summary>Moves the focus to a world, as the stock focus switch does.</summary>
     /// <param name="w">The world, or null for the shared (client) world.</param>
     public void Focus(World? w)
     {
-        mFocus = w;
-        mObjects = w?.Objects ?? mSharedObjects;
+        _focus = w;
+        _objects = w?.Objects ?? _sharedObjects;
     }
     /// <summary>Sets the resource manager.</summary>
     /// <param name="res">The resource manager, or null.</param>
-    public void SetResources(ResourceManager? res) => mResources = res;
+    public void SetResources(ResourceManager? res) => _resources = res;
     /// <summary>Gets the current print level.</summary>
     /// <returns>The level.</returns>
-    public int PrintLevel() => mPrintLevel;
+    public int PrintLevel() => _printLevel;
     /// <summary>Gets the calls to names that have no function or command.</summary>
     /// <returns>The call counts by interned name.</returns>
-    public IReadOnlyDictionary<string, int> UnknownCommands() => mUnknown;
+    public IReadOnlyDictionary<string, int> UnknownCommands() => _unknown;
 
     /// <summary>Prints console output at a print level (printf is 1, dbprintf(n) is n).</summary>
     /// <param name="level">The print level.</param>
     /// <param name="line">The text.</param>
     public void Print(int level, string line)
     {
-        if (level <= mPrintLevel && mPrintLevel != 0 && mOutput != null)
-            mOutput(line);
+        if (level <= _printLevel && _printLevel != 0 && _output != null)
+            _output(line);
     }
 
     // ---- variables ----
 
     // src/script/interpreter.cpp Interpreter::scopeFor.
-    private Dictionary<string, string> ScopeFor(string name) => name.Length != 0 && name[0] == '%' ? mFrames[^1].Locals : mGlobals;
+    private Dictionary<string, string> ScopeFor(string name) => name.Length != 0 && name[0] == '%' ? _frames[^1].Locals : _globals;
 
     /// <summary>Reads a variable.</summary>
     /// <param name="name">The variable name.</param>
@@ -296,9 +296,9 @@ public sealed class Interpreter
     /// <returns>The value.</returns>
     public string GetVariable(string name, out bool found)
     {
-        string key = mStrings.Intern(name);
+        var key = _strings.Intern(name);
         var scope = ScopeFor(key);
-        found = scope.TryGetValue(key, out string? v);
+        found = scope.TryGetValue(key, out var v);
         if (!found)
         {
             Print(2, "Varaible referenced before assignment: " + key);
@@ -310,18 +310,15 @@ public sealed class Interpreter
     /// <summary>Reads a global from the engine side.</summary>
     /// <param name="name">The variable name.</param>
     /// <returns>The value, empty when unset.</returns>
-    public string PeekVariable(string name)
-    {
-        return mGlobals.TryGetValue(mStrings.Intern(name), out string? v) ? v : "";
-    }
+    public string PeekVariable(string name) => _globals.TryGetValue(_strings.Intern(name), out var v) ? v : "";
 
     /// <summary>Tests whether a variable exists.</summary>
     /// <param name="name">The variable name.</param>
     /// <returns>True when it exists.</returns>
     public bool HasVariable(string name)
     {
-        string? key = mStrings.Lookup(name);
-        return key != null && mGlobals.ContainsKey(key);
+        var key = _strings.Lookup(name);
+        return key != null && _globals.ContainsKey(key);
     }
 
     /// <summary>Writes a variable.</summary>
@@ -329,35 +326,35 @@ public sealed class Interpreter
     /// <param name="value">The value.</param>
     public void SetVariable(string name, string value)
     {
-        string key = mStrings.Intern(name);
-        if (key == mStrings.Intern("$Console::printLevel"))
+        var key = _strings.Intern(name);
+        if (key == _strings.Intern("$Console::printLevel"))
         {
             // Engine-bound int variable: stores atoi of the value.
-            mPrintLevel = Numbers.BorlandAtoi(value);
-            mGlobals[key] = Numbers.FormatInt(mPrintLevel);
+            _printLevel = Numbers.BorlandAtoi(value);
+            _globals[key] = Numbers.FormatInt(_printLevel);
             return;
         }
-        if (key == mStrings.Intern("$Console::logBufferEnabled") || key == mStrings.Intern("$Console::updateMetrics"))
+        if (key == _strings.Intern("$Console::logBufferEnabled") || key == _strings.Intern("$Console::updateMetrics"))
         {
             // Engine-bound bool variables store True or False.
-            mGlobals[key] = Numbers.IsTrueString(value) || Numbers.BorlandAtoi(value) != 0 ? "True" : "False";
+            _globals[key] = Numbers.IsTrueString(value) || Numbers.BorlandAtoi(value) != 0 ? "True" : "False";
             return;
         }
         ScopeFor(key)[key] = value;
-        if (mBindings.TryGetValue(key, out Action<string>? onSet))
+        if (_bindings.TryGetValue(key, out var onSet))
             onSet(value);
     }
 
     /// <summary>Binds a callback to a variable. It runs after every assignment, like the original's variable callbacks.</summary>
     /// <param name="name">The variable name.</param>
     /// <param name="onSet">The callback, given the new value.</param>
-    public void BindVariable(string name, Action<string> onSet) => mBindings[mStrings.Intern(name)] = onSet;
+    public void BindVariable(string name, Action<string> onSet) => _bindings[_strings.Intern(name)] = onSet;
 
     // src/script/interpreter.cpp Interpreter::indexString.
     private string IndexString(List<Node> index)
     {
         var sb = new System.Text.StringBuilder();
-        for (int i = 0; i < index.Count; ++i)
+        for (var i = 0; i < index.Count; ++i)
         {
             if (i != 0)
                 sb.Append('_');
@@ -368,14 +365,14 @@ public sealed class Interpreter
 
     /// <summary>Gets the globals for the export and delete built-ins.</summary>
     /// <returns>The name and value pairs.</returns>
-    public List<KeyValuePair<string, string>> Globals() => mGlobals.ToList();
+    public List<KeyValuePair<string, string>> Globals() => [.. _globals];
 
     /// <summary>Lists the function names, including global-frame % variables (docs/script.md 3.6.9).</summary>
     /// <returns>The names.</returns>
     public List<string> FunctionNames()
     {
-        var output = new List<string>(mFunctions.Keys);
-        output.AddRange(mFrames[0].Locals.Keys);
+        var output = new List<string>(_functions.Keys);
+        output.AddRange(_frames[0].Locals.Keys);
         return output;
     }
 
@@ -383,20 +380,20 @@ public sealed class Interpreter
     /// <param name="name">The variable name.</param>
     public void EraseGlobal(string name)
     {
-        string? key = mStrings.Lookup(name);
+        var key = _strings.Lookup(name);
         if (key != null)
-            mGlobals.Remove(key);
+            _globals.Remove(key);
     }
 
     /// <summary>Removes a function.</summary>
     /// <param name="name">The function name.</param>
     public void EraseFunction(string name)
     {
-        string? key = mStrings.Lookup(name);
+        var key = _strings.Lookup(name);
         if (key != null)
         {
-            mFunctions.Remove(key);
-            mFrames[0].Locals.Remove(key);
+            _functions.Remove(key);
+            _frames[0].Locals.Remove(key);
         }
     }
 
@@ -408,19 +405,19 @@ public sealed class Interpreter
     /// <returns>The string value of the last expression statement run.</returns>
     public string Evaluate(string text, string fileName = "")
     {
-        int nul = text.IndexOf('\0');
-        string src = nul < 0 ? text : text[..nul];
+        var nul = text.IndexOf('\0');
+        var src = nul < 0 ? text : text[..nul];
         Numbers.EnterScriptFpuMode(); // pow can leave round-to-nearest behind; the original's next ftol resets it
-        ParseResult r = ScriptParser.Parse(src);
+        var r = ScriptParser.Parse(src);
         if (r.Error)
-            Print(1, ScriptParser.SyntaxErrorMessage(r, fileName.Length == 0 ? "" : mStrings.Intern(fileName)));
+            Print(1, ScriptParser.SyntaxErrorMessage(r, fileName.Length == 0 ? "" : _strings.Intern(fileName)));
 
-        string saved = mLastValue;
-        mLastValue = "";
-        foreach (Node s in r.Statements)
+        var saved = _lastValue;
+        _lastValue = "";
+        foreach (var s in r.Statements)
             Exec(s); // top-level completion codes are ignored
-        string result = mLastValue;
-        mLastValue = saved;
+        var result = _lastValue;
+        _lastValue = saved;
         return result;
     }
 
@@ -429,13 +426,13 @@ public sealed class Interpreter
     /// <returns>False when the file cannot be read.</returns>
     public bool ExecFile(string fileName)
     {
-        string name = fileName;
+        var name = fileName;
         if (!name.Contains(".cs", StringComparison.Ordinal) && !name.Contains(".mis", StringComparison.Ordinal) &&
             !name.Contains(".dsc", StringComparison.Ordinal) && !name.Contains(".mac", StringComparison.Ordinal))
             name += ".cs";
-        ResourceManager.Entry? entry = mResources?.Find(name);
-        byte[] data = Array.Empty<byte>();
-        if (entry == null || !mResources!.Read(entry, out data))
+        var entry = _resources?.Find(name);
+        var data = Array.Empty<byte>();
+        if (entry == null || !_resources!.Read(entry, out data))
         {
             Print(1, "exec: invalid script file " + name + ".");
             return false;
@@ -450,9 +447,9 @@ public sealed class Interpreter
     // src/script/interpreter.cpp Interpreter::execList.
     private Completion ExecList(List<Node> list)
     {
-        foreach (Node s in list)
+        foreach (var s in list)
         {
-            Completion c = Exec(s);
+            var c = Exec(s);
             if (c != Completion.Normal)
                 return c;
         }
@@ -464,114 +461,130 @@ public sealed class Interpreter
     {
         switch (n.Kind)
         {
-        case NodeKind.ExprStmt:
-        {
-            string v = EvalString(n.A!);
-            mFrames[^1].Result = v;
-            mLastValue = v;
-            return Completion.Normal;
-        }
-        case NodeKind.If:
-            return Truthy(EvalFloat(n.A!)) ? ExecList(n.Body) : ExecList(n.ElseBody);
-        case NodeKind.While:
-            while (Truthy(EvalFloat(n.A!)))
+            case NodeKind.ExprStmt:
             {
-                Completion c = ExecList(n.Body);
-                if (c == Completion.BreakLoop)
-                    break;
-                if (c == Completion.ReturnFn)
-                    return c;
-            }
-            return Completion.Normal;
-        case NodeKind.For:
-            EvalString(n.A!);
-            while (Truthy(EvalFloat(n.B!)))
-            {
-                Completion c = ExecList(n.Body);
-                if (c == Completion.BreakLoop)
-                    break;
-                if (c == Completion.ReturnFn)
-                    return c;
-                EvalString(n.C!);
-            }
-            return Completion.Normal;
-        case NodeKind.Function:
-        {
-            string fname = mStrings.Intern(n.Name);
-            mFunctions[fname] = new Function { Decl = n };
-            foreach (World w in mWorlds) // a script function replaces a native command, as in the shared set
-                w.Commands.Remove(fname);
-            return Completion.Normal;
-        }
-        case NodeKind.Return:
-            mFrames[^1].Result = n.A != null ? EvalString(n.A) : "";
-            return Completion.ReturnFn;
-        case NodeKind.Continue:
-            return Completion.ContinueLoop;
-        case NodeKind.BreakStmt:
-            return Completion.BreakLoop;
-        case NodeKind.TagDecl:
-        {
-            int id = Numbers.BorlandAtoi(EvalString(n.A!));
-            string text = n.B != null ? EvalString(n.B) : "";
-            string name = mStrings.Intern(n.Name);
-            // Id 0 is ignored without a line; a negative id registers the name but is never
-            // found by id (see the C++ interpreter, [code 005ee5ac]).
-            if (id == 0)
+                var v = EvalString(n.A!);
+                _frames[^1].Result = v;
+                _lastValue = v;
                 return Completion.Normal;
-            if (id > 0 && mTagText.ContainsKey(id))
-            {
-                Print(1, "Error: id " + Numbers.FormatInt(id) + " already defined to a tag.");
             }
-            else if (mTagIds.TryGetValue(name, out int existing))
-            {
-                Print(1, "Error: define " + name + " already defined to tag " + Numbers.FormatInt(existing) + ".");
-            }
-            else
-            {
-                // Tag text lives in the string table, so it also fixes the spelling of later
-                // case variants (fear.strings.cs "ARMOR" makes className = "Armor" read ARMOR).
-                if (id > 0)
+            case NodeKind.If:
+                return Truthy(EvalFloat(n.A!)) ? ExecList(n.Body) : ExecList(n.ElseBody);
+            case NodeKind.While:
+                while (Truthy(EvalFloat(n.A!)))
                 {
-                    mTagText[id] = text.Length == 0 ? text : mStrings.Intern(text);
-                    mTagRaw[id] = text;
+                    var c = ExecList(n.Body);
+                    if (c == Completion.BreakLoop)
+                        break;
+                    if (c == Completion.ReturnFn)
+                        return c;
                 }
-                mTagIds[name] = id;
+                return Completion.Normal;
+            case NodeKind.For:
+                EvalString(n.A!);
+                while (Truthy(EvalFloat(n.B!)))
+                {
+                    var c = ExecList(n.Body);
+                    if (c == Completion.BreakLoop)
+                        break;
+                    if (c == Completion.ReturnFn)
+                        return c;
+                    EvalString(n.C!);
+                }
+                return Completion.Normal;
+            case NodeKind.Function:
+            {
+                var fname = _strings.Intern(n.Name);
+                _functions[fname] = new Function { Decl = n };
+                foreach (var w in _worlds) // a script function replaces a native command, as in the shared set
+                    w.Commands.Remove(fname);
+                return Completion.Normal;
             }
-            return Completion.Normal;
-        }
-        case NodeKind.Datablock:
-            mObjects?.BeginDataBlock(n.ClassName, n.Name);
-            foreach (Node s in n.Slots)
-                Exec(s);
-            mObjects?.EndDataBlock();
-            return Completion.Normal;
-        case NodeKind.Instant:
-        {
-            string name = n.A != null ? EvalString(n.A) : "";
-            mObjects?.BeginObject(n.ClassName, name);
-            foreach (Node s in n.Slots)
-                Exec(s);
-            foreach (Node c in n.Children)
-                Exec(c);
-            mObjects?.EndObject();
-            return Completion.Normal;
-        }
-        case NodeKind.Slot:
-        {
-            string index = IndexString(n.Index);
-            var values = new List<string>();
-            if (n.IsList)
-                foreach (Node v in n.List)
-                    values.Add(EvalString(v));
-            else
-                values.Add(EvalString(n.A!));
-            mObjects?.SetSlot(n.Name, values, index);
-            return Completion.Normal;
-        }
-        default:
-            EvalString(n);
-            return Completion.Normal;
+            case NodeKind.Return:
+                _frames[^1].Result = n.A != null ? EvalString(n.A) : "";
+                return Completion.ReturnFn;
+            case NodeKind.Continue:
+                return Completion.ContinueLoop;
+            case NodeKind.BreakStmt:
+                return Completion.BreakLoop;
+            case NodeKind.TagDecl:
+            {
+                var id = Numbers.BorlandAtoi(EvalString(n.A!));
+                var text = n.B != null ? EvalString(n.B) : "";
+                var name = _strings.Intern(n.Name);
+                // Id 0 is ignored without a line; a negative id registers the name but is never
+                // found by id (see the C++ interpreter, [code 005ee5ac]).
+                if (id == 0)
+                    return Completion.Normal;
+                if (id > 0 && _tagText.ContainsKey(id))
+                {
+                    Print(1, "Error: id " + Numbers.FormatInt(id) + " already defined to a tag.");
+                }
+                else if (_tagIds.TryGetValue(name, out var existing))
+                {
+                    Print(1, "Error: define " + name + " already defined to tag " + Numbers.FormatInt(existing) + ".");
+                }
+                else
+                {
+                    // Tag text lives in the string table, so it also fixes the spelling of later
+                    // case variants (fear.strings.cs "ARMOR" makes className = "Armor" read ARMOR).
+                    if (id > 0)
+                    {
+                        _tagText[id] = text.Length == 0 ? text : _strings.Intern(text);
+                        _tagRaw[id] = text;
+                    }
+                    _tagIds[name] = id;
+                }
+                return Completion.Normal;
+            }
+            case NodeKind.Datablock:
+                _objects?.BeginDataBlock(n.ClassName, n.Name);
+                foreach (var s in n.Slots)
+                    Exec(s);
+                _objects?.EndDataBlock();
+                return Completion.Normal;
+            case NodeKind.Instant:
+            {
+                var name = n.A != null ? EvalString(n.A) : "";
+                _objects?.BeginObject(n.ClassName, name);
+                foreach (var s in n.Slots)
+                    Exec(s);
+                foreach (var c in n.Children)
+                    Exec(c);
+                _objects?.EndObject();
+                return Completion.Normal;
+            }
+            case NodeKind.Slot:
+            {
+                var index = IndexString(n.Index);
+                var values = new List<string>();
+                if (n.IsList)
+                    foreach (var v in n.List)
+                        values.Add(EvalString(v));
+                else
+                    values.Add(EvalString(n.A!));
+                _objects?.SetSlot(n.Name, values, index);
+                return Completion.Normal;
+            }
+            case NodeKind.IntLiteral:
+            case NodeKind.FloatLiteral:
+            case NodeKind.StringLiteral:
+            case NodeKind.Ident:
+            case NodeKind.BreakWord:
+            case NodeKind.TagRef:
+            case NodeKind.Var:
+            case NodeKind.Field:
+            case NodeKind.Call:
+            case NodeKind.MethodCall:
+            case NodeKind.Unary:
+            case NodeKind.Binary:
+            case NodeKind.Assign:
+            case NodeKind.FieldListAssign:
+            case NodeKind.CompoundAssign:
+            case NodeKind.PostIncDec:
+            default:
+                EvalString(n);
+                return Completion.Normal;
         }
     }
 
@@ -582,25 +595,49 @@ public sealed class Interpreter
     {
         switch (n.Kind)
         {
-        case NodeKind.Float:
-            return StaticType.TFloat;
-        case NodeKind.Int:
-            return StaticType.TInt;
-        case NodeKind.Unary:
-            return n.OpChar == '-' ? StaticType.TFloat : n.OpChar == '*' ? StaticType.TString : StaticType.TInt;
-        case NodeKind.Binary:
-            if (n.Op == Tok.Char)
-            {
-                switch (n.OpChar)
+            case NodeKind.FloatLiteral:
+                return StaticType.TFloat;
+            case NodeKind.IntLiteral:
+                return StaticType.TInt;
+            case NodeKind.Unary:
+                return n.OpChar == '-' ? StaticType.TFloat : n.OpChar == '*' ? StaticType.TString : StaticType.TInt;
+            case NodeKind.Binary:
+                if (n.Op == Tok.SingleChar)
                 {
-                case '+': case '-': case '*': case '/': return StaticType.TFloat;
-                case '@': return StaticType.TString;
-                default: return StaticType.TInt;
+                    return n.OpChar switch
+                    {
+                        '+' or '-' or '*' or '/' => StaticType.TFloat,
+                        '@' => StaticType.TString,
+                        _ => StaticType.TInt,
+                    };
                 }
-            }
-            return n.Op == Tok.DollarPlus ? StaticType.TString : StaticType.TInt;
-        default:
-            return StaticType.TString;
+                return n.Op == Tok.DollarPlus ? StaticType.TString : StaticType.TInt;
+            case NodeKind.StringLiteral:
+            case NodeKind.Ident:
+            case NodeKind.BreakWord:
+            case NodeKind.TagRef:
+            case NodeKind.Var:
+            case NodeKind.Field:
+            case NodeKind.Call:
+            case NodeKind.MethodCall:
+            case NodeKind.Assign:
+            case NodeKind.FieldListAssign:
+            case NodeKind.CompoundAssign:
+            case NodeKind.PostIncDec:
+            case NodeKind.ExprStmt:
+            case NodeKind.If:
+            case NodeKind.While:
+            case NodeKind.For:
+            case NodeKind.Function:
+            case NodeKind.Return:
+            case NodeKind.Continue:
+            case NodeKind.BreakStmt:
+            case NodeKind.TagDecl:
+            case NodeKind.Datablock:
+            case NodeKind.Instant:
+            case NodeKind.Slot:
+            default:
+                return StaticType.TString;
         }
     }
 
@@ -613,18 +650,18 @@ public sealed class Interpreter
         StaticType tl = StaticTypeOf(l), tr = StaticTypeOf(r);
         if (tl == StaticType.TInt && tr == StaticType.TInt)
         {
-            uint d = unchecked((uint)EvalInt(l) - (uint)EvalInt(r));
+            var d = unchecked((uint)EvalInt(l) - (uint)EvalInt(r));
             return Sign(unchecked((int)d));
         }
         if (tl != StaticType.TString || tr != StaticType.TString)
         {
-            double a = EvalFloat(l);
-            double b = EvalFloat(r);
+            var a = EvalFloat(l);
+            var b = EvalFloat(r);
             return Sign(Fpu.Sub(a, b));
         }
         string sa = EvalString(l), sb = EvalString(r);
         float fa = 0, fb = 0;
-        bool boolMode = false;
+        var boolMode = false;
         bool Classify(string s, ref float f)
         {
             if (Numbers.IsTrueString(s))
@@ -649,12 +686,12 @@ public sealed class Interpreter
         }
         if (!Classify(sa, ref fa) || !Classify(sb, ref fb))
         {
-            int c = CString.Strcmp(sa, sb);
+            var c = CString.Strcmp(sa, sb);
             return c < 0 ? -1 : c > 0 ? 1 : 0;
         }
         if (boolMode)
-            return (fa != 0) != (fb != 0) ? 1 : 0;
-        float fd = fa - fb;
+            return fa != 0 != (fb != 0) ? 1 : 0;
+        var fd = fa - fb;
         return fd < 0 ? -1 : fd > 0 ? 1 : 0;
     }
 
@@ -663,34 +700,58 @@ public sealed class Interpreter
     {
         switch (n.Kind)
         {
-        case NodeKind.Float:
-            return Numbers.BorlandAtof(n.Name);
-        case NodeKind.Int:
-            return Numbers.ParseIntLiteral(n.Name);
-        case NodeKind.Unary:
-            if (n.OpChar == '-')
-                return -EvalFloat(n.A!);
-            break;
-        case NodeKind.Binary:
-            if (n.Op == Tok.Char && (n.OpChar == '+' || n.OpChar == '-' || n.OpChar == '*' || n.OpChar == '/'))
-            {
-                double l = EvalFloat(n.A!); // left operand is stored to a 64-bit double
-                double r = EvalFloat(n.B!);
-                switch (n.OpChar)
+            case NodeKind.FloatLiteral:
+                return Numbers.BorlandAtof(n.Name);
+            case NodeKind.IntLiteral:
+                return Numbers.ParseIntLiteral(n.Name);
+            case NodeKind.Unary:
+                if (n.OpChar == '-')
+                    return -EvalFloat(n.A!);
+                break;
+            case NodeKind.Binary:
+                if (n.Op == Tok.SingleChar && (n.OpChar == '+' || n.OpChar == '-' || n.OpChar == '*' || n.OpChar == '/'))
                 {
-                case '+': return Fpu.Add(l, r);
-                case '-': return Fpu.Sub(l, r);
-                case '*': return Fpu.Mul(l, r);
-                default: return Fpu.Div(l, r);
+                    var l = EvalFloat(n.A!); // left operand is stored to a 64-bit double
+                    var r = EvalFloat(n.B!);
+                    return n.OpChar switch
+                    {
+                        '+' => Fpu.Add(l, r),
+                        '-' => Fpu.Sub(l, r),
+                        '*' => Fpu.Mul(l, r),
+                        _ => Fpu.Div(l, r),
+                    };
                 }
-            }
-            break;
-        default:
-            break;
+                break;
+            case NodeKind.StringLiteral:
+            case NodeKind.Ident:
+            case NodeKind.BreakWord:
+            case NodeKind.TagRef:
+            case NodeKind.Var:
+            case NodeKind.Field:
+            case NodeKind.Call:
+            case NodeKind.MethodCall:
+            case NodeKind.Assign:
+            case NodeKind.FieldListAssign:
+            case NodeKind.CompoundAssign:
+            case NodeKind.PostIncDec:
+            case NodeKind.ExprStmt:
+            case NodeKind.If:
+            case NodeKind.While:
+            case NodeKind.For:
+            case NodeKind.Function:
+            case NodeKind.Return:
+            case NodeKind.Continue:
+            case NodeKind.BreakStmt:
+            case NodeKind.TagDecl:
+            case NodeKind.Datablock:
+            case NodeKind.Instant:
+            case NodeKind.Slot:
+            default:
+                break;
         }
         if (StaticTypeOf(n) == StaticType.TInt)
             return EvalInt(n);
-        string s = EvalString(n);
+        var s = EvalString(n);
         return Numbers.IsTrueString(s) ? 1.0 : Numbers.BorlandAtof(s);
     }
 
@@ -699,61 +760,144 @@ public sealed class Interpreter
     {
         switch (n.Kind)
         {
-        case NodeKind.Int:
-            return Numbers.ParseIntLiteral(n.Name);
-        case NodeKind.Unary:
-            if (n.OpChar == '!')
-                return Truthy(EvalFloat(n.A!)) ? 0 : 1;
-            if (n.OpChar == '~')
-                return ~EvalInt(n.A!);
-            break;
-        case NodeKind.Binary:
-        {
-            if (n.Op == Tok.AndAnd)
-                return Truthy(EvalFloat(n.A!)) && Truthy(EvalFloat(n.B!)) ? 1 : 0;
-            if (n.Op == Tok.OrOr)
-                return Truthy(EvalFloat(n.A!)) || Truthy(EvalFloat(n.B!)) ? 1 : 0;
-            int c;
-            switch (n.Op)
-            {
-            case Tok.Eq: c = Compare(n.A!, n.B!); return c == 0 || c == 2 ? 1 : 0;
-            case Tok.Ne: c = Compare(n.A!, n.B!); return c == -1 || c == 1 ? 1 : 0;
-            case Tok.Le: c = Compare(n.A!, n.B!); return c != 1 ? 1 : 0;
-            case Tok.Ge: c = Compare(n.A!, n.B!); return c == 0 || c == 1 ? 1 : 0;
-            case Tok.Shl: c = EvalInt(n.A!); return unchecked((int)((uint)c << (EvalInt(n.B!) & 31)));
-            case Tok.Shr: c = EvalInt(n.A!); return c >> (EvalInt(n.B!) & 31);
-            case Tok.Char:
-                switch (n.OpChar)
-                {
-                case '<': c = Compare(n.A!, n.B!); return c == -1 || c == 2 ? 1 : 0;
-                case '>': return Compare(n.A!, n.B!) == 1 ? 1 : 0;
-                case '%':
-                {
-                    int r = EvalInt(n.B!); // right first; left skipped when right is 0
-                    if (r == 0)
-                        return 0;
-                    int l = EvalInt(n.A!);
-                    if (r == -1)
-                        return 0; // INT_MIN % -1 traps on x86 (D11); every other x % -1 is 0
-                    return l % r;
-                }
-                case '&': c = EvalInt(n.A!); return c & EvalInt(n.B!);
-                case '|': c = EvalInt(n.A!); return c | EvalInt(n.B!);
-                case '^': c = EvalInt(n.A!); return c ^ EvalInt(n.B!);
-                default: break;
-                }
+            case NodeKind.IntLiteral:
+                return Numbers.ParseIntLiteral(n.Name);
+            case NodeKind.Unary:
+                if (n.OpChar == '!')
+                    return Truthy(EvalFloat(n.A!)) ? 0 : 1;
+                if (n.OpChar == '~')
+                    return ~EvalInt(n.A!);
                 break;
-            default:
+            case NodeKind.Binary:
+            {
+                if (n.Op == Tok.AndAnd)
+                    return Truthy(EvalFloat(n.A!)) && Truthy(EvalFloat(n.B!)) ? 1 : 0;
+                if (n.Op == Tok.OrOr)
+                    return Truthy(EvalFloat(n.A!)) || Truthy(EvalFloat(n.B!)) ? 1 : 0;
+                int c;
+                switch (n.Op)
+                {
+                    case Tok.Eq:
+                        c = Compare(n.A!, n.B!);
+                        return c is 0 or 2 ? 1 : 0;
+                    case Tok.Ne:
+                        c = Compare(n.A!, n.B!);
+                        return c is (-1) or 1 ? 1 : 0;
+                    case Tok.Le:
+                        c = Compare(n.A!, n.B!);
+                        return c != 1 ? 1 : 0;
+                    case Tok.Ge:
+                        c = Compare(n.A!, n.B!);
+                        return c is 0 or 1 ? 1 : 0;
+                    case Tok.Shl:
+                        c = EvalInt(n.A!);
+                        return unchecked((int)((uint)c << (EvalInt(n.B!) & 31)));
+                    case Tok.Shr:
+                        c = EvalInt(n.A!);
+                        return c >> (EvalInt(n.B!) & 31);
+                    case Tok.SingleChar:
+                        switch (n.OpChar)
+                        {
+                            case '<':
+                                c = Compare(n.A!, n.B!);
+                                return c is (-1) or 2 ? 1 : 0;
+                            case '>':
+                                return Compare(n.A!, n.B!) == 1 ? 1 : 0;
+                            case '%':
+                            {
+                                var r = EvalInt(n.B!); // right first; left skipped when right is 0
+                                if (r == 0)
+                                    return 0;
+                                var l = EvalInt(n.A!);
+                                if (r == -1)
+                                    return 0; // INT_MIN % -1 traps on x86 (D11); every other x % -1 is 0
+                                return l % r;
+                            }
+                            case '&':
+                                c = EvalInt(n.A!);
+                                return c & EvalInt(n.B!);
+                            case '|':
+                                c = EvalInt(n.A!);
+                                return c | EvalInt(n.B!);
+                            case '^':
+                                c = EvalInt(n.A!);
+                                return c ^ EvalInt(n.B!);
+                            default:
+                                break;
+                        }
+                        break;
+                    case Tok.End:
+                    case Tok.Illegal:
+                    case Tok.StringLiteral:
+                    case Tok.IntLiteral:
+                    case Tok.FloatLiteral:
+                    case Tok.Var:
+                    case Tok.Tag:
+                    case Tok.Ident:
+                    case Tok.Break:
+                    case Tok.Nil:
+                    case Tok.Class:
+                    case Tok.Return:
+                    case Tok.Else:
+                    case Tok.Global:
+                    case Tok.While:
+                    case Tok.If:
+                    case Tok.For:
+                    case Tok.Continue:
+                    case Tok.Function:
+                    case Tok.Instant:
+                    case Tok.AndAnd:
+                    case Tok.OrOr:
+                    case Tok.ColonColon:
+                    case Tok.MinusMinus:
+                    case Tok.PlusPlus:
+                    case Tok.DollarPlus:
+                    case Tok.PlusAssign:
+                    case Tok.MinusAssign:
+                    case Tok.MulAssign:
+                    case Tok.DivAssign:
+                    case Tok.ModAssign:
+                    case Tok.AndAssign:
+                    case Tok.XorAssign:
+                    case Tok.OrAssign:
+                    case Tok.ShlAssign:
+                    case Tok.ShrAssign:
+                    default:
+                        break;
+                }
                 break;
             }
-            break;
-        }
-        default:
-            break;
+            case NodeKind.FloatLiteral:
+            case NodeKind.StringLiteral:
+            case NodeKind.Ident:
+            case NodeKind.BreakWord:
+            case NodeKind.TagRef:
+            case NodeKind.Var:
+            case NodeKind.Field:
+            case NodeKind.Call:
+            case NodeKind.MethodCall:
+            case NodeKind.Assign:
+            case NodeKind.FieldListAssign:
+            case NodeKind.CompoundAssign:
+            case NodeKind.PostIncDec:
+            case NodeKind.ExprStmt:
+            case NodeKind.If:
+            case NodeKind.While:
+            case NodeKind.For:
+            case NodeKind.Function:
+            case NodeKind.Return:
+            case NodeKind.Continue:
+            case NodeKind.BreakStmt:
+            case NodeKind.TagDecl:
+            case NodeKind.Datablock:
+            case NodeKind.Instant:
+            case NodeKind.Slot:
+            default:
+                break;
         }
         if (StaticTypeOf(n) == StaticType.TFloat)
             return Numbers.FloatToInt(EvalFloat(n));
-        string s = EvalString(n);
+        var s = EvalString(n);
         return Numbers.IsTrueString(s) ? 1 : Numbers.BorlandAtoi(s);
     }
 
@@ -762,8 +906,8 @@ public sealed class Interpreter
     {
         if (lv.Kind == NodeKind.Var)
             return GetVariable(lv.Name + IndexString(lv.Index));
-        string obj = EvalString(lv.A!);
-        if (mObjects == null || !mObjects.GetField(obj, lv.Name, IndexString(lv.Index), out string output))
+        var obj = EvalString(lv.A!);
+        if (_objects == null || !_objects.GetField(obj, lv.Name, IndexString(lv.Index), out var output))
             return "False";
         return output;
     }
@@ -776,21 +920,21 @@ public sealed class Interpreter
             SetVariable(lv.Name + IndexString(lv.Index), value);
             return;
         }
-        string obj = EvalString(lv.A!);
-        mObjects?.SetField(obj, lv.Name, new[] { value }, IndexString(lv.Index));
+        var obj = EvalString(lv.A!);
+        _objects?.SetField(obj, lv.Name, [value], IndexString(lv.Index));
     }
 
     // src/script/interpreter.cpp Interpreter::compoundAssign.
     private string CompoundAssign(Node lv, Tok op, char opChar, Node? rhs)
     {
-        string current = ReadLvalue(lv);
+        var current = ReadLvalue(lv);
         string result;
-        bool floatPath = opChar == '+' || opChar == '-' || op == Tok.PlusAssign || op == Tok.MinusAssign ||
+        var floatPath = opChar == '+' || opChar == '-' || op == Tok.PlusAssign || op == Tok.MinusAssign ||
                          op == Tok.MulAssign || op == Tok.DivAssign;
         if (floatPath)
         {
-            double l = Numbers.IsTrueString(current) ? 1.0 : Numbers.BorlandAtof(current);
-            double r = rhs != null ? EvalFloat(rhs) : 1.0;
+            var l = Numbers.IsTrueString(current) ? 1.0 : Numbers.BorlandAtof(current);
+            var r = rhs != null ? EvalFloat(rhs) : 1.0;
             double v;
             if (op == Tok.PlusAssign || opChar == '+')
                 v = Fpu.Add(l, r);
@@ -800,22 +944,21 @@ public sealed class Interpreter
                 v = Fpu.Mul(l, r);
             else
                 v = Fpu.Div(l, r);
-            result = mLastHope ? Numbers.FormatFloat15(v) : Numbers.FormatFloat(v);
+            result = _lastHope ? Numbers.FormatFloat15(v) : Numbers.FormatFloat(v);
         }
         else
         {
-            int l = Numbers.IsTrueString(current) ? 1 : Numbers.BorlandAtoi(current);
-            int r = EvalInt(rhs!);
-            int v;
-            switch (op)
+            var l = Numbers.IsTrueString(current) ? 1 : Numbers.BorlandAtoi(current);
+            var r = EvalInt(rhs!);
+            var v = op switch
             {
-            case Tok.ModAssign: v = (r == 0 || r == -1) ? 0 : l % r; break;
-            case Tok.AndAssign: v = l & r; break;
-            case Tok.OrAssign: v = l | r; break;
-            case Tok.XorAssign: v = l ^ r; break;
-            case Tok.ShlAssign: v = unchecked((int)((uint)l << (r & 31))); break;
-            default: v = l >> (r & 31); break;
-            }
+                Tok.ModAssign => (r is 0 or (-1)) ? 0 : l % r,
+                Tok.AndAssign => l & r,
+                Tok.OrAssign => l | r,
+                Tok.XorAssign => l ^ r,
+                Tok.ShlAssign => unchecked((int)((uint)l << (r & 31))),
+                Tok.End or Tok.Illegal or Tok.StringLiteral or Tok.IntLiteral or Tok.FloatLiteral or Tok.Var or Tok.Tag or Tok.Ident or Tok.Break or Tok.Nil or Tok.Class or Tok.Return or Tok.Else or Tok.Global or Tok.While or Tok.If or Tok.For or Tok.Continue or Tok.Function or Tok.Instant or Tok.Eq or Tok.Ne or Tok.Ge or Tok.Le or Tok.AndAnd or Tok.OrOr or Tok.ColonColon or Tok.MinusMinus or Tok.PlusPlus or Tok.DollarPlus or Tok.Shl or Tok.Shr or Tok.PlusAssign or Tok.MinusAssign or Tok.MulAssign or Tok.DivAssign or Tok.ShrAssign or Tok.SingleChar or _ => l >> (r & 31),
+            };
             result = Numbers.FormatInt(v);
         }
         WriteLvalue(lv, result);
@@ -827,70 +970,82 @@ public sealed class Interpreter
     {
         switch (n.Kind)
         {
-        case NodeKind.Int:
-            return Numbers.FormatInt(Numbers.ParseIntLiteral(n.Name));
-        case NodeKind.Float:
-            return Numbers.FormatFloat(Numbers.BorlandAtof(n.Name));
-        case NodeKind.Ident: // already the interned spelling (lexer, script.md 1.2)
-        case NodeKind.String:
-        case NodeKind.BreakWord:
-            return n.Name;
-        case NodeKind.TagRef:
-            return Numbers.FormatInt(mTagIds.TryGetValue(mStrings.Intern(n.Name), out int tagId) ? tagId : 0);
-        case NodeKind.Var:
-        case NodeKind.Field:
-            return ReadLvalue(n);
-        case NodeKind.Call:
-        {
-            var args = new List<string>();
-            foreach (Node a in n.List)
-                args.Add(EvalString(a));
-            return Call(n.Name, args);
-        }
-        case NodeKind.MethodCall:
-        {
-            var args = new List<string> { EvalString(n.A!) };
-            foreach (Node a in n.List)
-                args.Add(EvalString(a));
-            return Call("dot_op_" + n.Name, args);
-        }
-        case NodeKind.Unary:
-            if (n.OpChar == '*')
-                return mTagText.TryGetValue(EvalInt(n.A!), out string? text) ? text : "<INVALID TAG>";
-            break;
-        case NodeKind.Binary:
-            if (n.OpChar == '@' || n.Op == Tok.DollarPlus)
+            case NodeKind.IntLiteral:
+                return Numbers.FormatInt(Numbers.ParseIntLiteral(n.Name));
+            case NodeKind.FloatLiteral:
+                return Numbers.FormatFloat(Numbers.BorlandAtof(n.Name));
+            case NodeKind.Ident: // already the interned spelling (lexer, script.md 1.2)
+            case NodeKind.StringLiteral:
+            case NodeKind.BreakWord:
+                return n.Name;
+            case NodeKind.TagRef:
+                return Numbers.FormatInt(_tagIds.TryGetValue(_strings.Intern(n.Name), out var tagId) ? tagId : 0);
+            case NodeKind.Var:
+            case NodeKind.Field:
+                return ReadLvalue(n);
+            case NodeKind.Call:
             {
-                string l = EvalString(n.A!);
-                return l + EvalString(n.B!);
+                var args = new List<string>();
+                foreach (var a in n.List)
+                    args.Add(EvalString(a));
+                return Call(n.Name, args);
             }
-            break;
-        case NodeKind.Assign:
-        {
-            string v = EvalString(n.B!);
-            WriteLvalue(n.A!, v);
-            return v;
-        }
-        case NodeKind.FieldListAssign:
-        {
-            string obj = EvalString(n.A!.A!);
-            var values = new List<string>();
-            foreach (Node v in n.List)
-                values.Add(EvalString(v));
-            mObjects?.SetField(obj, n.A.Name, values, IndexString(n.A.Index));
-            return values.Count == 0 ? "" : values[^1];
-        }
-        case NodeKind.CompoundAssign:
-            return CompoundAssign(n.A!, n.Op, '\0', n.B);
-        case NodeKind.PostIncDec:
-            return CompoundAssign(n.A!, Tok.End, n.OpChar, null);
-        default:
-            break;
+            case NodeKind.MethodCall:
+            {
+                var args = new List<string> { EvalString(n.A!) };
+                foreach (var a in n.List)
+                    args.Add(EvalString(a));
+                return Call("dot_op_" + n.Name, args);
+            }
+            case NodeKind.Unary:
+                if (n.OpChar == '*')
+                    return _tagText.TryGetValue(EvalInt(n.A!), out var text) ? text : "<INVALID TAG>";
+                break;
+            case NodeKind.Binary:
+                if (n.OpChar == '@' || n.Op == Tok.DollarPlus)
+                {
+                    var l = EvalString(n.A!);
+                    return l + EvalString(n.B!);
+                }
+                break;
+            case NodeKind.Assign:
+            {
+                var v = EvalString(n.B!);
+                WriteLvalue(n.A!, v);
+                return v;
+            }
+            case NodeKind.FieldListAssign:
+            {
+                var obj = EvalString(n.A!.A!);
+                var values = new List<string>();
+                foreach (var v in n.List)
+                    values.Add(EvalString(v));
+                _objects?.SetField(obj, n.A.Name, values, IndexString(n.A.Index));
+                return values.Count == 0 ? "" : values[^1];
+            }
+            case NodeKind.CompoundAssign:
+                return CompoundAssign(n.A!, n.Op, '\0', n.B);
+            case NodeKind.PostIncDec:
+                return CompoundAssign(n.A!, Tok.End, n.OpChar, null);
+            case NodeKind.ExprStmt:
+            case NodeKind.If:
+            case NodeKind.While:
+            case NodeKind.For:
+            case NodeKind.Function:
+            case NodeKind.Return:
+            case NodeKind.Continue:
+            case NodeKind.BreakStmt:
+            case NodeKind.TagDecl:
+            case NodeKind.Datablock:
+            case NodeKind.Instant:
+            case NodeKind.Slot:
+            default:
+                break;
         }
         if (StaticTypeOf(n) == StaticType.TFloat)
         {
             // 1.30 changed the format of FloatBinaryExprNode only; literals and negation keep %g.
-            if (mLastHope && n.Kind == NodeKind.Binary)
+            if (_lastHope && n.Kind == NodeKind.Binary)
                 return Numbers.FormatFloat15(EvalFloat(n));
             return Numbers.FormatFloat(EvalFloat(n));
         }
@@ -902,7 +1057,7 @@ public sealed class Interpreter
     /// <returns>The name, or empty.</returns>
     public string TagName(int id)
     {
-        foreach (var kv in mTagIds)
+        foreach (var kv in _tagIds)
             if (kv.Value == id)
                 return kv.Key;
         return "";
@@ -911,18 +1066,18 @@ public sealed class Interpreter
     /// <summary>Gets the id a tag name was defined with.</summary>
     /// <param name="name">The tag name.</param>
     /// <returns>The id, or 0.</returns>
-    public int TagId(string name) => mTagIds.TryGetValue(name, out int id) ? id : 0;
+    public int TagId(string name) => _tagIds.TryGetValue(name, out var id) ? id : 0;
 
     /// <summary>Gets the text of a tag id from the GUI tag dictionary (docs/gui.md 1.5).</summary>
     /// <param name="id">The tag id.</param>
     /// <returns>The text, or null when no tag has that id.</returns>
-    public string? TagText(int id) => mTagText.TryGetValue(id, out string? t) ? t : null;
+    public string? TagText(int id) => _tagText.TryGetValue(id, out var t) ? t : null;
 
     /// <summary>Gets the text of a tag id as the dictionary file spells it.</summary>
     /// <param name="id">The tag id.</param>
     /// <returns>The text, or null when no tag has that id.</returns>
     /// <remarks>A tag used as a script value takes the first spelling the string table saw: a command name such as <c>version</c> fixes the case of the tag "Version". The screens draw the file's spelling.</remarks>
-    public string? TagTextRaw(int id) => mTagRaw.TryGetValue(id, out string? t) ? t : null;
+    public string? TagTextRaw(int id) => _tagRaw.TryGetValue(id, out var t) ? t : null;
 
     // ---- calls ----
 
@@ -931,8 +1086,8 @@ public sealed class Interpreter
     /// <returns>True when it exists.</returns>
     public bool HasFunction(string name)
     {
-        string? key = mStrings.Lookup(name);
-        return key != null && (mFocus != null && mFocus.Commands.ContainsKey(key) || mFunctions.ContainsKey(key));
+        var key = _strings.Lookup(name);
+        return key != null && ((_focus != null && _focus.Commands.ContainsKey(key)) || _functions.ContainsKey(key));
     }
 
     /// <summary>Gets the parameter count of a script function.</summary>
@@ -940,46 +1095,45 @@ public sealed class Interpreter
     /// <returns>The count, -1 for a built-in or an unknown name.</returns>
     public int FunctionParamCount(string name)
     {
-        string? key = mStrings.Lookup(name);
+        var key = _strings.Lookup(name);
         if (key == null)
             return -1;
-        if (mFocus != null && mFocus.Commands.ContainsKey(key))
+        if (_focus != null && _focus.Commands.ContainsKey(key))
             return -1;
-        return !mFunctions.TryGetValue(key, out Function? f) || f.Decl == null ? -1 : f.Decl.Params.Count;
+        return !_functions.TryGetValue(key, out var f) || f.Decl == null ? -1 : f.Decl.Params.Count;
     }
 
     /// <summary>Calls a function or command by name.</summary>
     /// <param name="name">The name.</param>
     /// <param name="args">The arguments.</param>
     /// <returns>The result string.</returns>
-    public string CallFunction(string name, IReadOnlyList<string> args) => Call(name, new List<string>(args));
+    public string CallFunction(string name, IReadOnlyList<string> args) => Call(name, [.. args]);
 
     // src/script/interpreter.cpp Interpreter::call.
     private string Call(string name, List<string> args)
     {
-        string key = mStrings.Intern(name);
-        Function? fn = null;
-        if (mFocus == null || !mFocus.Commands.TryGetValue(key, out fn))
-            mFunctions.TryGetValue(key, out fn);
+        var key = _strings.Intern(name);
+        if (_focus == null || !_focus.Commands.TryGetValue(key, out var fn))
+            _functions.TryGetValue(key, out fn);
         if (fn == null)
         {
-            mUnknown[key] = mUnknown.TryGetValue(key, out int count) ? count + 1 : 1;
+            _unknown[key] = _unknown.TryGetValue(key, out var count) ? count + 1 : 1;
             Print(1, key + ": Unknown command.");
             return "False";
         }
         if (fn.Builtin != null)
         {
             args.Insert(0, key);
-            Command cmd = fn.Builtin; // the command may redefine itself
-            return cmd(this, args.ToArray()) ?? "False";
+            var cmd = fn.Builtin; // the command may redefine itself
+            return cmd(this, [.. args]) ?? "False";
         }
-        Node decl = fn.Decl!;
-        mFrames.Add(new Frame());
-        for (int i = 0; i < decl.Params.Count && i < args.Count; ++i)
+        var decl = fn.Decl!;
+        _frames.Add(new Frame());
+        for (var i = 0; i < decl.Params.Count && i < args.Count; ++i)
             SetVariable(decl.Params[i], args[i]);
         ExecList(decl.Body);
-        string result = mFrames[^1].Result;
-        mFrames.RemoveAt(mFrames.Count - 1);
+        var result = _frames[^1].Result;
+        _frames.RemoveAt(_frames.Count - 1);
         return result;
     }
 }
@@ -1002,7 +1156,7 @@ public static class CString
     /// <returns>A negative value, 0 or a positive value.</returns>
     public static int Strncmp(string a, string b, int n)
     {
-        for (int i = 0; i < n; ++i)
+        for (var i = 0; i < n; ++i)
         {
             char ca = At(a, i), cb = At(b, i);
             if (ca != cb)
@@ -1018,7 +1172,7 @@ public static class CString
     /// <returns>The string up to its first NUL.</returns>
     public static string CStr(string s)
     {
-        int nul = s.IndexOf('\0');
+        var nul = s.IndexOf('\0');
         return nul < 0 ? s : s[..nul];
     }
 }

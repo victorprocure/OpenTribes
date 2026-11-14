@@ -1,18 +1,33 @@
 // Round trip helper of the client tests (docs/client-net.md 3): the bytes a server pack routine wrote go through the
 // client unpack routine of the same class tag. The unpack must consume exactly the bits the pack wrote.
-using OpenTribes.Game;
-using OpenTribes.Net;
-using OpenTribes.Sim;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Game;
+using OpenTribes.Sim;
 
 public static class ClientRoundTrip
 {
     // Datablock group of each ghost class tag that carries a datablock index (game-stream-ghosts.md 2.3, 4).
-    private static readonly Dictionary<uint, int> sGroups = new()
+    private static readonly Dictionary<uint, int> Groups = new()
     {
-        [0x202] = 19, [0x21b] = 21, [0x21e] = 23, [0x220] = 7, [0x221] = 4, [0x223] = 10, [0x229] = 8, [0x22a] = 5, [0x22c] = 9,
-        [0x218] = 3, [0x258] = 14, [0x259] = 15, [0x25a] = 16, [0x25b] = 17, [0x25c] = 24, [0x25d] = 25, [0x25e] = 28, [0x25f] = 29,
+        [0x202] = 19,
+        [0x21b] = 21,
+        [0x21e] = 23,
+        [0x220] = 7,
+        [0x221] = 4,
+        [0x223] = 10,
+        [0x229] = 8,
+        [0x22a] = 5,
+        [0x22c] = 9,
+        [0x218] = 3,
+        [0x258] = 14,
+        [0x259] = 15,
+        [0x25a] = 16,
+        [0x25b] = 17,
+        [0x25c] = 24,
+        [0x25d] = 25,
+        [0x25e] = 28,
+        [0x25f] = 29,
     };
 
     // The client world with the datablock counts a server of `obj`'s class would have sent: the object's own group and
@@ -20,7 +35,7 @@ public static class ClientRoundTrip
     public static ClientWorld WorldFor(uint tag, SimObject? obj, int explosionCount = 3)
     {
         var w = new ClientWorld();
-        if (obj is GameBase gb && sGroups.TryGetValue(tag, out int group))
+        if (obj is GameBase gb && Groups.TryGetValue(tag, out var group))
             w.DataBlocks.Counts[group] = gb.DataBlockCount();
         w.DataBlocks.Counts[20] = explosionCount;
         return w;
@@ -32,11 +47,11 @@ public static class ClientRoundTrip
     {
         var (name, fn) = ClientGhostManager.Classes[tag];
         var r = new ClientReader((byte[])buf.Clone(), world);
-        ClientGhost g = prev ?? new ClientGhost { Tag = tag, Class = name };
-        r.Out = new List<DecodedField>();
+        var g = prev ?? new ClientGhost { Tag = tag, Class = name };
+        r.Out = [];
         fn(r, g, isNew);
         Assert.True(r.Pos == (int)bits, name + ": client read " + r.Pos + " bits, the pack wrote " + bits);
-        foreach (DecodedField f in r.Out)
+        foreach (var f in r.Out)
             g.State[f.Name] = f.Value;
         g.Last = r.Out;
         return g;

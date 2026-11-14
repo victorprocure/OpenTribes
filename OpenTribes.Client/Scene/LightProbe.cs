@@ -1,5 +1,3 @@
-using OpenTribes.Client.Shapes;
-
 namespace OpenTribes.Client.Scene;
 
 /// <summary>The shape light probe: a ray from the top of the box of an object straight down to the nearest terrain or interior surface.</summary>
@@ -7,11 +5,11 @@ namespace OpenTribes.Client.Scene;
 public sealed class LightProbe
 {
     /// <summary>Casts the ray into the interiors. Takes the ray start and direction and returns the hit, its distance and the light there.</summary>
-    public Func<double, double, double, double, double, double, double, (bool hit, double t, (float r, float g, float b) light)>? Interior;
+    public Func<double, double, double, double, double, double, double, (bool hit, double t, (float r, float g, float b) light)>? Interior { get; set; }
     /// <summary>Reads the terrain light map value at an x and y position.</summary>
-    public Func<double, double, (float r, float g, float b)>? TerrainLight;
+    public Func<double, double, (float r, float g, float b)>? TerrainLight { get; set; }
     /// <summary>The terrain the ray tests.</summary>
-    public OpenTribes.World.Terrain? Ground;
+    public OpenTribes.World.Terrain? Ground { get; set; }
 
     /// <summary>Probes the light below an object.</summary>
     /// <param name="box">The box of the object as minimum x, y, z then maximum x, y, z.</param>
@@ -19,9 +17,9 @@ public sealed class LightProbe
     public (bool ok, (float r, float g, float b) rgb, float strength) Query(double[] box)
     {
         double cx = (box[0] + box[3]) * 0.5, cy = (box[1] + box[4]) * 0.5, cz = (box[2] + box[5]) * 0.5;
-        double h = (box[5] - box[2]) * 0.5; // the ray is straight down, so the half height is the largest projected half extent
+        var h = (box[5] - box[2]) * 0.5; // the ray is straight down, so the half height is the largest projected half extent
         double sz = cz + h, length = h + 20;
-        double best = double.MaxValue;
+        var best = double.MaxValue;
         (float r, float g, float b) col = default;
         if (Interior != null)
         {
@@ -49,12 +47,12 @@ public sealed class LightProbe
 /// <summary>The per object state of the probe: the target and the smoothed colour and strength, halved toward the target at each update (0044e5f4).</summary>
 public sealed class ProbeState
 {
-    private bool mValid;
-    private int mCountdown;
-    private (float r, float g, float b) mCur, mTarget;
-    private float mStrength, mTargetStrength;
+    private bool _valid;
+    private int _countdown;
+    private (float r, float g, float b) _cur, _target;
+    private float _targetStrength;
     /// <summary>The time of the last update, or -1 before the first.</summary>
-    public double LastUpdate = -1;
+    public double LastUpdate { get; set; } = -1;
 
     /// <summary>Feeds the result of one probe and moves the smoothed values.</summary>
     /// <param name="found">True when the ray hit a surface.</param>
@@ -64,33 +62,33 @@ public sealed class ProbeState
     {
         if (found)
         {
-            if (!mValid && mCountdown == 0)
-                mCur = rgb;
-            mCountdown = 0;
-            mTargetStrength = strength;
-            mTarget = rgb;
+            if (!_valid && _countdown == 0)
+                _cur = rgb;
+            _countdown = 0;
+            _targetStrength = strength;
+            _target = rgb;
         }
-        else if (mValid)
+        else if (_valid)
         {
-            mCountdown = 9;
-            mTargetStrength = 0;
+            _countdown = 9;
+            _targetStrength = 0;
         }
-        else if (mCountdown != 0)
-            --mCountdown;
-        mValid = found;
-        if (mValid || mCountdown != 0)
+        else if (_countdown != 0)
+            --_countdown;
+        _valid = found;
+        if (_valid || _countdown != 0)
         {
-            mCur = ((mCur.r + mTarget.r) * 0.5f, (mCur.g + mTarget.g) * 0.5f, (mCur.b + mTarget.b) * 0.5f);
-            mStrength = (mStrength + mTargetStrength) * 0.5f;
-            if (mCountdown != 0)
-                --mCountdown;
+            _cur = ((_cur.r + _target.r) * 0.5f, (_cur.g + _target.g) * 0.5f, (_cur.b + _target.b) * 0.5f);
+            Strength = (Strength + _targetStrength) * 0.5f;
+            if (_countdown != 0)
+                --_countdown;
         }
     }
 
     /// <summary>True while the smoothed light applies.</summary>
-    public bool Active => mValid || mCountdown != 0;
+    public bool Active => _valid || _countdown != 0;
     /// <summary>The smoothed light colour.</summary>
-    public (float r, float g, float b) Colour => mCur;
+    public (float r, float g, float b) Colour => _cur;
     /// <summary>The smoothed strength.</summary>
-    public float Strength => mStrength;
+    public float Strength { get; private set; }
 }

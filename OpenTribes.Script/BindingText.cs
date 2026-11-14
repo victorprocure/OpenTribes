@@ -7,18 +7,35 @@ public static class BindingText
     // Object names by object type (table 00621fa8); "%s%d" appends the instance.
     private static string? ObjectName(byte objType) => objType switch
     {
-        11 => "X-Axis", 12 => "Y-Axis", 13 => "Z-Axis", 14 => "RX-Aaxis", 15 => "RY_Axis", 16 => "RZ-Axis", 17 => "Slider",
-        3 => "POV", 4 => "X-POV", 5 => "Y-POV", 6 => "U-POV", 7 => "D-POV", 8 => "L-POV", 9 => "R-POV", 2 => "Button", 10 => "Key",
+        11 => "X-Axis",
+        12 => "Y-Axis",
+        13 => "Z-Axis",
+        14 => "RX-Aaxis",
+        15 => "RY_Axis",
+        16 => "RZ-Axis",
+        17 => "Slider",
+        3 => "POV",
+        4 => "X-POV",
+        5 => "Y-POV",
+        6 => "U-POV",
+        7 => "D-POV",
+        8 => "L-POV",
+        9 => "R-POV",
+        2 => "Button",
+        10 => "Key",
         _ => null,
     };
 
     // 0049cf1c: every modifier bit of a group turns into one code, in the order shift, control, alt.
     private static string ModifierCodes(byte m)
     {
-        string s = "";
-        if ((m & 0x03) != 0) s += '\x01';
-        if ((m & 0x0c) != 0) s += '\x02';
-        if ((m & 0x30) != 0) s += '\x03';
+        var s = "";
+        if ((m & 0x03) != 0)
+            s += '\x01';
+        if ((m & 0x0c) != 0)
+            s += '\x02';
+        if ((m & 0x30) != 0)
+            s += '\x03';
         return s;
     }
 
@@ -27,14 +44,14 @@ public static class BindingText
     /// <returns>The modifier codes followed by the key or button name.</returns>
     public static string Format(InputEvent ev)
     {
-        string s = "";
+        var s = "";
         if (ev.DeviceType == 3)
         {
             s = ModifierCodes(ev.Modifiers);
             if (ev.ObjType == 10 && ev.ObjInst != 0)
             {
                 ClientCommands.KeyName? k = null;
-                foreach (ClientCommands.KeyName c in ClientKeyTable.Keys)
+                foreach (var c in ClientKeyTable.Keys)
                     if (c.Code == ev.ObjInst)
                     {
                         k = c;
@@ -42,7 +59,7 @@ public static class BindingText
                     }
                 if (k != null)
                 {
-                    string n = k.Value.Name ?? k.Value.Lower.ToString();
+                    var n = k.Value.Name ?? k.Value.Lower.ToString();
                     s += n.Length > 0 ? char.ToUpperInvariant(n[0]) + n[1..] : n;   // toupper of the first character (00606454)
                 }
             }
@@ -51,9 +68,12 @@ public static class BindingText
         s = (ObjectName(ev.ObjType) ?? "") + ev.ObjInst.ToString(System.Globalization.CultureInfo.InvariantCulture);
         if (ev.ObjType == 2 && ev.DeviceType == 2)
         {
-            if (ClientCommands.EqualNoCase(s, "button0")) return "L Button";
-            if (ClientCommands.EqualNoCase(s, "button1")) return "R Button";
-            if (ClientCommands.EqualNoCase(s, "button2")) return "C Button";
+            if (ClientCommands.EqualNoCase(s, "button0"))
+                return "L Button";
+            if (ClientCommands.EqualNoCase(s, "button1"))
+                return "R Button";
+            if (ClientCommands.EqualNoCase(s, "button2"))
+                return "C Button";
         }
         return s;
     }
@@ -62,15 +82,15 @@ public static class BindingText
     // (within 1 percent) that is not of the opposite make or break kind.
     private static int Find(ActionMap map, int start, string command, int action, bool make, uint flags, float value)
     {
-        for (int i = start; i < map.Bindings.Count; ++i)
+        for (var i = start; i < map.Bindings.Count; ++i)
         {
-            ActionBinding b = map.Bindings[i];
+            var b = map.Bindings[i];
             bool hit;
             if (command.Length == 0)
             {
                 if (action < 1)
                     return -1;
-                float tol = value >= 0 ? value * 0.01f : value * -0.01f;
+                var tol = value >= 0 ? value * 0.01f : value * -0.01f;
                 hit = !b.IsCommand && b.Flags == flags && b.Action == action && b.ValueF >= value - tol && b.ValueF <= value + tol;
             }
             else
@@ -102,27 +122,27 @@ public static class BindingText
     {
         if (map == null)
             return "";
-        bool noBreak = breakCommand.Length == 0 && breakAction < 1;
+        var noBreak = breakCommand.Length == 0 && breakAction < 1;
         if (makeCommand.Length == 0 && makeAction < 1)
         {
             if (noBreak)
                 return "";
-            int bi = Find(map, 0, breakCommand, breakAction, false, flags, breakValue);
+            var bi = Find(map, 0, breakCommand, breakAction, false, flags, breakValue);
             return bi < 0 ? "" : Format(map.Bindings[bi].Event);
         }
-        int from = 0;
+        var from = 0;
         while (true)
         {
-            int mi = Find(map, from, makeCommand, makeAction, true, flags, makeValue);
+            var mi = Find(map, from, makeCommand, makeAction, true, flags, makeValue);
             if (mi < 0)
                 return "";
-            string text = Format(map.Bindings[mi].Event);
+            var text = Format(map.Bindings[mi].Event);
             if (noBreak)
                 return text;
-            int bfrom = 0;
+            var bfrom = 0;
             while (true)
             {
-                int bi = Find(map, bfrom, breakCommand, breakAction, false, flags, breakValue);
+                var bi = Find(map, bfrom, breakCommand, breakAction, false, flags, breakValue);
                 if (bi < 0)
                 {
                     from = mi + 1;

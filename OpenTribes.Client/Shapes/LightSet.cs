@@ -15,25 +15,25 @@ public readonly record struct PointLight(double X, double Y, double Z, float R, 
 public sealed class LightSet
 {
     /// <summary>The ambient red.</summary>
-    public float AmbR = 0.45f;
+    public float AmbR { get; set; } = 0.45f;
     /// <summary>The ambient green.</summary>
-    public float AmbG = 0.45f;
+    public float AmbG { get; set; } = 0.45f;
     /// <summary>The ambient blue.</summary>
-    public float AmbB = 0.45f;
+    public float AmbB { get; set; } = 0.45f;
     /// <summary>The x of the unit vector towards the sun.</summary>
-    public double SunX;
+    public double SunX { get; set; }
     /// <summary>The y of the unit vector towards the sun.</summary>
-    public double SunY;
+    public double SunY { get; set; }
     /// <summary>The z of the unit vector towards the sun.</summary>
-    public double SunZ = 1;
+    public double SunZ { get; set; } = 1;
     /// <summary>The sun red.</summary>
-    public float SunR = 0.55f;
+    public float SunR { get; set; } = 0.55f;
     /// <summary>The sun green.</summary>
-    public float SunG = 0.55f;
+    public float SunG { get; set; } = 0.55f;
     /// <summary>The sun blue.</summary>
-    public float SunB = 0.55f;
+    public float SunB { get; set; } = 0.55f;
     /// <summary>The point lights.</summary>
-    public readonly List<PointLight> Points = new();
+    public List<PointLight> Points { get; } = [];
 
     /// <summary>Creates the default set.</summary>
     /// <returns>The set.</returns>
@@ -66,12 +66,14 @@ public sealed class LightSet
         l.Points.AddRange(Points);
         if (SunR != 0 || SunG != 0 || SunB != 0)
         {
-            l.SunR = SunR * (1 - s) + pr * s;
-            l.SunG = SunG * (1 - s) + pg * s;
-            l.SunB = SunB * (1 - s) + pb * s;
+            l.SunR = (SunR * (1 - s)) + (pr * s);
+            l.SunG = (SunG * (1 - s)) + (pg * s);
+            l.SunB = (SunB * (1 - s)) + (pb * s);
         }
-        float f = Math.Min(1f, (0.3f * pr + 0.5f * pg + 0.2f * pb) * s * 2f);
-        l.AmbR *= f; l.AmbG *= f; l.AmbB *= f;
+        var f = Math.Min(1f, ((0.3f * pr) + (0.5f * pg) + (0.2f * pb)) * s * 2f);
+        l.AmbR *= f;
+        l.AmbG *= f;
+        l.AmbB *= f;
         return l;
     }
 
@@ -82,8 +84,8 @@ public sealed class LightSet
     /// </remarks>
     public sealed class ShapeFrame
     {
-        private readonly LightSet mSet;
-        private readonly bool[] mNear;
+        private readonly LightSet _set;
+        private readonly bool[] _near;
 
         /// <summary>Computes which lights reach the shape.</summary>
         /// <param name="set">The light set.</param>
@@ -93,13 +95,13 @@ public sealed class LightSet
         /// <param name="radius">The radius of the bounding sphere.</param>
         public ShapeFrame(LightSet set, double cx, double cy, double cz, double radius)
         {
-            mSet = set;
-            mNear = new bool[set.Points.Count];
-            for (int i = 0; i < mNear.Length; ++i)
+            _set = set;
+            _near = new bool[set.Points.Count];
+            for (var i = 0; i < _near.Length; ++i)
             {
-                PointLight l = set.Points[i];
-                double dx = cx - l.X, dy = cy - l.Y, dz = cz - l.Z, d = Math.Sqrt(dx * dx + dy * dy + dz * dz);
-                mNear[i] = l.Range + radius >= d && (radius * FarRadii >= d || d <= 1.0);
+                var l = set.Points[i];
+                double dx = cx - l.X, dy = cy - l.Y, dz = cz - l.Z, d = Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+                _near[i] = l.Range + radius >= d && (radius * FarRadii >= d || d <= 1.0);
             }
         }
 
@@ -112,7 +114,7 @@ public sealed class LightSet
         /// <param name="nz">The normal z.</param>
         /// <returns>The colour, 0 to 1 per channel.</returns>
         public (float r, float g, float b) At(double px, double py, double pz, double nx, double ny, double nz) =>
-            mSet.Shade(px, py, pz, nx, ny, nz, mNear);
+            _set.Shade(px, py, pz, nx, ny, nz, _near);
     }
 
     /// <summary>The distance in radii within which a light shades per vertex, the first float of a light object (0x41a00000).</summary>
@@ -140,25 +142,27 @@ public sealed class LightSet
     private (float r, float g, float b) Shade(double px, double py, double pz, double nx, double ny, double nz, bool[]? near)
     {
         // The sun is a type 6 light: (1 + N.L) / 2 times its colour (005aee50, the planet light object has type 6).
-        double ndl = (1 + nx * SunX + ny * SunY + nz * SunZ) * 0.5;
-        double r = AmbR + SunR * ndl, g = AmbG + SunG * ndl, b = AmbB + SunB * ndl;
-        for (int i = 0; i < Points.Count; ++i)
+        var ndl = (1 + (nx * SunX) + (ny * SunY) + (nz * SunZ)) * 0.5;
+        double r = AmbR + (SunR * ndl), g = AmbG + (SunG * ndl), b = AmbB + (SunB * ndl);
+        for (var i = 0; i < Points.Count; ++i)
         {
-            PointLight l = Points[i];
+            var l = Points[i];
             if (near != null && !near[i])
                 continue;
             double dx = l.X - px, dy = l.Y - py, dz = l.Z - pz;
-            double d2 = dx * dx + dy * dy + dz * dz;
+            var d2 = (dx * dx) + (dy * dy) + (dz * dz);
             if (d2 > l.Range * l.Range || l.Range <= 0)
                 continue;
             // The point light of a vertex (005aeecc, mode 1): nothing beyond the range or behind the surface, otherwise
             // colour * cos(angle to the light), divided by c3 d^2 + c2 d + c1 only when that exceeds 1 (not in the modal case, above).
-            double d = Math.Sqrt(d2);
-            double dot = nx * dx + ny * dy + nz * dz;
+            var d = Math.Sqrt(d2);
+            var dot = (nx * dx) + (ny * dy) + (nz * dz);
             if (dot < 0)
                 continue;
-            double k = d > 0.001 ? dot / d : 1;
-            r += l.R * k; g += l.G * k; b += l.B * k;
+            var k = d > 0.001 ? dot / d : 1;
+            r += l.R * k;
+            g += l.G * k;
+            b += l.B * k;
         }
         return ((float)Math.Min(r, 1), (float)Math.Min(g, 1), (float)Math.Min(b, 1));
     }

@@ -1,18 +1,23 @@
 // The client's server query (docs/net-protocol.md 6.2; code 0054ee8c queue, 0054f608 replies, 0042c4cc info): synthetic packets only (R5, R6).
-using OpenTribes.Net;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Net;
 
 public class ServerQueryTests
 {
+    private static readonly string[] Values1 = ["00Red"];
+    private static readonly string[] Values2 = ["IP:127.0.0.1:28001", "IP:127.0.0.1:28017"];
+    private static readonly int[] Values3 = [4];
+    private static readonly string[] Values4 = ["IP:127.0.0.1:28001"];
+    private static readonly string[] Values5 = ["IP:127.0.0.1:28001"];
     private sealed class FakeNet : IQueryTransport
     {
-        public readonly List<(Address To, byte[] Data)> Sent = new();
-        public readonly Queue<(Address From, byte[] Data)> Inbox = new();
+        public List<(Address To, byte[] Data)> Sent { get; } = [];
+        public Queue<(Address From, byte[] Data)> Inbox { get; } = new();
 
-        public bool Send(Address to, byte[] data)
+        public bool Send(Address destination, byte[] data)
         {
-            Sent.Add((to, data));
+            Sent.Add((destination, data));
             return true;
         }
 
@@ -21,7 +26,7 @@ public class ServerQueryTests
             if (Inbox.Count == 0)
             {
                 from = default;
-                data = Array.Empty<byte>();
+                data = [];
                 return false;
             }
             (from, data) = Inbox.Dequeue();
@@ -35,7 +40,7 @@ public class ServerQueryTests
     {
         var d = new byte[40];
         new byte[] { 0x10, 4, 0xff, 0xf0, (byte)key, (byte)(key >> 8), 0x20, players, (byte)version, (byte)(version >> 8) }.CopyTo(d, 0);
-        for (int i = 0; i < name.Length && i < 29; ++i)
+        for (var i = 0; i < name.Length && i < 29; ++i)
             d[10 + i] = (byte)name[i];
         return d;
     }
@@ -43,17 +48,17 @@ public class ServerQueryTests
     private static byte[] InfoReply(ushort key, ushort version, string game = "Tribes")
     {
         var body = new byte[0x400];
-        var bs = new BitStream(body, body.Length);
-        bs.WriteBytes(new[] { (byte)version, (byte)(version >> 8) });
+        var bs = new BitBuffer(body, body.Length);
+        bs.WriteBytes([(byte)version, (byte)(version >> 8)]);
         bs.WriteString(game);
         bs.WriteString("1.11");
         bs.WriteString("Test Host");
-        bs.WriteBytes(new byte[] { 3 });
-        bs.WriteBytes(new byte[] { 8 });
+        bs.WriteBytes([3]);
+        bs.WriteBytes([8]);
         bs.WriteString("Broadside");
-        bs.WriteBytes(new byte[] { 1 });
-        bs.WriteBytes(new byte[] { 0 });
-        bs.WriteBytes(new byte[] { 0x10, 0x0e, 0, 0 });
+        bs.WriteBytes([1]);
+        bs.WriteBytes([0]);
+        bs.WriteBytes([0x10, 0x0e, 0, 0]);
         bs.WriteString("base");
         bs.WriteString("CTF");
         bs.WriteString("info text");
@@ -85,7 +90,7 @@ public class ServerQueryTests
     [Fact]
     public void ParsesAPingReply()
     {
-        Assert.True(QueryPackets.TryParsePingReply(PingReply(7, 3, 1, "Hello"), out PingReply r));
+        Assert.True(QueryPackets.TryParsePingReply(PingReply(7, 3, 1, "Hello"), out var r));
         Assert.Equal((ushort)7, r.Key);
         Assert.Equal((byte)3, r.Players);
         Assert.Equal((ushort)1, r.PacketVersion);
@@ -96,7 +101,7 @@ public class ServerQueryTests
     [Fact]
     public void ParsesAnInfoReply()
     {
-        Assert.True(QueryPackets.TryParseInfoReply(InfoReply(9, 1), out ServerInfoRecord r));
+        Assert.True(QueryPackets.TryParseInfoReply(InfoReply(9, 1), out var r));
         Assert.Equal((ushort)9, r.Key);
         Assert.Equal("Tribes", r.GameName);
         Assert.Equal("1.11", r.Version);
@@ -112,7 +117,7 @@ public class ServerQueryTests
         Assert.Equal("info text", r.Info);
         Assert.Equal("Team", r.TeamHeading);
         Assert.Equal("Player", r.ClientHeading);
-        Assert.Equal(new[] { "00Red" }, r.Rows);
+        Assert.Equal(Values1, r.Rows);
     }
 
     [Theory]
@@ -122,7 +127,7 @@ public class ServerQueryTests
     [InlineData("ip:broadcast:28001", "IP:Broadcast:28001", true)]
     public void ResolvesAddressText(string text, string canonical, bool broadcast)
     {
-        Assert.True(QueryAddress.TryResolve(text, 0xffffffff, out string c, out Address t, out bool b, out _));
+        Assert.True(QueryAddress.TryResolve(text, 0xffffffff, out var c, out var t, out var b, out _));
         Assert.Equal(canonical, c);
         Assert.Equal(broadcast, b);
         Assert.Equal((ushort)28001, t.Port);
@@ -136,13 +141,13 @@ public class ServerQueryTests
         q.OnMaster = (_, n, first, m) => { master = n; motd = first ? m : "none"; };
         q.Queue("IP:127.0.0.1:28001");
         var d = new List<byte> { 0x10, 6, 1, 2, 0, 0, 0, 0, 3, (byte)'M', (byte)'s', (byte)'t', 2, (byte)'h', (byte)'i', 0, 1 };
-        d.AddRange(new byte[] { 6, 127, 0, 0, 1, 0x71, 0x6d });
-        q.OnDatagram(Server, d.ToArray(), 1000);
+        d.AddRange([6, 127, 0, 0, 1, 0x71, 0x6d]);
+        q.OnDatagram(Server, [.. d], 1000);
         Assert.Equal("Mst", master);
         Assert.Equal("hi", motd);
         // The request entry is gone, part 2 is awaited and the listed server (127.0.0.1:28017) is pinged.
         Assert.Equal(2, q.PendingPings);
-        Assert.Equal(new[] { "IP:127.0.0.1:28001", "IP:127.0.0.1:28017" }, q.PendingPingAddresses.OrderBy(x => x).ToArray());
+        Assert.Equal(Values2, q.PendingPingAddresses.OrderBy(x => x).ToArray());
         Assert.Equal(2, net.Sent.Count);
     }
 
@@ -155,7 +160,7 @@ public class ServerQueryTests
         q.Queue("IP:127.0.0.1:28001");
         adv(40);
         q.OnDatagram(new Address(0x7f000001, 28001), PingReply(0, 0, 1, "Srv"), 1004);
-        Assert.Equal(new[] { 4 }, pings);
+        Assert.Equal(Values3, pings);
     }
 
     [Fact]
@@ -240,7 +245,7 @@ public class ServerQueryTests
         adv(901);
         q.Tick();
         Assert.Equal(3, net.Sent.Count);
-        Assert.Equal(new[] { "IP:127.0.0.1:28001" }, failed);
+        Assert.Equal(Values4, failed);
         Assert.Equal(0, q.PendingPings);
     }
 
@@ -276,7 +281,7 @@ public class ServerQueryTests
         net.Inbox.Enqueue((Server, InfoReply(0, 2)));
         q.Tick();
         Assert.Null(got);
-        Assert.Equal(new[] { "IP:127.0.0.1:28001" }, failed);
+        Assert.Equal(Values5, failed);
     }
 
     [Fact]

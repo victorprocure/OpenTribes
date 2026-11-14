@@ -1,9 +1,9 @@
 // Port of src/game/projectile_seeker.cpp: the SeekingMissile (docs/projectile-sim.md 2.6, 5.2) and its steering helpers
 // (pj::seekerRotate, seekerLead, seekerSteer). The x87 fsincos of the original is Math.Sin and Math.Cos (portable form of
 // src/core/ldouble.hpp).
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>The SeekingMissile steering helpers (pj::seekerRotate, seekerLead, seekerSteer).</summary>
 /// <remarks>See docs/projectile-sim.md 2.6 and 5.2. The x87 fsincos of the original is Math.Sin and Math.Cos.</remarks>
@@ -22,20 +22,20 @@ public static class Seeker
         // axis-angle matrix of 005ee0ac (quaternion (axis sin(ang/2), cos(ang/2)) with fsincos 005ee4b1, matrix
         // 005ee124); vn times the matrix (m_mul_vector 005ed124) times the muzzle velocity.
         float[] ax =
-        {
+        [
             X87.F32(Sub(Mul(an[1], vn[2]), Mul(an[2], vn[1]))), X87.F32(Sub(Mul(an[2], vn[0]), Mul(an[0], vn[2]))),
             X87.F32(Sub(Mul(an[0], vn[1]), Mul(an[1], vn[0]))),
-        };
+        ];
         {
-            float k = X87.F32(Div(1.0, X87.F32(X87.Len(ax))));
-            for (int i = 0; i < 3; ++i)
+            var k = X87.F32(Div(1.0, X87.F32(X87.Len(ax))));
+            for (var i = 0; i < 3; ++i)
                 ax[i] = X87.F32(Mul(ax[i], k));
         }
-        float half = X87.F32(Mul(ang, 0.5f));
+        var half = X87.F32(Mul(ang, 0.5f));
         double sn = Math.Sin(half), cs = Math.Cos(half);
         float sine = X87.F32(sn), cosine = X87.F32(cs);
-        float[] q = { X87.F32(Mul(ax[0], sine)), X87.F32(Mul(ax[1], sine)), X87.F32(Mul(ax[2], sine)), cosine };
-        float[] m = { 1, 0, 0, 0, 1, 0, 0, 0, 1 };
+        float[] q = [X87.F32(Mul(ax[0], sine)), X87.F32(Mul(ax[1], sine)), X87.F32(Mul(ax[2], sine)), cosine];
+        float[] m = [1, 0, 0, 0, 1, 0, 0, 0, 1];
         const float kTiny = 1e-12f; // 0x2b8cbccc
         if (!(Mul(q[0], q[0]) < kTiny && Mul(q[1], q[1]) < kTiny && Mul(q[2], q[2]) < kTiny))
         {
@@ -53,9 +53,9 @@ public static class Seeker
             m[7] = X87.F32(Add(yz, wx));
             m[8] = X87.F32(Sub(1.0, Add(xx, yy)));
         }
-        float[] r = new float[3];
+        var r = new float[3];
         X87.MulVector(vn, m, r);
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             output[i] = X87.F32(Mul(muzzle, r[i]));
     }
 
@@ -70,15 +70,15 @@ public static class Seeker
     public static void SeekerLead(ReadOnlySpan<float> p, ReadOnlySpan<float> tp, float[]? targetVelocity, float muzzle, Span<float> d,
                                   Span<float> lead)
     {
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             d[i] = X87.F32(Sub(tp[i], p[i]));
-        float t = X87.F32(Div(X87.F32(X87.Len(d)), muzzle));
-        for (int i = 0; i < 3; ++i)
+        var t = X87.F32(Div(X87.F32(X87.Len(d)), muzzle));
+        for (var i = 0; i < 3; ++i)
             lead[i] = X87.F32(Add(d[i], targetVelocity != null ? X87.F32(Mul(targetVelocity[i], t)) : 0.0f));
     }
 
     // The 80-bit constant 0.001 at 0x004669a4, rounded to 53 bits.
-    private const double kMilli = 0.001;
+    private const double Milli = 0.001;
 
     /// <summary>Steers the missile velocity toward the aim.</summary>
     /// <param name="v">The current velocity.</param>
@@ -93,25 +93,25 @@ public static class Seeker
     public static int SeekerSteer(ReadOnlySpan<float> v, ReadOnlySpan<float> aim, int ms, float turnRate, float muzzle, bool tracking,
                                   Span<float> output)
     {
-        float[] vn = { v[0], v[1], v[2] }, an = { aim[0], aim[1], aim[2] };
-        foreach (float[] n in new[] { vn, an })
+        float[] vn = [v[0], v[1], v[2]], an = [aim[0], aim[1], aim[2]];
+        foreach (var n in new[] { vn, an })
         {
-            float k = X87.F32(Div(1.0, X87.F32(X87.Len(n))));
-            for (int i = 0; i < 3; ++i)
+            var k = X87.F32(Div(1.0, X87.F32(X87.Len(n))));
+            for (var i = 0; i < 3; ++i)
                 n[i] = X87.F32(Mul(n[i], k));
         }
         output[0] = v[0];
         output[1] = v[1];
         output[2] = v[2];
-        float c = X87.F32(X87.Dot(an, vn));
+        var c = X87.F32(X87.Dot(an, vn));
         if (c < 0.0f || !tracking)
             return 0;
-        float ang = X87.F32(Mul(Mul(ms, kMilli), turnRate));
-        float ca = X87.F32(Shape.CrtCos(ang)); // crt_cos 0x00606890 on the double
+        var ang = X87.F32(Mul(Mul(ms, Milli), turnRate));
+        var ca = X87.F32(Shape.CrtCos(ang)); // crt_cos 0x00606890 on the double
         if (c >= ca)
         {
-            float l = X87.F32(X87.Len(v));
-            for (int i = 0; i < 3; ++i)
+            var l = X87.F32(X87.Len(v));
+            for (var i = 0; i < 3; ++i)
                 output[i] = X87.F32(Mul(an[i], l));
             return 1;
         }
@@ -123,95 +123,95 @@ public static class Seeker
 // src/game/projectile_seeker.cpp class SeekingMissile.
 internal sealed class SeekingMissile : Projectile
 {
-    private int mTarget;          // +0x474
-    private bool mTracking = true; // +0x484
-    private bool mLost;           // +0x485
-    private readonly bool mExpired = false; // +0x486
-    private float mTurnRate;      // +0x488
-    private uint mLastPct;        // +0x4ac
-    private float mPct = 1.0f;    // +0x4b0
-    private float mSeekRadius = 15, mFreeRadius = 50, mProximity = 2;
+    private int _target;          // +0x474
+    private bool _tracking = true; // +0x484
+    private bool _lost;           // +0x485
+    private const bool Expired = false; // +0x486
+    private float _turnRate;      // +0x488
+    private uint _lastPct;        // +0x4ac
+    private float _pct = 1.0f;    // +0x4b0
+    private float _seekRadius = 15, _freeRadius = 50, _proximity = 2;
 
-    public SeekingMissile(GameState g) : base(g, "SeekingMissile", kSeekerGroup) { }
+    public SeekingMissile(GameState g) : base(g, "SeekingMissile", SeekerGroup) { }
 
     public override bool WantsTarget() => true;                         // vtable +0x1c8
     public override float TargetRange() => 1000.0f;                     // vtable +0x1cc
-    public override void SetTarget(GameBase? t) => mTarget = t != null ? t.Id() : 0; // vtable +0x1d0
-    public override int SeekerTarget() => mTarget;
+    public override void SetTarget(GameBase? t) => _target = t != null ? t.Id() : 0; // vtable +0x1d0
+    public override int SeekerTarget() => _target;
 
     protected override void ReadData(DataBlockManager.Block b)
     {
-        mSeekRadius = Pj.Real(b, "seekingTurningRadius", 15.0f);
-        mFreeRadius = Pj.Real(b, "nonSeekingTurningRadius", 50.0f);
-        mProximity = Pj.Real(b, "proximityDist", 2.0f);
+        _seekRadius = Pj.Real(b, "seekingTurningRadius", 15.0f);
+        _freeRadius = Pj.Real(b, "nonSeekingTurningRadius", 50.0f);
+        _proximity = Pj.Real(b, "proximityDist", 2.0f);
     }
 
     protected override void ClassOnAdd()
     {
-        mLast = mGame.Sim!.TickMs();
+        Last = Game.Sim!.TickMs();
         RefreshPercentage();
     }
 
     // Vtable +0x188 (liveTime passed): the missile starts to fall.
-    protected override void OnLiveTimePassed() => mGravity = true;
+    protected override void OnLiveTimePassed() => Gravity = true;
 
     public override void ServerTick(uint now)
     {
         using var chop = X87.Chop();
-        if (mDying)
+        if (Dying)
         {
-            if (now >= mDeleteTime && Manager() != null)
+            if (now >= DeleteTime && Manager() != null)
                 Manager()!.DeleteObject(this);
             return;
         }
-        if (now > unchecked(mLastPct + 150))
+        if (now > unchecked(_lastPct + 150))
             RefreshPercentage();
-        int ms = unchecked((int)(now - mLast));
+        var ms = unchecked((int)(now - Last));
         if (ms == 0)
             return;
-        if (!mLost)
+        if (!_lost)
             Steer(ms);
-        float[] tp = new float[3];
+        var tp = new float[3];
         TargetPoint(tp);
-        float[] d = new float[3];
-        for (int i = 0; i < 3; ++i)
+        var d = new float[3];
+        for (var i = 0; i < 3; ++i)
             d[i] = X87.F32(Sub(tp[i], Transform.P[i]));
         var hit = new RayHit();
         bool hitNow;
-        if (X87.F32(X87.Len(d)) > mProximity)
+        if (X87.F32(X87.Len(d)) > _proximity)
             hitNow = Advance(now, true, ref hit);
         else
             hitNow = true;
-        if (!hitNow && now > mLiveEnd)
+        if (!hitNow && now > LiveEnd)
             hitNow = true;
         if (hitNow)
         {
-            float[] pos = { Transform.P[0], Transform.P[1], Transform.P[2] };
+            float[] pos = [Transform.P[0], Transform.P[1], Transform.P[2]];
             RadiusDamageAt(pos);
             ExplodeAtPosition(pos);
-            mDying = true;
-            mDeleteTime = unchecked(now + 500);
+            Dying = true;
+            DeleteTime = unchecked(now + 500);
         }
         SetMaskBits(0x03);
     }
 
-    public override void PackInitial(BitStream bs, GhostContext ctx)
+    public override void PackInitial(BitBuffer bs, GhostContext ctx)
     {
         Pj.WriteVec(bs, Transform.P);
         Pj.WriteVec(bs, Velocity);
     }
 
-    public override void PackExplode(BitStream bs)
+    public override void PackExplode(BitBuffer bs)
     {
-        if (!bs.WriteFlag(mExpired))
+        if (!bs.WriteFlag(Expired))
         {
-            Pj.WriteVec(bs, mExpPos);
-            Pj.WriteNormal(bs, mExpNormal, 5);
-            Pj.WriteIndex(bs, mExpIndex, Pj.ExplosionCount(mGame));
+            Pj.WriteVec(bs, ExpPos);
+            Pj.WriteNormal(bs, ExpNormal, 5);
+            Pj.WriteIndex(bs, ExpIndex, Pj.ExplosionCount(Game));
         }
     }
 
-    public override void PackUpdate(BitStream bs, uint mask, GhostContext ctx)
+    public override void PackUpdate(BitBuffer bs, uint mask, GhostContext ctx)
     {
         if (bs.WriteFlag((mask & 0x01) != 0))
             Pj.WriteVec(bs, Transform.P);
@@ -219,8 +219,8 @@ internal sealed class SeekingMissile : Projectile
 
     private GameBase? Target()
     {
-        SimManager? m = Manager();
-        SimObject? o = m != null && mTarget != 0 ? m.FindById(mTarget) : null;
+        var m = Manager();
+        var o = m != null && _target != 0 ? m.FindById(_target) : null;
         return o as GameBase;
     }
 
@@ -228,60 +228,60 @@ internal sealed class SeekingMissile : Projectile
     private void RefreshPercentage()
     {
         using var chop = X87.Chop();
-        GameBase? t = Target();
-        string fn = t != null ? Pj.FindMethod(mGame, this, "updateTargetPercentage") : "";
+        var t = Target();
+        var fn = t != null ? Pj.FindMethod(Game, this, "updateTargetPercentage") : "";
         if (fn.Length != 0)
-            mPct = Store(Numbers.BorlandAtof(Pj.CallMethod(mGame, fn, new[] { Numbers.FormatInt(t!.Id()) }))); // "%s(%d);"
+            _pct = Store(Numbers.BorlandAtof(Pj.CallMethod(Game, fn, [Numbers.FormatInt(t!.Id())]))); // "%s(%d);"
         else
-            mPct = 1.0f;
-        float r = X87.F32(Add(Mul(Sub(mSeekRadius, mFreeRadius), mPct), mFreeRadius));
+            _pct = 1.0f;
+        var r = X87.F32(Add(Mul(Sub(_seekRadius, _freeRadius), _pct), _freeRadius));
         const double kTwoPi = 6.283185307179586; // 0x00467900
-        mTurnRate = X87.F32(Div(mData.MuzzleVelocity, Mul(kTwoPi, r)));
-        mLastPct = mLast;
+        _turnRate = X87.F32(Div(DataValues.MuzzleVelocity, Mul(kTwoPi, r)));
+        _lastPct = Last;
     }
 
     // 0x00467620.
     private void TargetPoint(Span<float> output)
     {
-        GameBase? t = Target();
+        var t = Target();
         Span<float> mn = stackalloc float[3], mx = stackalloc float[3];
-        if (t != null && Pj.WorldBox(mGame, t, mn, mx))
+        if (t != null && Pj.WorldBox(Game, t, mn, mx))
         {
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 output[i] = X87.F32(Mul(Add(mx[i], mn[i]), 0.5f));
             return;
         }
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             output[i] = X87.F32(Add(Transform.P[i], X87.F32(Mul(Velocity[i], 1000.0f))));
     }
 
     // 0x004671b8: the direction to fly to.
     private void Aim(Span<float> output)
     {
-        GameBase? t = Target();
+        var t = Target();
         float[] tp = new float[3], d = new float[3], lead = new float[3];
         TargetPoint(tp);
-        Seeker.SeekerLead(Transform.P, tp, t?.Velocity, mData.MuzzleVelocity, d, lead);
+        Seeker.SeekerLead(Transform.P, tp, t?.Velocity, DataValues.MuzzleVelocity, d, lead);
         const uint mask = 0x24e000a6u & ~0x80u;
         float[] e1 = new float[3], e2 = new float[3];
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
         {
             e1[i] = X87.F32(Add(Transform.P[i], lead[i]));
             e2[i] = X87.F32(Add(Transform.P[i], d[i]));
         }
         var h = new RayHit();
         // 0x00467424: no hit, or the first ray (to the lead point) hits the target itself: aim at the lead point.
-        if (!CastWorld(mGame, Transform.P, e1, mask, null, ref h) || h.Object == t)
+        if (!CastWorld(Game, Transform.P, e1, mask, null, ref h) || h.HitObject == t)
         {
             lead.CopyTo(output);
             return;
         }
         // Something else is in the way: the direct line (second ray) decides between d and a lost track.
         var h2 = new RayHit();
-        if (CastWorld(mGame, Transform.P, e2, mask, null, ref h2) && h2.Object != t)
+        if (CastWorld(Game, Transform.P, e2, mask, null, ref h2) && h2.HitObject != t)
         {
-            mTracking = false;
-            for (int i = 0; i < 3; ++i)
+            _tracking = false;
+            for (var i = 0; i < 3; ++i)
                 output[i] = X87.F32(Mul(Velocity[i], 1000.0f));
             return;
         }
@@ -293,11 +293,11 @@ internal sealed class SeekingMissile : Projectile
     {
         float[] a = new float[3], v = new float[3];
         Aim(a);
-        if (Seeker.SeekerSteer(Velocity, a, ms, mTurnRate, mData.MuzzleVelocity, mTracking, v) == 0)
+        if (Seeker.SeekerSteer(Velocity, a, ms, _turnRate, DataValues.MuzzleVelocity, _tracking, v) == 0)
         {
             if (Target() != null)
             {
-                mLost = true;
+                _lost = true;
                 OnLiveTimePassed();
             }
             return;

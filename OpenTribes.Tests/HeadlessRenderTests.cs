@@ -2,21 +2,21 @@
 // rectangles, a line, a clip rectangle and a stretch into an offscreen OpenGL 3.3 context and compares the
 // read-back pixels with values computed here (docs/renderer.md 3.3, 4, 5.4). When no GL context can be made
 // (no SDL3, no GL driver) the tests print "SKIPPED: reason" and pass without checking anything.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Platform.Gfx;
 using OpenTribes.Platform.Gl;
 using Xunit.Abstractions;
 using static OpenTribes.Tests.GfxFixtures;
 
-namespace OpenTribes.Tests;
-
 public class HeadlessRenderTests
 {
     private const int W = 64, H = 48;
-    private static readonly byte[] sBackground = { 40, 80, 120 };
+    private static readonly byte[] Background = [40, 80, 120];
 
-    private readonly ITestOutputHelper mOut;
+    private readonly ITestOutputHelper _out;
 
-    public HeadlessRenderTests(ITestOutputHelper output) => mOut = output;
+    public HeadlessRenderTests(ITestOutputHelper output) => _out = output;
 
     // Palette: index i has color (r, g, b) from the table below; everything else is black.
     private static PaletteBank TestPalette()
@@ -25,8 +25,8 @@ public class HeadlessRenderTests
         void Set(int i, byte r, byte g, byte b)
         {
             rgba[i * 4] = r;
-            rgba[i * 4 + 1] = g;
-            rgba[i * 4 + 2] = b;
+            rgba[(i * 4) + 1] = g;
+            rgba[(i * 4) + 2] = b;
         }
         Set(0, 9, 9, 9);
         Set(1, 200, 100, 50);
@@ -40,7 +40,7 @@ public class HeadlessRenderTests
     private static PbmpBitmap Rows(uint attrs)
     {
         var px = new byte[16];
-        for (int i = 0; i < 16; ++i)
+        for (var i = 0; i < 16; ++i)
             px[i] = (byte)(i / 4);
         return Bitmap(Pbmp(4, 4, px, attrs));
     }
@@ -49,29 +49,29 @@ public class HeadlessRenderTests
     {
         var failures = new List<string>();
         // First choice: the SDL offscreen video driver (no display needed); then whatever SDL picks.
-        foreach (string? driver in new string?[] { "offscreen", null })
+        foreach (var driver in new string?[] { "offscreen", null })
         {
-            GlWindow? w = GlWindow.TryCreate("test", W, H, hidden: true, driver, out string err);
+            var w = GlWindow.TryCreate("test", W, H, hidden: true, driver, out var err);
             if (w != null)
             {
-                mOut.WriteLine($"RAN: video driver {w.VideoDriver}, OpenGL {w.GlVersion}");
+                _out.WriteLine($"RAN: video driver {w.VideoDriver}, OpenGL {w.GlVersion}");
                 return w;
             }
             failures.Add($"{driver ?? "default"}: {err}");
         }
-        mOut.WriteLine("SKIPPED: no OpenGL 3.3 context could be made (" + string.Join("; ", failures) + ")");
+        _out.WriteLine("SKIPPED: no OpenGL 3.3 context could be made (" + string.Join("; ", failures) + ")");
         return null;
     }
 
     private static (int r, int g, int b) Px(byte[] rgba, int x, int y)
     {
-        int o = (y * W + x) * 4;
+        var o = ((y * W) + x) * 4;
         return (rgba[o], rgba[o + 1], rgba[o + 2]);
     }
 
     private static void Near((int r, int g, int b) got, (int r, int g, int b) want, int tol, string what)
     {
-        bool ok = Math.Abs(got.r - want.r) <= tol && Math.Abs(got.g - want.g) <= tol && Math.Abs(got.b - want.b) <= tol;
+        var ok = Math.Abs(got.r - want.r) <= tol && Math.Abs(got.g - want.g) <= tol && Math.Abs(got.b - want.b) <= tol;
         Assert.True(ok, $"{what}: got {got}, expected {want} +-{tol}");
     }
 
@@ -80,22 +80,22 @@ public class HeadlessRenderTests
     [Fact]
     public void BlendModesAreExactOrWithinTolerance() // 2.2.1, 4 blits, 5.4 blend functions
     {
-        using GlWindow? win = OpenWindow();
+        using var win = OpenWindow();
         if (win == null)
             return;
         using var gd = new GlGfxDevice(win);
-        IGfxDevice dev = gd;
+        var dev = gd;
         dev.SetPalette(TestPalette(), 1f);
         dev.BeginFrame();
         Assert.Equal((W, H), (dev.Width, dev.Height));
-        dev.ClearRgb(sBackground[0], sBackground[1], sBackground[2]);
+        dev.ClearRgb(Background[0], Background[1], Background[2]);
         // Five 4 x 4 bitmaps side by side at y = 2: opaque, transparent, translucent, additive, subtractive.
-        uint[] attrs = { 0, 1, 4, 0x10, 0x20 };
-        for (int i = 0; i < attrs.Length; ++i)
-            dev.Blit(Rows(attrs[i]), 2 + i * 6, 2);
+        uint[] attrs = [0, 1, 4, 0x10, 0x20];
+        for (var i = 0; i < attrs.Length; ++i)
+            dev.Blit(Rows(attrs[i]), 2 + (i * 6), 2);
         dev.EndFrame();
         Assert.Equal(0u, gd.GetError());
-        byte[] px = dev.ReadPixels();
+        var px = dev.ReadPixels();
         Assert.Equal(W * H * 4, px.Length);
 
         // Outside every bitmap: the background, exactly. Row 0 of the image is the top row of the read-back.
@@ -114,24 +114,24 @@ public class HeadlessRenderTests
         Assert.Equal(Exact(40, 80, 120), Px(px, 6, 3));  // the column behind it
 
         // Transparent (attribute 1): index 0 shows the background, the others their color. Exact.
-        int x1 = 2 + 6;
+        var x1 = 2 + 6;
         Assert.Equal(Exact(40, 80, 120), Px(px, x1 + 1, 2));
         Assert.Equal(Exact(198, 99, 49), Px(px, x1 + 1, 3));
         Assert.Equal(Exact(255, 255, 255), Px(px, x1 + 3, 5));
 
         // Translucent (attribute 4): 50% blend [I]: 0.5 * src + 0.5 * dst, tolerance 2 for fixed-point rounding.
-        int x2 = 2 + 12;
+        var x2 = 2 + 12;
         Near(Px(px, x2 + 1, 3), ((198 + 40) / 2, (99 + 80) / 2, (49 + 120) / 2), 2, "translucent index 1");
         Near(Px(px, x2 + 1, 4), ((8 + 40) / 2, (16 + 80) / 2, (24 + 120) / 2), 2, "translucent index 2");
 
         // Additive (attribute 0x10): dst + src, clamped, tolerance 1.
-        int x3 = 2 + 18;
+        var x3 = 2 + 18;
         Near(Px(px, x3 + 1, 3), (Math.Min(255, 198 + 40), Math.Min(255, 99 + 80), Math.Min(255, 49 + 120)), 1, "additive index 1");
         Near(Px(px, x3 + 1, 5), (255, 255, 255), 1, "additive index 3");
         Near(Px(px, x3 + 1, 2), (40 + 8, 80 + 8, 120 + 8), 1, "additive index 0 (not keyed: adds its color)");
 
         // Subtractive (attribute 0x20): dst * (1 - src), tolerance 2.
-        int x4 = 2 + 24;
+        var x4 = 2 + 24;
         Near(Px(px, x4 + 1, 3), (40 * (255 - 206) / 255, 80 * (255 - 99) / 255, 120 * (255 - 49) / 255), 2, "subtractive index 1");
         Near(Px(px, x4 + 1, 5), (0, 0, 0), 2, "subtractive index 3");
     }
@@ -139,11 +139,11 @@ public class HeadlessRenderTests
     [Fact]
     public void FlatFillsLineClipFlipAndStretch() // 1.7 clip, 4 rects, lines, flips, stretch
     {
-        using GlWindow? win = OpenWindow();
+        using var win = OpenWindow();
         if (win == null)
             return;
         using var gd = new GlGfxDevice(win);
-        IGfxDevice dev = gd;
+        var dev = gd;
         dev.SetPalette(TestPalette(), 1f);
         dev.BeginFrame();
         dev.Clear(2); // palette entry 2 (10, 20, 30), no gamma
@@ -159,19 +159,19 @@ public class HeadlessRenderTests
         dev.FillRect(new GfxRect(0, 18, 20, 30), 3);
         dev.SetClip(null);
         // Flip: a 2 x 2 bitmap with indices 1 2 / 3 4 drawn with flip X and flip Y.
-        PbmpBitmap quad = Bitmap(Pbmp(2, 2, new byte[] { 1, 2, 0, 0, 3, 4, 0, 0 }, attrs: 0));
+        var quad = Bitmap(Pbmp(2, 2, [1, 2, 0, 0, 3, 4, 0, 0], attrs: 0));
         dev.Blit(quad, 40, 4, BlitFlip.X);
         dev.Blit(quad, 44, 4, BlitFlip.Y);
         dev.Blit(quad, 48, 4, BlitFlip.X | BlitFlip.Y);
         // Stretch: a solid 2 x 2 bitmap to 6 x 6 (any filter gives the same color for a solid bitmap).
-        dev.BlitStretch(Bitmap(Pbmp(2, 2, new byte[] { 1, 1, 0, 0, 1, 1, 0, 0 })), 40, 20, 6, 6);
+        dev.BlitStretch(Bitmap(Pbmp(2, 2, [1, 1, 0, 0, 1, 1, 0, 0])), 40, 20, 6, 6);
         dev.EndFrame();
-        byte[] px = dev.ReadPixels();
+        var px = dev.ReadPixels();
 
         var bg = (10, 20, 30);
         Assert.Equal(Exact(10, 20, 30), Px(px, 0, 0)); // clear
-        for (int y = 4; y <= 6; ++y)
-            for (int x = 4; x <= 9; ++x)
+        for (var y = 4; y <= 6; ++y)
+            for (var x = 4; x <= 9; ++x)
                 Assert.Equal(Exact(200, 100, 50), Px(px, x, y));
         Assert.Equal(bg, Px(px, 10, 5));  // right + 1 is outside
         Assert.Equal(bg, Px(px, 4, 7));   // bottom + 1 is outside
@@ -184,16 +184,16 @@ public class HeadlessRenderTests
         Assert.Equal(Exact(255, 255, 255), Px(px, 25, 6));
         Assert.Equal(bg, Px(px, 22, 6)); // interior untouched
 
-        for (int x = 30; x <= 37; ++x)
+        for (var x = 30; x <= 37; ++x)
             Assert.Equal(Exact(90, 40, 20), Px(px, x, 4));
         Assert.Equal(bg, Px(px, 38, 4));
-        for (int i = 0; i <= 5; ++i)
+        for (var i = 0; i <= 5; ++i)
             Assert.Equal(Exact(90, 40, 20), Px(px, 30 + i, 10 + i)); // both end points included
 
-        for (int y = 18; y <= 30; ++y)
-            for (int x = 0; x <= 20; ++x)
+        for (var y = 18; y <= 30; ++y)
+            for (var x = 0; x <= 20; ++x)
             {
-                bool inside = x >= 4 && x <= 7 && y >= 20 && y <= 22;
+                var inside = x >= 4 && x <= 7 && y >= 20 && y <= 22;
                 Assert.Equal(inside ? Exact(255, 255, 255) : Exact(10, 20, 30), Px(px, x, y));
             }
 
@@ -209,8 +209,8 @@ public class HeadlessRenderTests
         Assert.Equal(Exact(255, 255, 255), Px(px, 49, 4)); // index 3
         Assert.Equal(Exact(198, 99, 49), Px(px, 49, 5));  // second row reads 2 1
 
-        for (int y = 20; y < 26; ++y)
-            for (int x = 40; x < 46; ++x)
+        for (var y = 20; y < 26; ++y)
+            for (var x = 40; x < 46; ++x)
                 Near(Px(px, x, y), (198, 99, 49), 1, $"stretch {x},{y}");
         Assert.Equal(bg, Px(px, 46, 20));
         Assert.Equal(bg, Px(px, 40, 26));
@@ -219,39 +219,39 @@ public class HeadlessRenderTests
     [Fact]
     public void TextThroughASyntheticFontAndGamma() // 4 text, 3.3 gamma table
     {
-        using GlWindow? win = OpenWindow();
+        using var win = OpenWindow();
         if (win == null)
             return;
         using var gd = new GlGfxDevice(win);
-        IGfxDevice dev = gd;
+        var dev = gd;
         dev.SetPalette(TestPalette(), 1f);
 
         // Sheet 16 x 8, transparent (attribute 9): 'A' is a 3 x 4 block of index 3 at (0,0), 'B' a 5 x 6 block of index 1 at (4,1).
         var sheet = new byte[16 * 8];
-        for (int y = 0; y < 4; ++y)
-            for (int x = 0; x < 3; ++x)
-                sheet[y * 16 + x] = 3;
-        for (int y = 1; y < 7; ++y)
-            for (int x = 4; x < 9; ++x)
-                sheet[y * 16 + x] = 1;
-        byte[] file = Pft(PftFont.FlagProportional | PftFont.FlagTransparent, cellH: 7, cellW: 6, baseline: 6, spacing: 1,
-                          lookupOffset: 65, new short[] { 0, 1 },
-                          new (byte, byte, byte, byte, byte, sbyte)[] { (0, 0, 0, 3, 4, 0), (0, 4, 1, 5, 6, -1) },
-                          Pbma(new List<byte[]> { Pbmp(16, 8, sheet, attrs: 9, pidx: 0xFFFFFFFF) }));
-        Assert.True(PftFont.TryParse(file, out PftFont? font, out string err), err);
+        for (var y = 0; y < 4; ++y)
+            for (var x = 0; x < 3; ++x)
+                sheet[(y * 16) + x] = 3;
+        for (var y = 1; y < 7; ++y)
+            for (var x = 4; x < 9; ++x)
+                sheet[(y * 16) + x] = 1;
+        var file = Pft(PftFont.FlagProportional | PftFont.FlagTransparent, cellH: 7, cellW: 6, baseline: 6, spacing: 1,
+                          lookupOffset: 65, [0, 1],
+                          [(0, 0, 0, 3, 4, 0), (0, 4, 1, 5, 6, -1)],
+                          Pbma([Pbmp(16, 8, sheet, attrs: 9, pidx: 0xFFFFFFFF)]));
+        Assert.True(PftFont.TryParse(file, out var font, out var err), err);
 
         dev.BeginFrame();
         dev.ClearRgb(0, 0, 0);
-        int bottom = dev.DrawText(font!, 10, 20, "AB");
+        var bottom = GfxText.DrawAt(dev, font!, 10, 20, "AB");
         dev.EndFrame();
-        byte[] px = dev.ReadPixels();
+        var px = dev.ReadPixels();
 
         // drawTextAt: 'A' at x 10, y = 20 + 6 + 0 - 3 + 1 = 24 (3 x 4 block); 'B' at x = 10 + 3 + 1 = 14,
         // y = 20 + 6 - 1 - 5 + 1 = 21 (5 x 6 block). Everything else stays black (index 0 of the sheet is transparent).
-        for (int y = 0; y < H; ++y)
-            for (int x = 0; x < W; ++x)
+        for (var y = 0; y < H; ++y)
+            for (var x = 0; x < W; ++x)
             {
-                (int, int, int) want = (0, 0, 0);
+                var want = (0, 0, 0);
                 if (x >= 10 && x <= 12 && y >= 24 && y <= 27)
                     want = (255, 255, 255);
                 if (x >= 14 && x <= 18 && y >= 21 && y <= 26)
@@ -262,10 +262,10 @@ public class HeadlessRenderTests
 
         // Gamma (3.3): the texture path applies the 256-byte table to every palette color: exact.
         dev.SetPalette(TestPalette(), 2f);
-        byte[] table = PaletteTables.GammaTable(2f);
+        var table = PaletteTables.GammaTable(2f);
         dev.BeginFrame();
         dev.ClearRgb(0, 0, 0);
-        dev.DrawText(font!, 10, 20, "AB");
+        GfxText.DrawAt(dev, font!, 10, 20, "AB");
         dev.EndFrame();
         px = dev.ReadPixels();
         // The gamma table output is then packed to 5551 like the stock upload: c -> ((c >> 3) << 3) | (c >> 5).
@@ -278,11 +278,11 @@ public class HeadlessRenderTests
     [Fact]
     public void TextureCacheIsKeyedPerBitmapAndFlushedByPalette() // 3.4
     {
-        using GlWindow? win = OpenWindow();
+        using var win = OpenWindow();
         if (win == null)
             return;
         using var gd = new GlGfxDevice(win);
-        IGfxDevice dev = gd;
+        var dev = gd;
         dev.SetPalette(TestPalette());
         PbmpBitmap a = Rows(0), b = Rows(1);
         dev.BeginFrame();

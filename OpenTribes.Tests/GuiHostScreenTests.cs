@@ -1,26 +1,28 @@
 // Tests of the host game screen fixes (issue 36): console variable names without `$`, FGTextList rows and selection, the Connect screen's
 // game mode radio. Synthetic data only (R5).
+namespace OpenTribes.Tests;
+
 using OpenTribes.Client.App;
 using OpenTribes.Gui;
 using OpenTribes.Platform.Gfx;
 
-namespace OpenTribes.Tests;
-
 public sealed class GuiHostScreenTests : IDisposable
 {
-    private readonly string mRoot = Path.Combine(Path.GetTempPath(), "ot-hostscreen-" + Guid.NewGuid().ToString("N"));
-    private ClientApp? mApp;
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "ot-hostscreen-" + Guid.NewGuid().ToString("N"));
+    private ClientApp? _app;
 
     public GuiHostScreenTests()
     {
-        Directory.CreateDirectory(Path.Combine(mRoot, "config"));
-        Directory.CreateDirectory(Path.Combine(mRoot, "temp"));
+        Directory.CreateDirectory(Path.Combine(_root, "config"));
+        Directory.CreateDirectory(Path.Combine(_root, "temp"));
     }
 
     public void Dispose()
     {
-        mApp?.Dispose();
-        try { Directory.Delete(mRoot, true); } catch (IOException) { }
+        _app?.Dispose();
+        try
+        { Directory.Delete(_root, true); }
+        catch (IOException) { }
     }
 
     [Fact]
@@ -28,9 +30,9 @@ public sealed class GuiHostScreenTests : IDisposable
     {
         var fx = new GuiFixture();
         fx.Interp.SetVariable("$Server::HostName", "TRIBES Server");
-        GuiControl edit = GuiFixture.Make("FearGui::TestEdit", 0, 0, 100, 19, ("active", (byte)1), ("maxLength", 80u));
+        var edit = GuiFixture.Make("FearGui::TestEdit", 0, 0, 100, 19, ("active", (byte)1), ("maxLength", 80u));
         edit.ConsoleVar = "Server::HostName";
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
         root.AddChild(edit);
         fx.Content(root);
         fx.Frame();
@@ -44,10 +46,10 @@ public sealed class GuiHostScreenTests : IDisposable
         var fx = new GuiFixture();
         fx.Host.SetFont("sf_orange214_10.pft", new PftFont { Flags = PftFont.FlagFixedWidth, GlyphCellWidth = 5, CellHeight = 13 });
         fx.Host.SetFont("sf_white_10.pft", new PftFont { Flags = PftFont.FlagFixedWidth, GlyphCellWidth = 5, CellHeight = 13 });
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        GuiControl scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 0, 0, 100, 60, ("verticalPolicy", 2u), ("horizontalPolicy", 1u));
-        GuiControl content = GuiFixture.Make("SimGui::ScrollContentCtrl", 0, 0, 100, 60);
-        GuiControl list = GuiFixture.Make("FearGui::FGTextList", 0, 0, 640, 60, ("active", (byte)1));
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 0, 0, 100, 60, ("verticalPolicy", 2u), ("horizontalPolicy", 1u));
+        var content = GuiFixture.Make("SimGui::ScrollContentCtrl", 0, 0, 100, 60);
+        var list = GuiFixture.Make("FearGui::FGTextList", 0, 0, 640, 60, ("active", (byte)1));
         list.Name = "MissionList";
         list.ConsoleVar = "$pref::LastMission";
         root.AddChild(scroll);
@@ -55,7 +57,7 @@ public sealed class GuiHostScreenTests : IDisposable
         content.AddChild(list);
         fx.Content(root);
         var l = (GuiList)list;
-        for (int i = 0; i < rows; ++i)
+        for (var i = 0; i < rows; ++i)
             l.AddEntry("Mission" + i, i);
         fx.Frame();
         return (fx, root, (GuiScroll)scroll, l);
@@ -95,18 +97,18 @@ public sealed class GuiHostScreenTests : IDisposable
     [Fact]
     public void ConnectScreenActivatesTheRadioOfTheGameMode() // 004dbea8: HOST 100105, TRAIN 100998, anything else 100103
     {
-        File.WriteAllText(Path.Combine(mRoot, "console.cs"),
+        File.WriteAllText(Path.Combine(_root, "console.cs"),
             "newClient(); focusClient();\n" +
             "newObject(MainWindow, SimGui::Canvas, \"Tribes\", 640, 480, True, \"512 384\", \"1024 768\");\n" +
             "function Game::EndFrame() {}\n$ConsoleWorld::DefaultSearchPath = \"config;base;temp\";\n$pref::PlayGameMode = \"HOST\";\n");
-        ClientOptions opt = ClientOptions.Parse(new[] { "--root", mRoot, "--headless" }, out string err)!;
+        var opt = ClientOptions.Parse(["--root", _root, "--headless"], out var err)!;
         Assert.Equal("", err);
-        mApp = new ClientApp(opt);
-        Assert.True(mApp.Start(out string error), error);
+        _app = new ClientApp(opt);
+        Assert.True(_app.Start(out var error), error);
         foreach (var (mode, id) in new[] { ("HOST", 100105u), ("TRAIN", 100998u), ("JOIN", 100103u), ("", 100103u) })
         {
-            mApp.Interp.SetVariable("$pref::PlayGameMode", mode);
-            GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+            _app.Interp.SetVariable("$pref::PlayGameMode", mode);
+            var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
             var radios = new Dictionary<uint, GuiUniversalButton>();
             foreach (var (rid, name) in new[] { (100103u, "JOIN"), (100105u, "HOST"), (100998u, "TRAIN") })
             {
@@ -117,7 +119,7 @@ public sealed class GuiHostScreenTests : IDisposable
                 root.AddChild(b);
                 radios[rid] = b;
             }
-            mApp.Canvas.SetContent(root, mApp.Canvas.Delegates["Connect"]);
+            _app.Canvas.SetContent(root, _app.Canvas.Delegates["Connect"]);
             Assert.True(radios[id].On);
             Assert.Single(radios.Values, r => r.On);
         }

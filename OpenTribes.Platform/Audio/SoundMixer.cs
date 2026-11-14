@@ -1,13 +1,18 @@
 namespace OpenTribes.Platform.Audio;
 
+using System.Threading;
+
 /// <summary>One playing sound in a <see cref="SoundMixer"/>.</summary>
 public sealed class MixVoice
 {
-    internal WavData Wave = null!;
-    internal bool Loop;
-    internal double Pos;               // source frames
-    internal float TargetL, TargetR, CurL, CurR;
-    internal bool Active;
+    internal WavData Wave { get; set; } = null!;
+    internal bool Loop { get; set; }
+    internal double Pos { get; set; }               // source frames
+    internal float TargetL { get; set; }
+    internal float TargetR { get; set; }
+    internal float CurL { get; set; }
+    internal float CurR { get; set; }
+    internal bool Active { get; set; }
     /// <summary>Gets whether the voice has finished or was stopped.</summary>
     public bool Done => !Active;
 }
@@ -19,20 +24,20 @@ public sealed class SoundMixer
     /// <summary>The number of voice slots.</summary>
     public const int Slots = 64;
     /// <summary>The device sample rate.</summary>
-    public readonly int DeviceRate;
-    private readonly object mLock = new();
-    private readonly List<MixVoice> mVoices = new();
-    private readonly int mRampFrames;
-    private float mMaster = 1f;
+    public int DeviceRate { get; }
+    private readonly Lock _lock = new();
+    private readonly List<MixVoice> _voices = [];
+    private readonly int _rampFrames;
+    private float _master = 1f;
     /// <summary>The number of frames rendered so far.</summary>
-    public long FramesRendered;
+    public long FramesRendered { get; set; }
 
     /// <summary>Creates a mixer.</summary>
     /// <param name="deviceRate">The device sample rate.</param>
     public SoundMixer(int deviceRate)
     {
         DeviceRate = deviceRate;
-        mRampFrames = Math.Max(1, deviceRate * 5 / 1000);
+        _rampFrames = Math.Max(1, deviceRate * 5 / 1000);
     }
 
     /// <summary>Starts a voice at source position 0. The gains apply at once, with no ramp from silence.</summary>
@@ -44,12 +49,12 @@ public sealed class SoundMixer
     public MixVoice? Start(WavData wave, bool loop, float gainL, float gainR)
     {
         wave = wave.AtRate(DeviceRate, loop);
-        lock (mLock)
+        lock (_lock)
         {
-            if (mVoices.Count >= Slots)
+            if (_voices.Count >= Slots)
                 return null;
             var v = new MixVoice { Wave = wave, Loop = loop, Active = wave.Frames > 0, TargetL = gainL, TargetR = gainR, CurL = gainL, CurR = gainR };
-            mVoices.Add(v);
+            _voices.Add(v);
             return v;
         }
     }
@@ -60,7 +65,7 @@ public sealed class SoundMixer
     /// <param name="gainR">The right gain.</param>
     public void SetGains(MixVoice v, float gainL, float gainR)
     {
-        lock (mLock)
+        lock (_lock)
         {
             v.TargetL = gainL;
             v.TargetR = gainR;
@@ -71,7 +76,7 @@ public sealed class SoundMixer
     /// <param name="v">The voice.</param>
     public void Stop(MixVoice v)
     {
-        lock (mLock)
+        lock (_lock)
             v.Active = false;
     }
 
@@ -79,8 +84,8 @@ public sealed class SoundMixer
     /// <param name="gain">The gain.</param>
     public void SetMaster(float gain)
     {
-        lock (mLock)
-            mMaster = gain;
+        lock (_lock)
+            _master = gain;
     }
 
     /// <summary>Gets the number of active voices.</summary>
@@ -88,8 +93,8 @@ public sealed class SoundMixer
     {
         get
         {
-            lock (mLock)
-                return mVoices.Count(v => v.Active);
+            lock (_lock)
+                return _voices.Count(v => v.Active);
         }
     }
 
@@ -98,15 +103,15 @@ public sealed class SoundMixer
     /// <param name="frames">The number of stereo frames.</param>
     public void Render(Span<float> output, int frames)
     {
-        output.Slice(0, frames * 2).Clear();
-        lock (mLock)
+        output[..(frames * 2)].Clear();
+        lock (_lock)
         {
-            foreach (MixVoice v in mVoices)
+            foreach (var v in _voices)
                 if (v.Active)
                     MixOne(v, output, frames);
-            mVoices.RemoveAll(v => !v.Active);
-            float m = mMaster;
-            for (int i = 0; i < frames * 2; ++i)
+            _voices.RemoveAll(v => !v.Active);
+            var m = _master;
+            for (var i = 0; i < frames * 2; ++i)
                 output[i] = Math.Clamp(output[i] * m, -1f, 1f);
             FramesRendered += frames;
         }
@@ -114,15 +119,15 @@ public sealed class SoundMixer
 
     private void MixOne(MixVoice v, Span<float> o, int frames)
     {
-        WavData w = v.Wave;
-        double step = (double)w.Rate / DeviceRate;
-        float[] s = w.Samples;
-        int ch = w.Channels;
-        float dl = (v.TargetL - v.CurL) / mRampFrames, dr = (v.TargetR - v.CurR) / mRampFrames;
-        int ramp = (v.TargetL != v.CurL || v.TargetR != v.CurR) ? mRampFrames : 0;
-        for (int i = 0; i < frames; ++i)
+        var w = v.Wave;
+        var step = (double)w.Rate / DeviceRate;
+        var s = w.Samples;
+        var ch = w.Channels;
+        float dl = (v.TargetL - v.CurL) / _rampFrames, dr = (v.TargetR - v.CurR) / _rampFrames;
+        var ramp = (v.TargetL != v.CurL || v.TargetR != v.CurR) ? _rampFrames : 0;
+        for (var i = 0; i < frames; ++i)
         {
-            int i0 = (int)v.Pos;
+            var i0 = (int)v.Pos;
             if (i0 >= w.Frames)
             {
                 if (!v.Loop)
@@ -133,19 +138,19 @@ public sealed class SoundMixer
                 v.Pos -= w.Frames * Math.Floor(v.Pos / w.Frames);
                 i0 = (int)v.Pos;
             }
-            double f = v.Pos - i0;
-            int i1 = i0 + 1;
+            var f = v.Pos - i0;
+            var i1 = i0 + 1;
             if (i1 >= w.Frames)
                 i1 = v.Loop ? 0 : i0;
             float l, r;
             if (ch == 1)
             {
-                l = r = f == 0 ? s[i0] : (float)(s[i0] + (s[i1] - s[i0]) * f);
+                l = r = f == 0 ? s[i0] : (float)(s[i0] + ((s[i1] - s[i0]) * f));
             }
             else
             {
-                l = f == 0 ? s[i0 * 2] : (float)(s[i0 * 2] + (s[i1 * 2] - s[i0 * 2]) * f);
-                r = f == 0 ? s[i0 * 2 + 1] : (float)(s[i0 * 2 + 1] + (s[i1 * 2 + 1] - s[i0 * 2 + 1]) * f);
+                l = f == 0 ? s[i0 * 2] : (float)(s[i0 * 2] + ((s[i1 * 2] - s[i0 * 2]) * f));
+                r = f == 0 ? s[(i0 * 2) + 1] : (float)(s[(i0 * 2) + 1] + ((s[(i1 * 2) + 1] - s[(i0 * 2) + 1]) * f));
             }
             if (ramp > 0)
             {
@@ -158,7 +163,7 @@ public sealed class SoundMixer
                 }
             }
             o[i * 2] += l * v.CurL;
-            o[i * 2 + 1] += r * v.CurR;
+            o[(i * 2) + 1] += r * v.CurR;
             v.Pos += step;
         }
     }

@@ -1,13 +1,13 @@
 // The observer panel of the command screen and its 3D view child (docs/gui.md 3.3): CMDObserve wake 004b47ac, toggle 004b48bc, observe 004b4818,
 // draw 004b4de4 with the opening 004b4ad8, the bars 004b4d60 and the noise 004b4c9c / 004b4bdc, and the TSControl draw 00546dc4 that renders the
 // world into the child's rectangle. The renderer is a stub: what GL draws is not testable here. Synthetic data only.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Game;
 using OpenTribes.Gui;
 using OpenTribes.Platform.Gfx;
-using Rig = OpenTribes.Tests.CommandOrdersTests.Rig;
 using ClipDev = OpenTribes.Tests.GuiCrosshairZoomTests.ClipDev;
-
-namespace OpenTribes.Tests;
+using Rig = OpenTribes.Tests.CommandOrdersTests.Rig;
 
 public class CommandObserveViewTests
 {
@@ -60,7 +60,7 @@ public class CommandObserveViewTests
         var (r, panel, view, p, dev) = PanelRig();
         Show(r, panel);
         var seen = new List<(int, int, int, int)>();
-        for (int i = 0; i < 12; ++i)
+        for (var i = 0; i < 12; ++i)
         {
             panel.Render(p, 0, 0);
             seen.Add((view.X, view.Y, view.W, view.H));
@@ -93,7 +93,7 @@ public class CommandObserveViewTests
 
     private static void Open(GuiCmdObserve panel, GuiPaint p)
     {
-        for (int i = 0; i < 20 && !panel.IsOpen; ++i)
+        for (var i = 0; i < 20 && !panel.IsOpen; ++i)
             panel.Render(p, 0, 0);
         Assert.True(panel.IsOpen);
     }
@@ -123,7 +123,7 @@ public class CommandObserveViewTests
         r.Fx.Clock += 20;
         panel.Render(p, 0, 0);
         Assert.Equal((8, 8), panel.BarHeights);
-        for (int i = 0; i < 20; ++i)
+        for (var i = 0; i < 20; ++i)
         {
             r.Fx.Clock += 40;
             panel.Render(p, 0, 0);
@@ -161,11 +161,11 @@ public class CommandObserveViewTests
         Show(r, panel);
         Assert.False(panel.NoiseDone);
         // during the opening it only draws
-        for (int i = 0; i < 5; ++i)
+        for (var i = 0; i < 5; ++i)
             panel.Render(p, 0, 0);
         Assert.Equal(4, panel.NoiseValue);
         Open(panel, p);
-        int steps = 0;
+        var steps = 0;
         while (!panel.NoiseDone && steps < 40)
         {
             r.Fx.Clock += 100; // longer than any interval (0.025 to 0.035 s)
@@ -201,7 +201,7 @@ public class CommandObserveViewTests
         var (r, panel, _, p, _) = PanelRig();
         Show(r, panel);
         Open(panel, p);
-        for (int i = 0; i < 15; ++i)
+        for (var i = 0; i < 15; ++i)
         {
             r.Fx.Clock += 100;
             panel.Render(p, 0, 0);
@@ -253,7 +253,7 @@ public class CommandObserveViewTests
     public void AViewWithoutACameraObjectDoesNotCallTheRenderer() // [005473ec]
     {
         var (r, _, view, p, _) = PanelRig();
-        bool called = false;
+        var called = false;
         r.Fx.Canvas.ViewRenderer = _ => called = true;
         view.Render(p, 0, 0);
         Assert.False(called);

@@ -1,8 +1,8 @@
 // The view toggle (third person distance) and the zoom target of the key binding test (ROADMAP M9).
-using OpenTribes.Gui;
-using OpenTribes.Client.App;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Client.App;
+using OpenTribes.Gui;
 
 public sealed class ClientViewTests
 {
@@ -59,8 +59,11 @@ public sealed class ClientViewTests
     [Fact]
     public void ZoomAnimatesOverTheZoomSpeedAndStampsTheStepWhileOff()
     {
-        var b = new MoveBuilder { ZoomSpeed = () => 0.5 };
-        b.LastNow = 1000;
+        var b = new MoveBuilder
+        {
+            ZoomSpeed = () => 0.5,
+            LastNow = 1000
+        };
         b.UpdateFov(1000);
         b.OnAction(MoveBuilder.SniperFov, 1f);                  // 90 -> 22.5 from 1000 to 1500
         b.UpdateFov(1250);
@@ -80,7 +83,7 @@ public sealed class ClientViewTests
     [Fact]
     public void ZoomBoxOfTheCrosshairHalvesAsTheZoomDeepens()
     {
-        (int x0, _, int x1, _) = GuiCrosshair.ZoomBox(11.25, 640, 480);
+        (var x0, _, var x1, _) = GuiCrosshair.ZoomBox(11.25, 640, 480);
         Assert.Equal(10, 640 / (x1 - x0));                      // "ZOOM: 10x"
         (x0, _, x1, _) = GuiCrosshair.ZoomBox(22.5, 640, 480);
         Assert.Equal(5, 640 / (x1 - x0));
@@ -101,9 +104,12 @@ public sealed class ClientViewTests
     [Fact]
     public void CenterViewZeroesThePlayerPitchAndCancelsItInTheMove()
     {
-        float pitch = -0.8f;
-        var b = new MoveBuilder { TakeControlPitch = () => { float h = pitch; pitch = 0; return h; } };
-        b.PitchAcc = 0.1f;
+        var pitch = -0.8f;
+        var b = new MoveBuilder
+        {
+            TakeControlPitch = () => { var h = pitch; pitch = 0; return h; },
+            PitchAcc = 0.1f
+        };
         Assert.True(b.OnAction(MoveBuilder.CenterView, 1f));
         Assert.Equal(0f, pitch);
         Assert.Equal(0.9f, b.PitchAcc, 5);
@@ -112,12 +118,14 @@ public sealed class ClientViewTests
     [Fact]
     public void CenterViewDoesNothingWithoutAnOwnedObjectOrWithoutLook()
     {
-        var b = new MoveBuilder();
-        b.PitchAcc = 0.25f;
+        var b = new MoveBuilder
+        {
+            PitchAcc = 0.25f
+        };
         b.OnAction(MoveBuilder.CenterView, 1f);
         Assert.Equal(0.25f, b.PitchAcc);
-        float pitch = 0.5f;
-        b.TakeControlPitch = () => { float h = pitch; pitch = 0; return h; };
+        var pitch = 0.5f;
+        b.TakeControlPitch = () => { var h = pitch; pitch = 0; return h; };
         b.CanLook = () => false;
         b.OnAction(MoveBuilder.CenterView, 1f);
         Assert.Equal(0f, pitch);          // the pitch is still set to 0, the move keeps its value

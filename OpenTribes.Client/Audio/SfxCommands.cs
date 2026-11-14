@@ -1,31 +1,31 @@
+namespace OpenTribes.Client.Audio;
+
 using System.Globalization;
 using OpenTribes.Script;
-
-namespace OpenTribes.Client.Audio;
 
 /// <summary>The sfx* console commands over the <see cref="SoundManager"/>.</summary>
 /// <remarks>docs/client-scripts.md 2.8. The profile argument order follows the code (docs/audio.md F2): <c>sfxAdd3DProfile id, baseVolume, minDist, maxDist [, coneInside, coneOutside, x, y, z, coneOutsideVolume] [, flags...]</c>.</remarks>
 public sealed class SfxCommands
 {
-    private readonly Interpreter mInterp;
-    private readonly SoundManager mSound;
-    private bool mCreated;
+    private readonly Interpreter _interp;
+    private readonly SoundManager _sound;
+    private bool _created;
     /// <summary>Opens the output device. The caller decides what that means (SDL stream, offline mixer). False prints the stock failure text.</summary>
-    public Func<bool> OpenDevice = () => true;
+    public Func<bool> OpenDevice { get; set; } = () => true;
     /// <summary>Closes the output device.</summary>
-    public Action? CloseDevice;
+    public Action? CloseDevice { get; set; }
 
     /// <summary>Registers the commands.</summary>
     /// <param name="interp">The interpreter that gets the commands.</param>
     /// <param name="sound">The sound manager the commands drive.</param>
     public SfxCommands(Interpreter interp, SoundManager sound)
     {
-        mInterp = interp;
-        mSound = sound;
+        _interp = interp;
+        _sound = sound;
         Register();
     }
 
-    private static double D(string s) => double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out double d) ? d : 0;
+    private static double D(string s) => double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var d) ? d : 0;
 
     private static string B(bool v) => v ? "TRUE" : "FALSE";
 
@@ -41,9 +41,9 @@ public sealed class SfxCommands
 
     private bool ParseFlags(string cmd, string[] a, int from, ref uint flags)
     {
-        for (int i = from; i < a.Length; ++i)
+        for (var i = from; i < a.Length; ++i)
         {
-            uint f = FlagWord(a[i]);
+            var f = FlagWord(a[i]);
             if (f == uint.MaxValue)
             {
                 if (uint.TryParse(a[i], NumberStyles.None, CultureInfo.InvariantCulture, out f) && f < 64)
@@ -51,7 +51,7 @@ public sealed class SfxCommands
                     flags |= f;
                     continue;
                 }
-                mInterp.Print(1, $"{cmd}: bad tag ({a[i]})");
+                _interp.Print(1, $"{cmd}: bad tag ({a[i]})");
                 return false;
             }
             flags |= f;
@@ -63,12 +63,12 @@ public sealed class SfxCommands
     {
         if (a.Length != argc)
         {
-            mInterp.Print(1, usage);
+            _interp.Print(1, usage);
             return "False";
         }
-        if (!mCreated)
+        if (!_created)
         {
-            mInterp.Print(1, "unable to find Sound object");
+            _interp.Print(1, "unable to find Sound object");
             return "False";
         }
         return body(a);
@@ -76,88 +76,97 @@ public sealed class SfxCommands
 
     private void Register()
     {
-        mInterp.AddCommand("newSfx", (_, a) =>
+        _interp.AddCommand("newSfx", (_, a) =>
         {
             if (a.Length != 1)
             {
-                mInterp.Print(1, "newSfx");
+                _interp.Print(1, "newSfx");
                 return "False";
             }
-            mCreated = true;
-            mSound.DeviceOpen = OpenDevice();
-            if (!mSound.DeviceOpen)
+            _created = true;
+            _sound.DeviceOpen = OpenDevice();
+            if (!_sound.DeviceOpen)
             {
-                mInterp.Print(1, "Sound System: error opening sound device.");
+                _interp.Print(1, "Sound System: error opening sound device.");
                 return "False";
             }
             return "True";
         });
-        mInterp.AddCommand("sfxOpen", (_, a) =>
+        _interp.AddCommand("sfxOpen", (_, a) =>
         {
-            if (!mCreated) { mInterp.Print(1, "Error: newSfx first."); return "False"; }
-            mSound.DeviceOpen = OpenDevice();
-            return B(mSound.DeviceOpen);
+            if (!_created)
+            { _interp.Print(1, "Error: newSfx first."); return "False"; }
+            _sound.DeviceOpen = OpenDevice();
+            return B(_sound.DeviceOpen);
         });
-        mInterp.AddCommand("sfxClose", (_, a) =>
+        _interp.AddCommand("sfxClose", (_, a) =>
         {
-            if (!mCreated) { mInterp.Print(1, "Error: newSfx first."); return "False"; }
-            mSound.StopAll();
-            mSound.DeviceOpen = false;
+            if (!_created)
+            { _interp.Print(1, "Error: newSfx first."); return "False"; }
+            _sound.StopAll();
+            _sound.DeviceOpen = false;
             CloseDevice?.Invoke();
             return "True";
         });
-        mInterp.AddCommand("sfxQuery", (_, a) =>
+        _interp.AddCommand("sfxQuery", (_, a) =>
         {
-            if (a.Length != 2) { mInterp.Print(1, "sfxQuery(driverID);"); return "False"; }
-            if (!mCreated) { mInterp.Print(1, "Error: newSfx first."); return "False"; }
-            return B(mSound.Query((int)D(a[1])));
+            if (a.Length != 2)
+            { _interp.Print(1, "sfxQuery(driverID);"); return "False"; }
+            if (!_created)
+            { _interp.Print(1, "Error: newSfx first."); return "False"; }
+            return B(_sound.Query((int)D(a[1])));
         });
-        mInterp.AddCommand("sfxSetFormat", (_, a) => NeedSound(a, 4, "sfxSetFormat kHz bits bool(stereo)", x =>
+        _interp.AddCommand("sfxSetFormat", (_, a) => NeedSound(a, 4, "sfxSetFormat kHz bits bool(stereo)", x =>
         {
-            mSound.FormatRate = (int)D(x[1]);
-            mSound.FormatBits = (int)D(x[2]);
-            mSound.FormatStereo = x[3].Equals("true", StringComparison.OrdinalIgnoreCase) || (int)D(x[3]) != 0;
+            _sound.FormatRate = (int)D(x[1]);
+            _sound.FormatBits = (int)D(x[2]);
+            _sound.FormatStereo = x[3].Equals("true", StringComparison.OrdinalIgnoreCase) || (int)D(x[3]) != 0;
             return "True";
         }));
-        mInterp.AddCommand("sfxGetFormat", (_, a) => NeedSound(a, 1, "sfxGetFormat", x =>
+        _interp.AddCommand("sfxGetFormat", (_, a) => NeedSound(a, 1, "sfxGetFormat", x =>
         {
-            mInterp.Print(1, $"Sfx::Manager {mSound.FormatRate}kHz {mSound.FormatBits}bit {(mSound.FormatStereo ? "stereo" : "mono")}");
+            _interp.Print(1, $"Sfx::Manager {_sound.FormatRate}kHz {_sound.FormatBits}bit {(_sound.FormatStereo ? "stereo" : "mono")}");
             return "True";
         }));
-        mInterp.AddCommand("sfxAdd2DProfile", (_, a) =>
+        _interp.AddCommand("sfxAdd2DProfile", (_, a) =>
         {
             const string usage = "sfxAdd2DProfile( id, baseVolume, [flags] )";
-            if (!mCreated) { mInterp.Print(1, "unable to find Sound object"); return "False"; }
-            int id = a.Length >= 3 ? (int)D(a[1]) : 0;
-            if (a.Length < 3 || id == 0) { mInterp.Print(1, usage); return "False"; }
-            SoundProfile p = SoundProfile.Default;
+            if (!_created)
+            { _interp.Print(1, "unable to find Sound object"); return "False"; }
+            var id = a.Length >= 3 ? (int)D(a[1]) : 0;
+            if (a.Length < 3 || id == 0)
+            { _interp.Print(1, usage); return "False"; }
+            var p = SoundProfile.Default;
             p.Id = id;
             p.BaseVolume = D(a[2]);
             if (!ParseFlags("sfxAdd2DProfile", a, 3, ref p.Flags))
                 return "False";
-            mSound.Profiles[id] = p;
+            _sound.Profiles[id] = p;
             return "True";
         });
-        mInterp.AddCommand("sfxAdd3DProfile", (_, a) =>
+        _interp.AddCommand("sfxAdd3DProfile", (_, a) =>
         {
             const string usage = "sfxAdd3DProfile( id, baseVolume, minDist, maxDist, [coneInside, coneOutside, x, y, z, coneOutsideVolume,] [flags]";
-            if (!mCreated) { mInterp.Print(1, "unable to find Sound object"); return "False"; }
-            int id = a.Length >= 5 ? (int)D(a[1]) : 0;
-            if (a.Length < 5 || id == 0) { mInterp.Print(1, usage); return "False"; }
-            SoundProfile p = SoundProfile.Default;
+            if (!_created)
+            { _interp.Print(1, "unable to find Sound object"); return "False"; }
+            var id = a.Length >= 5 ? (int)D(a[1]) : 0;
+            if (a.Length < 5 || id == 0)
+            { _interp.Print(1, usage); return "False"; }
+            var p = SoundProfile.Default;
             p.Id = id;
             p.BaseVolume = D(a[2]);
             p.MinDist = D(a[3]);
             p.MaxDist = D(a[4]);
-            int next = 5;
+            var next = 5;
             // F2: the cone group is read when there are at least 11 arguments and argument 5 starts with a digit.
             if (a.Length >= 11 && a[5].Length > 0 && char.IsDigit(a[5][0]))
             {
                 p.ConeInside = (int)D(a[5]);
                 p.ConeOutside = (int)D(a[6]);
                 double x = D(a[7]), y = D(a[8]), z = D(a[9]);
-                double len = Math.Sqrt(x * x + y * y + z * z);
-                if (len > 0) { x /= len; y /= len; z /= len; }
+                var len = Math.Sqrt((x * x) + (y * y) + (z * z));
+                if (len > 0)
+                { x /= len; y /= len; z /= len; }
                 (p.ConeX, p.ConeY, p.ConeZ) = (x, y, z);
                 p.ConeOutsideVolume = D(a[10]);
                 next = 11;
@@ -165,78 +174,86 @@ public sealed class SfxCommands
             p.Flags = SoundProfile.Software3D;
             if (!ParseFlags("sfxAdd3DProfile", a, next, ref p.Flags))
                 return "False";
-            mSound.Profiles[id] = p;
+            _sound.Profiles[id] = p;
             return "True";
         });
-        mInterp.AddCommand("sfxAddPair", (_, a) =>
+        _interp.AddCommand("sfxAddPair", (_, a) =>
         {
             const string usage = "sfxAddPair( id, profileId, wav_name. [0.0-1.0 priority] )";
-            if (!mCreated) { mInterp.Print(1, "unable to find Sound object"); return "False"; }
-            if (a.Length is not (4 or 5)) { mInterp.Print(1, usage); return "False"; }
-            mSound.Pairs[(int)D(a[1])] = ((int)D(a[2]), a[3], a.Length == 5 ? D(a[4]) : 0);
+            if (!_created)
+            { _interp.Print(1, "unable to find Sound object"); return "False"; }
+            if (a.Length is not (4 or 5))
+            { _interp.Print(1, usage); return "False"; }
+            _sound.Pairs[(int)D(a[1])] = ((int)D(a[2]), a[3], a.Length == 5 ? D(a[4]) : 0);
             return "True";
         });
-        mInterp.AddCommand("sfxRemoveProfile", (_, a) => "");
-        mInterp.AddCommand("sfxRemovePair", (_, a) => "");
-        mInterp.AddCommand("sfxPlay", (_, a) =>
+        _interp.AddCommand("sfxRemoveProfile", (_, a) => "");
+        _interp.AddCommand("sfxRemovePair", (_, a) => "");
+        _interp.AddCommand("sfxPlay", (_, a) =>
         {
-            if (a.Length != 2) { mInterp.Print(1, "sfxPlay id"); return "False"; }
-            if (!mCreated) { mInterp.Print(1, "unable to find Sound object"); return "False"; }
-            int h = mSound.PlayPair((int)D(a[1]));
-            mInterp.Print(1, $"sfxPlay handle = {h}");
+            if (a.Length != 2)
+            { _interp.Print(1, "sfxPlay id"); return "False"; }
+            if (!_created)
+            { _interp.Print(1, "unable to find Sound object"); return "False"; }
+            var h = _sound.PlayPair((int)D(a[1]));
+            _interp.Print(1, $"sfxPlay handle = {h}");
             return h.ToString(CultureInfo.InvariantCulture);
         });
-        mInterp.AddCommand("sfxStop", (_, a) => NeedSound(a, 2, "sfxStop id", x => { mSound.Stop((int)D(x[1])); return "True"; }));
-        mInterp.AddCommand("sfxMute", (_, a) =>
+        _interp.AddCommand("sfxStop", (_, a) => NeedSound(a, 2, "sfxStop id", x => { _sound.Stop((int)D(x[1])); return "True"; }));
+        _interp.AddCommand("sfxMute", (_, a) =>
         {
-            if (a.Length != 2) { mInterp.Print(1, "sfxMute( true/false );"); return "False"; }
-            if (!mCreated) { mInterp.Print(1, "unable to find Sound object"); return "False"; }
-            mSound.Mute(a[1].Equals("true", StringComparison.OrdinalIgnoreCase));
+            if (a.Length != 2)
+            { _interp.Print(1, "sfxMute( true/false );"); return "False"; }
+            if (!_created)
+            { _interp.Print(1, "unable to find Sound object"); return "False"; }
+            _sound.Mute(a[1].Equals("true", StringComparison.OrdinalIgnoreCase));
             return "True";
         });
-        mInterp.AddCommand("sfxSetPosition", (_, a) => NeedSound(a, 5, "sfxSetPosition id x y z", x =>
+        _interp.AddCommand("sfxSetPosition", (_, a) => NeedSound(a, 5, "sfxSetPosition id x y z", x =>
         {
-            mSound.SetPosition((int)D(x[1]), D(x[2]), D(x[3]), D(x[4]));
+            _sound.SetPosition((int)D(x[1]), D(x[2]), D(x[3]), D(x[4]));
             return "True";
         }));
-        mInterp.AddCommand("sfxSetPan", (_, a) => NeedSound(a, 3, "sfxSetPan id fPan(-1.0 to +1.0)", x =>
+        _interp.AddCommand("sfxSetPan", (_, a) => NeedSound(a, 3, "sfxSetPan id fPan(-1.0 to +1.0)", x =>
         {
-            if (mSound.Find((int)D(x[1])) == null)
+            if (_sound.Find((int)D(x[1])) == null)
             {
-                mInterp.Print(1, "unable to find buffer id");
+                _interp.Print(1, "unable to find buffer id");
                 return "False";
             }
-            mSound.SetPan((int)D(x[1]), D(x[2]));
+            _sound.SetPan((int)D(x[1]), D(x[2]));
             return "True";
         }));
-        mInterp.AddCommand("sfxSetListenerPosition", (_, a) => NeedSound(a, 4, "sfxSetListenerPosition x y z", x =>
+        _interp.AddCommand("sfxSetListenerPosition", (_, a) => NeedSound(a, 4, "sfxSetListenerPosition x y z", x =>
         {
-            Listener l = mSound.Listener;
-            mSound.SetListener(D(x[1]), D(x[2]), D(x[3]), l.RightX, l.RightY, l.RightZ);
+            var l = _sound.Listener;
+            _sound.SetListener(D(x[1]), D(x[2]), D(x[3]), l.RightX, l.RightY, l.RightZ);
             return "True";
         }));
-        mInterp.AddCommand("sfxSetVolume", (_, a) =>
+        _interp.AddCommand("sfxSetVolume", (_, a) =>
         {
-            if (a.Length is not (2 or 3)) { mInterp.Print(1, "sfxSetVolume float {SFX_HANDLE}"); return "False"; }
-            if (!mCreated) { mInterp.Print(1, "unable to find Sound object"); return "False"; }
-            double v = D(a[1]);
+            if (a.Length is not (2 or 3))
+            { _interp.Print(1, "sfxSetVolume float {SFX_HANDLE}"); return "False"; }
+            if (!_created)
+            { _interp.Print(1, "unable to find Sound object"); return "False"; }
+            var v = D(a[1]);
             if (a.Length == 3)
-                mSound.SetVolume((int)D(a[2]), v);
+                _sound.SetVolume((int)D(a[2]), v);
             else
             {
-                mSound.SetMasterVolume(v);
-                mInterp.Print(1, $"Sfx master volume set to {v.ToString("F2", CultureInfo.InvariantCulture)}");
+                _sound.SetMasterVolume(v);
+                _interp.Print(1, $"Sfx master volume set to {v.ToString("F2", CultureInfo.InvariantCulture)}");
             }
             return "True";
         });
-        mInterp.AddCommand("sfxSetMaxBuffers", (_, a) => NeedSound(a, 2, "sfxSetMaxBuffers n", x =>
+        _interp.AddCommand("sfxSetMaxBuffers", (_, a) => NeedSound(a, 2, "sfxSetMaxBuffers n", x =>
         {
-            mSound.MaxBuffers = Math.Clamp((int)D(x[1]), 0, 32);
+            _sound.MaxBuffers = Math.Clamp((int)D(x[1]), 0, 32);
             return "True";
         }));
-        mInterp.AddCommand("sfxGetMaxBuffers", (_, a) => NeedSound(a, 1, "sfxGetMaxBuffers", x =>
+        _interp.AddCommand("sfxGetMaxBuffers", (_, a) => NeedSound(a, 1, "sfxGetMaxBuffers", x =>
         {
-            mInterp.Print(1, $"Sfx::Manager::maxBuffers = {mSound.MaxBuffers}");
+            _interp.Print(1, $"Sfx::Manager::maxBuffers = {_sound.MaxBuffers}");
             return "True";
         }));
     }

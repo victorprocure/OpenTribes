@@ -1,6 +1,6 @@
-using OpenTribes.Platform.Gfx;
-
 namespace OpenTribes.Client.World;
+
+using OpenTribes.Platform.Gfx;
 
 /// <summary>The mission fields as the renderer uses them (world-render.md 2.2).</summary>
 /// <param name="Visible">The visible distance.</param>
@@ -19,8 +19,8 @@ public readonly record struct TerrainParams(double Visible, double HazeStart, do
     /// <returns>The parameters.</returns>
     public static TerrainParams FromMission(double visibleDistance, double hazeDistance, double screenSize)
     {
-        double visible = Math.Min(visibleDistance, PrefVisibleDistance);
-        double hazeStart = visibleDistance > 0 ? hazeDistance * (hazeDistance / visibleDistance) : 0;
+        var visible = Math.Min(visibleDistance, PrefVisibleDistance);
+        var hazeStart = visibleDistance > 0 ? hazeDistance * (hazeDistance / visibleDistance) : 0;
         hazeStart = Math.Min(hazeStart, 0.75 * visible);
         return new TerrainParams(visible, hazeStart, screenSize);
     }
@@ -48,9 +48,9 @@ public static class TerrainLod
     {
         if (dist < hazeStart || visible <= hazeStart || dist >= visible)
             return dist < hazeStart ? 0 : 1;
-        double scale = 1.0 / (visible - hazeStart);
-        double t = (dist - hazeStart) * scale - 1;
-        return Math.Clamp(1 - t * t, 0, 1);
+        var scale = 1.0 / (visible - hazeStart);
+        var t = ((dist - hazeStart) * scale) - 1;
+        return Math.Clamp(1 - (t * t), 0, 1);
     }
 
     /// <summary>Computes the haze of interiors, shapes and effects, the software curve (2.7): 0.01 below hazeStart, else 1 - ((dist - hazeStart) * scale - 1)^2 with scale = 1 / (1.02 * (visible - hazeStart)), dist clamped to visible.</summary>
@@ -63,9 +63,9 @@ public static class TerrainLod
         dist = Math.Min(dist, visible);
         if (dist < hazeStart || visible <= hazeStart)
             return 0.01;
-        double scale = 1.0 / (1.02 * (visible - hazeStart));
-        double t = (dist - hazeStart) * scale - 1;
-        return Math.Clamp(1 - t * t, 0, 1);
+        var scale = 1.0 / (1.02 * (visible - hazeStart));
+        var t = ((dist - hazeStart) * scale) - 1;
+        return Math.Clamp(1 - (t * t), 0, 1);
     }
 
     /// <summary>Computes the detail distance of a level (2.5): detailDistance = distanceScale * size - size, with size = 8 * 2^level and distanceScale = projectionDistance(screenSize / pixelScale, 1). pixelScale is 1 (Q1: the camera slots are not transcribed).</summary>
@@ -75,8 +75,8 @@ public static class TerrainLod
     /// <returns>The distance.</returns>
     public static double DetailDistance(in Camera3D cam, double screenSize, int level)
     {
-        double size = TerrainData.CellSize * (1 << level);
-        return cam.ProjectionDistance(screenSize, 1) * size - size;
+        var size = TerrainData.CellSize * (1 << level);
+        return (cam.ProjectionDistance(screenSize, 1) * size) - size;
     }
 
     /// <summary>Computes the grow factor (2.5): 0 below 0.75 * detailDistance, 1 at the detail distance.</summary>
@@ -87,34 +87,34 @@ public static class TerrainLod
     {
         if (detailDistance <= 0)
             return 1;
-        return Math.Clamp((dist - 0.75 * detailDistance) / (0.25 * detailDistance), 0, 1);
+        return Math.Clamp((dist - (0.75 * detailDistance)) / (0.25 * detailDistance), 0, 1);
     }
 
     private static double BoxDistance(double cx, double cy, double cz, double x0, double y0, double z0, double x1, double y1, double z1)
     {
-        double dx = Math.Max(Math.Max(x0 - cx, 0), cx - x1);
-        double dy = Math.Max(Math.Max(y0 - cy, 0), cy - y1);
-        double dz = Math.Max(Math.Max(z0 - cz, 0), cz - z1);
-        return Math.Sqrt(dx * dx + dy * dy + dz * dz);
+        var dx = Math.Max(Math.Max(x0 - cx, 0), cx - x1);
+        var dy = Math.Max(Math.Max(y0 - cy, 0), cy - y1);
+        var dz = Math.Max(Math.Max(z0 - cz, 0), cz - z1);
+        return Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
     }
 
     // Six clip planes of the view as inward normals through the camera (near is checked by distance).
     private static (double nx, double ny, double nz)[] SidePlanes(in Camera3D cam)
     {
-        double ha = cam.HorizontalFov / 2;
-        double va = Math.Atan(Math.Tan(ha) * cam.Height / cam.Width);
+        var ha = cam.HorizontalFov / 2;
+        var va = Math.Atan(Math.Tan(ha) * cam.Height / cam.Width);
         var r = cam.Right;
         var f = cam.Forward;
         var u = cam.Up;
-        (double, double, double) Mix((double x, double y, double z) a, double ka, (double x, double y, double z) b, double kb) =>
-            (a.x * ka + b.x * kb, a.y * ka + b.y * kb, a.z * ka + b.z * kb);
-        return new[]
-        {
+        static (double, double, double) Mix((double x, double y, double z) a, double ka, (double x, double y, double z) b, double kb) =>
+            ((a.x * ka) + (b.x * kb), (a.y * ka) + (b.y * kb), (a.z * ka) + (b.z * kb));
+        return
+        [
             Mix(r, Math.Cos(ha), f, Math.Sin(ha)),
             Mix(r, -Math.Cos(ha), f, Math.Sin(ha)),
             Mix(u, Math.Cos(va), f, Math.Sin(va)),
             Mix(u, -Math.Cos(va), f, Math.Sin(va)),
-        };
+        ];
     }
 
     /// <summary>Selects the squares to draw for a camera (2.5).</summary>
@@ -135,34 +135,34 @@ public static class TerrainLod
         var planes = SidePlanes(cam);
         double px = cam.X - ox, py = cam.Y - oy, pz = cam.Z - oz;
         // 2.4 step 3: pixelError = 1 / projectRadius(screenError, 1), 0.000001 when screenError < 0.001 [code 0057c08d]
-        double pixelError = p.ScreenError < 0.001 ? (double)1.0e-6f : 1.0 / cam.ProjectRadius(1.0, p.ScreenError);
+        var pixelError = p.ScreenError < 0.001 ? (double)1.0e-6f : 1.0 / cam.ProjectRadius(1.0, p.ScreenError);
         var stack = new Stack<TerrainSquare>();
         // The stock client walks the blocks with x outer and y inner, and a square's children from (0,1) to (1,1), (1,0), (0,0).
-        for (int i = TerrainData.BlockCount - 1; i >= 0; --i)
-            for (int j = TerrainData.BlockCount - 1; j >= 0; --j)
+        for (var i = TerrainData.BlockCount - 1; i >= 0; --i)
+            for (var j = TerrainData.BlockCount - 1; j >= 0; --j)
                 stack.Push(new TerrainSquare(8, i * TerrainData.Cells, j * TerrainData.Cells));
         while (stack.Count > 0 && result.Count < MaxSquares)
         {
             var sq = stack.Pop();
-            int s = 1 << sq.Level;
+            var s = 1 << sq.Level;
             if (t.IsEmpty(sq.Level, sq.X, sq.Y))
                 continue;
             double x0 = sq.X * TerrainData.CellSize, y0 = sq.Y * TerrainData.CellSize;
-            double x1 = x0 + s * TerrainData.CellSize, y1 = y0 + s * TerrainData.CellSize;
+            double x1 = x0 + (s * TerrainData.CellSize), y1 = y0 + (s * TerrainData.CellSize);
             double z0 = t.MinHeight(sq.Level, sq.X, sq.Y), z1 = t.MaxHeight(sq.Level, sq.X, sq.Y);
-            double d = BoxDistance(px, py, pz, x0, y0, z0, x1, y1, z1);
+            var d = BoxDistance(px, py, pz, x0, y0, z0, x1, y1, z1);
             if (d >= p.Visible)
                 continue;
             // frustum: widen the box in z by d * pixelError both ways (2.5)
-            double w = d * pixelError;
-            bool outside = false;
-            foreach (var pl in planes)
+            var w = d * pixelError;
+            var outside = false;
+            foreach (var (nx, ny, nz) in planes)
             {
-                bool any = false;
-                for (int c = 0; c < 8 && !any; ++c)
+                var any = false;
+                for (var c = 0; c < 8 && !any; ++c)
                 {
                     double cx = (c & 1) == 0 ? x0 : x1, cy = (c & 2) == 0 ? y0 : y1, cz = (c & 4) == 0 ? z0 - w : z1 + w;
-                    any = (cx - px) * pl.nx + (cy - py) * pl.ny + (cz - pz) * pl.nz >= 0;
+                    any = ((cx - px) * nx) + ((cy - py) * ny) + ((cz - pz) * nz) >= 0;
                 }
                 if (!any)
                 {
@@ -177,24 +177,24 @@ public static class TerrainLod
                 result.Add(sq with { D = d });
                 continue;
             }
-            bool subdivide = d < 1 || d < DetailDistance(cam, p.ScreenSize, sq.Level);
+            var subdivide = d < 1 || d < DetailDistance(cam, p.ScreenSize, sq.Level);
             if (!subdivide)
             {
                 result.Add(sq with { D = d });
                 continue;
             }
-            int h = s / 2;
+            var h = s / 2;
             if (growOut != null)
             {
                 // 2.5: the points a subdivision creates (centre and the four edge mid points) take the grow factor of the
                 // square's own distance; a point that exists already keeps the value of the square that made it.
-                float g = (float)Grow(d, DetailDistance(cam, p.ScreenSize, sq.Level));
-                foreach (long key in new[] { GrowKey(sq.X + h, sq.Y + h), GrowKey(sq.X + h, sq.Y), GrowKey(sq.X + s, sq.Y + h),
+                var g = (float)Grow(d, DetailDistance(cam, p.ScreenSize, sq.Level));
+                foreach (var key in new[] { GrowKey(sq.X + h, sq.Y + h), GrowKey(sq.X + h, sq.Y), GrowKey(sq.X + s, sq.Y + h),
                                              GrowKey(sq.X + h, sq.Y + s), GrowKey(sq.X, sq.Y + h) })
                     growOut.TryAdd(key, g);
             }
-            foreach (int k in new[] { 0, 1, 3, 2 })
-                stack.Push(new TerrainSquare(sq.Level - 1, sq.X + (k & 1) * h, sq.Y + (k >> 1) * h));
+            foreach (var k in new[] { 0, 1, 3, 2 })
+                stack.Push(new TerrainSquare(sq.Level - 1, sq.X + ((k & 1) * h), sq.Y + ((k >> 1) * h)));
         }
         return result;
     }
@@ -207,7 +207,7 @@ public static class TerrainLod
 
     private static int CreationLevel(int gx, int gy)
     {
-        int v = gx | gy;
+        var v = gx | gy;
         return v == 0 ? 99 : System.Numerics.BitOperations.TrailingZeroCount(v);
     }
 
@@ -233,8 +233,8 @@ public static class TerrainLod
     public static float MorphedHeight(TerrainData t, int gx, int gy, in Camera3D cam, double ox, double oy, double oz, TerrainParams p,
                                            Dictionary<long, float>? growMap = null)
     {
-        float h = t.Height(gx, gy);
-        int pl = CreationLevel(gx, gy);
+        var h = t.Height(gx, gy);
+        var pl = CreationLevel(gx, gy);
         if (pl >= 8)
             return h;
         int half = 1 << pl, full = half << 1;
@@ -252,15 +252,15 @@ public static class TerrainLod
                 : (t.Height(x0 + full, y0) + t.Height(x0, y0 + full)) * 0.5f;
         }
         double grow;
-        if (growMap != null && growMap.TryGetValue(GrowKey(gx, gy), out float stored))
+        if (growMap != null && growMap.TryGetValue(GrowKey(gx, gy), out var stored))
             grow = stored;
         else
         {
-            double dx = gx * TerrainData.CellSize + ox - cam.X, dy = gy * TerrainData.CellSize + oy - cam.Y, dz = h + oz - cam.Z;
-            double dist = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+            double dx = (gx * TerrainData.CellSize) + ox - cam.X, dy = (gy * TerrainData.CellSize) + oy - cam.Y, dz = h + oz - cam.Z;
+            var dist = Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
             grow = Grow(dist, DetailDistance(cam, p.ScreenSize, pl + 1));
         }
-        return (float)(h + grow * (avg - h));
+        return (float)(h + (grow * (avg - h)));
     }
 }
 
@@ -268,15 +268,15 @@ public static class TerrainLod
 public sealed class TerrainMesh
 {
     /// <summary>The vertices of the squares that use the atlas.</summary>
-    public readonly List<Vertex3D> Atlas = new();
+    public List<Vertex3D> Atlas { get; } = [];
     /// <summary>The vertices of the level 0 squares by material index.</summary>
-    public readonly Dictionary<int, List<Vertex3D>> ByMaterial = new();
+    public Dictionary<int, List<Vertex3D>> ByMaterial { get; } = [];
     /// <summary>The atlas vertices of the squares a dynamic light touches (<see cref="TerrainLightSet"/>). Their own light map is one 9 x 9 tile of nibbles each in <see cref="Tiles"/>. The vertices carry the light coordinate in texels of the tile atlas (<see cref="TileAtlasWidth"/> wide) until the renderer normalises it.</summary>
-    public readonly List<Vertex3D> DynAtlas = new();
+    public List<Vertex3D> DynAtlas { get; } = [];
     /// <summary>The level 0 vertices of the lit squares by material index.</summary>
-    public readonly Dictionary<int, List<Vertex3D>> DynByMaterial = new();
+    public Dictionary<int, List<Vertex3D>> DynByMaterial { get; } = [];
     /// <summary>The light map tiles of the lit squares.</summary>
-    public readonly List<byte[]> Tiles = new();
+    public List<byte[]> Tiles { get; } = [];
     /// <summary>The side of one light tile in nibbles.</summary>
     public const int TileSize = 9;
     /// <summary>The number of tiles per row of the tile atlas.</summary>
@@ -284,21 +284,21 @@ public sealed class TerrainMesh
     /// <summary>The width of the tile atlas in texels.</summary>
     public const int TileAtlasWidth = TileSize * TilesPerRow;
     /// <summary>The number of triangles in the mesh.</summary>
-    public int TriangleCount => Atlas.Count / 3 + ByMaterial.Values.Sum(v => v.Count / 3) + DynAtlas.Count / 3 + DynByMaterial.Values.Sum(v => v.Count / 3);
+    public int TriangleCount => (Atlas.Count / 3) + ByMaterial.Values.Sum(v => v.Count / 3) + (DynAtlas.Count / 3) + DynByMaterial.Values.Sum(v => v.Count / 3);
 
     // Scratch the mesher refills every frame when the same mesh object is passed back in.
-    internal readonly HashSet<long> Points = new();
-    internal readonly Dictionary<long, float> Heights = new();
-    internal readonly List<(int, int)> Ring = new();
+    internal HashSet<long> Points { get; } = [];
+    internal Dictionary<long, float> Heights { get; } = [];
+    internal List<(int, int)> Ring { get; } = [];
 
     /// <summary>Empties the mesh and its scratch.</summary>
     public void Reset()
     {
         Atlas.Clear();
-        foreach (List<Vertex3D> l in ByMaterial.Values)
+        foreach (var l in ByMaterial.Values)
             l.Clear();
         DynAtlas.Clear();
-        foreach (List<Vertex3D> l in DynByMaterial.Values)
+        foreach (var l in DynByMaterial.Values)
             l.Clear();
         Tiles.Clear();
         Points.Clear();
@@ -312,7 +312,7 @@ public static class TerrainMesher
 {
     /// <summary>Maps the low three bits of the flags byte to a corner orientation: bit 4 swaps u and v first, then bit 1 mirrors u and bit 2 mirrors v.</summary>
     /// <remarks>2.8. The exe builds one table of four (u, v) pairs per flag value when the terrain renderer is created (00576784 to 005768d2): flag 0 is (0,0) (1,0) (1,1) (0,1) for the corners at (0,1) (1,1) (1,0) (0,0). The table of flag f is that one with, in this order, bit 2 swapping entries 0 and 1 and entries 2 and 3, bit 4 swapping entries 0 and 3 and entries 1 and 2, and bit 1 rotating the entries (entry 0 becomes the old entry 3, entry 1 the old 0, entry 2 the old 1, entry 3 the old 2). The draw picks the table by <c>flags &amp; 7</c> (0057a79c, 0057afc8). The values here are the same tables in the form of the element bits. WorldRenderTests.FlagOrientationIsTheExeUvTableConstruction checks the exe construction.</remarks>
-    public static readonly int[] FlagOrientation = { 2, 7, 3, 6, 0, 5, 1, 4 };
+    public static readonly int[] FlagOrientation = [2, 7, 3, 6, 0, 5, 1, 4];
 
     /// <summary>Computes the texture coordinate of a corner of a cell.</summary>
     /// <param name="cornerX">The corner x, 0 or 1.</param>
@@ -321,7 +321,7 @@ public static class TerrainMesher
     /// <returns>The u and v of the corner.</returns>
     public static (float u, float v) CornerUv(int cornerX, int cornerY, int flags)
     {
-        int e = FlagOrientation[flags & 7];
+        var e = FlagOrientation[flags & 7];
         float u = cornerX, v = cornerY;
         if ((e & 4) != 0)
             (u, v) = (v, u);
@@ -341,25 +341,33 @@ public static class TerrainMesher
         int n = squares.Count, i = 0;
         while (i < n)
         {
-            TerrainSquare sq = squares[i];
-            int s = 1 << sq.Level;
-            double size = s * cs;
+            var sq = squares[i];
+            var s = 1 << sq.Level;
+            var size = s * cs;
             double h08 = z(sq.X, sq.Y + s), h0c = z(sq.X + s, sq.Y + s), h10 = z(sq.X, sq.Y), h14 = z(sq.X + s, sq.Y);
             double vx, vy, vz, ax, ay, bx, by;
             if (t.SplitMain(sq.Level, sq.X, sq.Y))
             {
-                vx = sq.X * cs; vy = sq.Y * cs; vz = h10;
-                ax = h10 - h14; ay = h14 - h0c;
-                bx = h08 - h0c; by = h10 - h08;
+                vx = sq.X * cs;
+                vy = sq.Y * cs;
+                vz = h10;
+                ax = h10 - h14;
+                ay = h14 - h0c;
+                bx = h08 - h0c;
+                by = h10 - h08;
             }
             else
             {
-                vx = (sq.X + s) * cs; vy = sq.Y * cs; vz = h14;
-                ax = h08 - h0c; ay = h14 - h0c;
-                bx = h10 - h14; by = h10 - h08;
+                vx = (sq.X + s) * cs;
+                vy = sq.Y * cs;
+                vz = h14;
+                ax = h08 - h0c;
+                ay = h14 - h0c;
+                bx = h10 - h14;
+                by = h10 - h08;
             }
             double dx = px - vx, dy = py - vy, dz = pz - vz;
-            if (dx * ax + dy * ay + dz * size >= 0 || dx * bx + dy * by + dz * size >= 0)
+            if ((dx * ax) + (dy * ay) + (dz * size) >= 0 || (dx * bx) + (dy * by) + (dz * size) >= 0)
             {
                 ++i;
                 continue;
@@ -379,21 +387,21 @@ public static class TerrainMesher
     internal static List<TerrainSquare> StockOrder(TerrainData t, List<TerrainSquare> squares, in Camera3D cam)
     {
         var keys = new SortKey[squares.Count];
-        int stale = 0; // the exe keeps the mip of the previous square when the distance is 0
-        for (int i = 0; i < keys.Length; ++i)
+        var stale = 0; // the exe keeps the mip of the previous square when the distance is 0
+        for (var i = 0; i < keys.Length; ++i)
         {
-            TerrainSquare sq = squares[i];
-            int pos = (sq.Y << 16) | (sq.X & 0xffff);
+            var sq = squares[i];
+            var pos = (sq.Y << 16) | (sq.X & 0xffff);
             if (sq.Level == 0)
             {
                 keys[i] = new SortKey(0, t.Material(sq.X, sq.Y), pos, i);
                 continue;
             }
-            int mip = stale;
+            var mip = stale;
             if (sq.D > 0.001)
             {
-                double size = TerrainData.CellSize * (1 << sq.Level);
-                int px = (int)cam.ProjectRadius(sq.D + size / 2, size);
+                var size = TerrainData.CellSize * (1 << sq.Level);
+                var px = (int)cam.ProjectRadius(sq.D + (size / 2), size);
                 mip = (px == 0 ? 0 : 32 - System.Numerics.BitOperations.LeadingZeroCount((uint)px)) - 1;
             }
             mip = Math.Min(mip, 6);
@@ -420,7 +428,7 @@ public static class TerrainMesher
         }
         StockSort.Sort(keys, keys.Length, Compare);
         var result = new List<TerrainSquare>(keys.Length);
-        foreach (SortKey k in keys)
+        foreach (var k in keys)
             result.Add(squares[k.Index]);
         return result;
     }
@@ -440,31 +448,31 @@ public static class TerrainMesher
     public static TerrainMesh Build(TerrainData t, List<TerrainSquare> squares, Camera3D cam, double ox, double oy, double oz, TerrainParams p, TerrainMesh? reuse = null,
                                    Dictionary<long, float>? growMap = null, TerrainLightSet? lights = null)
     {
-        TerrainMesh mesh = reuse ?? new TerrainMesh();
+        var mesh = reuse ?? new TerrainMesh();
         mesh.Reset();
-        HashSet<long> points = mesh.Points;
+        var points = mesh.Points;
         static long Key(int x, int y) => ((long)x << 20) | (uint)y;
         foreach (var sq in squares)
         {
-            int s = 1 << sq.Level;
+            var s = 1 << sq.Level;
             points.Add(Key(sq.X, sq.Y));
             points.Add(Key(sq.X + s, sq.Y));
             points.Add(Key(sq.X, sq.Y + s));
             points.Add(Key(sq.X + s, sq.Y + s));
         }
-        Dictionary<long, float> heightCache = mesh.Heights;
+        var heightCache = mesh.Heights;
         float Z(int gx, int gy)
         {
-            long k = Key(gx, gy);
-            if (!heightCache.TryGetValue(k, out float z))
+            var k = Key(gx, gy);
+            if (!heightCache.TryGetValue(k, out var z))
                 heightCache[k] = z = TerrainLod.MorphedHeight(t, gx, gy, cam, ox, oy, oz, p, growMap);
             return z;
         }
         Vertex3D V(int gx, int gy, float z, float u, float v)
         {
-            double wx = ox + gx * TerrainData.CellSize, wy = oy + gy * TerrainData.CellSize, wz = oz + z;
+            double wx = ox + (gx * TerrainData.CellSize), wy = oy + (gy * TerrainData.CellSize), wz = oz + z;
             double dx = wx - cam.X, dy = wy - cam.Y, dz = wz - cam.Z;
-            float haze = (float)TerrainLod.TerrainHaze(Math.Sqrt(dx * dx + dy * dy + dz * dz), p.HazeStart, p.Visible);
+            var haze = (float)TerrainLod.TerrainHaze(Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz)), p.HazeStart, p.Visible);
             return new Vertex3D((float)wx, (float)wy, (float)wz, u, v, (gx + 0.5f) / TerrainData.Cells,
                                 (gy + 0.5f) / TerrainData.Cells, haze);
         }
@@ -481,19 +489,19 @@ public static class TerrainMesher
                 ring.Add((ax, ay));
             }
         }
-        List<(int, int)> ring = mesh.Ring;
+        var ring = mesh.Ring;
         Vertex3D prev = default;
         var culled = new List<TerrainSquare>(squares);
         StockCull(t, culled, Z, cam.X - ox, cam.Y - oy, cam.Z - oz);
-        List<TerrainSquare> ordered = StockOrder(t, culled, cam);
+        var ordered = StockOrder(t, culled, cam);
         foreach (var sq in ordered)
         {
             int s = 1 << sq.Level, x = sq.X, y = sq.Y;
             // A square a light touches (2.9) has a tile of its own: light coordinates in texels of the tile, fraction of the side times 8 plus a half.
-            int tile = -1;
+            var tile = -1;
             if (lights != null && lights.Count > 0)
             {
-                uint mask = lights.Mask(t, sq.Level, x, y);
+                var mask = lights.Mask(t, sq.Level, x, y);
                 if (mask != 0)
                 {
                     var nib = new byte[TerrainMesh.TileSize * TerrainMesh.TileSize * 3];
@@ -506,17 +514,17 @@ public static class TerrainMesher
             {
                 if (tile < 0)
                     return v;
-                v.Lu = tile % TerrainMesh.TilesPerRow * TerrainMesh.TileSize + 0.5f + (gx - x) * 8f / s;
-                v.Lv = tile / TerrainMesh.TilesPerRow * TerrainMesh.TileSize + 0.5f + (gy - y) * 8f / s;
+                v.Lu = (tile % TerrainMesh.TilesPerRow * TerrainMesh.TileSize) + 0.5f + ((gx - x) * 8f / s);
+                v.Lv = (tile / TerrainMesh.TilesPerRow * TerrainMesh.TileSize) + 0.5f + ((gy - y) * 8f / s);
                 return v;
             }
             if (sq.Level == 0)
             {
                 int flags = t.Flags(x, y);
-                int mat = t.Material(x, y);
-                Dictionary<int, List<Vertex3D>> target = tile < 0 ? mesh.ByMaterial : mesh.DynByMaterial;
-                if (!target.TryGetValue(mat, out List<Vertex3D>? list))
-                    target[mat] = list = new List<Vertex3D>();
+                var mat = t.Material(x, y);
+                var target = tile < 0 ? mesh.ByMaterial : mesh.DynByMaterial;
+                if (!target.TryGetValue(mat, out var list))
+                    target[mat] = list = [];
                 Vertex3D C(int cx, int cy)
                 {
                     var (u, v) = CornerUv(cx, cy, flags);
@@ -525,13 +533,21 @@ public static class TerrainMesher
                 Vertex3D a = C(0, 0), b = C(1, 0), c = C(1, 1), d = C(0, 1);
                 if (TerrainLod.SplitMainDiagonal(0, x, y))
                 {
-                    list.Add(a); list.Add(b); list.Add(c);
-                    list.Add(a); list.Add(c); list.Add(d);
+                    list.Add(a);
+                    list.Add(b);
+                    list.Add(c);
+                    list.Add(a);
+                    list.Add(c);
+                    list.Add(d);
                 }
                 else
                 {
-                    list.Add(a); list.Add(b); list.Add(d);
-                    list.Add(b); list.Add(c); list.Add(d);
+                    list.Add(a);
+                    list.Add(b);
+                    list.Add(d);
+                    list.Add(b);
+                    list.Add(c);
+                    list.Add(d);
                 }
                 continue;
             }
@@ -541,22 +557,22 @@ public static class TerrainMesher
             Border(x + s, y + s, x, y + s, ring);
             Border(x, y + s, x, y, ring);
             Vertex3D At(int gx, int gy) => Lit(V(gx, gy, Z(gx, gy), gx / (float)TerrainData.Cells, gy / (float)TerrainData.Cells), gx, gy);
-            List<Vertex3D> atlas = tile < 0 ? mesh.Atlas : mesh.DynAtlas;
+            var atlas = tile < 0 ? mesh.Atlas : mesh.DynAtlas;
             // 2.8: one polygon of the border points; the fan starts at the corner the split diagonal runs from: the first
             // corner (top left) for the (0,0)-(1,1) diagonal, else the second (top right).
-            int start = 0;
+            var start = 0;
             if (!t.SplitMain(sq.Level, x, y))
-                for (int i = 0; i < ring.Count; ++i)
+                for (var i = 0; i < ring.Count; ++i)
                     if (ring[i].Item1 == x + s && ring[i].Item2 == y)
                     {
                         start = i;
                         break;
                     }
             Vertex3D first = default;
-            for (int i = 0; i < ring.Count; ++i)
+            for (var i = 0; i < ring.Count; ++i)
             {
                 var (ax, ay) = ring[(start + i) % ring.Count];
-                Vertex3D v = At(ax, ay);
+                var v = At(ax, ay);
                 if (i == 0)
                 {
                     first = v;
@@ -572,10 +588,10 @@ public static class TerrainMesher
             }
         }
         DropFarTriangles(mesh.Atlas, cam, p.Visible);
-        foreach (List<Vertex3D> l in mesh.ByMaterial.Values)
+        foreach (var l in mesh.ByMaterial.Values)
             DropFarTriangles(l, cam, p.Visible);
         DropFarTriangles(mesh.DynAtlas, cam, p.Visible);
-        foreach (List<Vertex3D> l in mesh.DynByMaterial.Values)
+        foreach (var l in mesh.DynByMaterial.Values)
             DropFarTriangles(l, cam, p.Visible);
         return mesh;
     }
@@ -588,16 +604,18 @@ public static class TerrainMesher
         bool Far(in Vertex3D v)
         {
             double dx = v.X - cx, dy = v.Y - cy, dz = v.Z - cz;
-            return dx * dx + dy * dy + dz * dz > v2;
+            return (dx * dx) + (dy * dy) + (dz * dz) > v2;
         }
-        int n = 0;
-        for (int i = 0; i + 2 < tris.Count; i += 3)
+        var n = 0;
+        for (var i = 0; i + 2 < tris.Count; i += 3)
         {
             if (Far(tris[i]) && Far(tris[i + 1]) && Far(tris[i + 2]))
                 continue;
             if (n != i)
             {
-                tris[n] = tris[i]; tris[n + 1] = tris[i + 1]; tris[n + 2] = tris[i + 2];
+                tris[n] = tris[i];
+                tris[n + 1] = tris[i + 1];
+                tris[n + 2] = tris[i + 2];
             }
             n += 3;
         }

@@ -7,19 +7,25 @@ public sealed class SubPalette
     public const uint NoId = 0xFFFFFFFF;
 
     /// <summary>The 256 entries of 4 bytes: red, green, blue and flags. The flags byte is the alpha of kind 2 palettes.</summary>
-    public byte[] Colors = new byte[1024];
+    public byte[] Colors { get; set; } = new byte[1024];
     /// <summary>The palette id.</summary>
-    public uint Id = NoId;
+    public uint Id { get; set; } = NoId;
     /// <summary>The kind: 0 no remap, 1 shade and haze, 2 translucent, 3 color quant, 4 alpha quant, 5 additive quant, 6 additive, 7 subtractive quant, 8 subtractive.</summary>
-    public uint Kind;
+    public uint Kind { get; set; }
     /// <summary>The shade and haze table of kind 1: (hazeSteps + 1) * shadeSteps * 256 bytes, indexed (haze * shadeSteps + shade) * 256 + color.</summary>
-    public byte[]? ShadeHazeTable;
+    public byte[]? ShadeHazeTable { get; set; }
     /// <summary>The blend table of kinds 2, 6 and 8: 256 x 256 bytes.</summary>
-    public byte[]? BlendTable;
+    public byte[]? BlendTable { get; set; }
     /// <summary>The 256 identity-map bytes of kinds 1, 2, 6 and 8.</summary>
-    public byte[]? IdentityMap;
+    public byte[]? IdentityMap { get; set; }
     /// <summary>The red, green, blue and alpha float maps of kinds 1, 2, 6 and 8.</summary>
-    public float[]? IndexToRed, IndexToGreen, IndexToBlue, IndexToAlpha;
+    public float[]? IndexToRed { get; set; }
+    /// <inheritdoc cref="IndexToRed"/>
+    public float[]? IndexToGreen { get; set; }
+    /// <inheritdoc cref="IndexToRed"/>
+    public float[]? IndexToBlue { get; set; }
+    /// <inheritdoc cref="IndexToRed"/>
+    public float[]? IndexToAlpha { get; set; }
 
     /// <summary>Reads the colour of an entry.</summary>
     /// <param name="index">The palette index.</param>
@@ -29,33 +35,35 @@ public sealed class SubPalette
     public void Rgb(int index, out byte r, out byte g, out byte b)
     {
         r = Colors[index * 4];
-        g = Colors[index * 4 + 1];
-        b = Colors[index * 4 + 2];
+        g = Colors[(index * 4) + 1];
+        b = Colors[(index * 4) + 2];
     }
 
     /// <summary>Gets the flags byte of an entry.</summary>
     /// <param name="index">The palette index.</param>
     /// <returns>The flags byte.</returns>
-    public byte Flags(int index) => Colors[index * 4 + 3];
+    public byte Flags(int index) => Colors[(index * 4) + 3];
 }
 
 /// <summary>A palette bank: a PL98 <c>.ppl</c> set (docs/renderer.md 2.4) or a <c>.pal</c> (2.5).</summary>
 public sealed class PaletteBank
 {
     /// <summary>The number of shade bits.</summary>
-    public uint ShadeBits;
+    public uint ShadeBits { get; set; }
     /// <summary>The number of haze steps.</summary>
-    public uint HazeSteps;
+    public uint HazeSteps { get; set; }
     /// <summary>The haze colour.</summary>
-    public uint HazeColor;
+    public uint HazeColor { get; set; }
     /// <summary>The bit set of allowed colours, 256 bits, most significant bit first.</summary>
-    public uint[] AllowedColors = new uint[8];
+    public uint[] AllowedColors { get; set; } = new uint[8];
     /// <summary>The subpalettes.</summary>
-    public List<SubPalette> SubPalettes = new();
+    public List<SubPalette> SubPalettes { get; set; } = [];
     /// <summary>The colour weights, or null.</summary>
-    public float[]? ColorWeights;
+    public float[]? ColorWeights { get; set; }
     /// <summary>The first and last used palette index.</summary>
-    public uint UsedStart, UsedEnd;
+    public uint UsedStart { get; set; }
+    /// <inheritdoc cref="UsedStart"/>
+    public uint UsedEnd { get; set; }
 
     /// <summary>Gets the number of shade steps.</summary>
     public uint ShadeSteps => 1u << (int)ShadeBits;
@@ -66,7 +74,7 @@ public sealed class PaletteBank
     public SubPalette FindSubPalette(uint id)
     {
         if (id != SubPalette.NoId)
-            foreach (SubPalette p in SubPalettes)
+            foreach (var p in SubPalettes)
                 if (p.Id == id)
                     return p;
         return SubPalettes[0];
@@ -88,17 +96,17 @@ public sealed class PaletteBank
         sub ??= SubPalettes[0];
         long Dist(int i)
         {
-            sub.Rgb(i, out byte pr, out byte pg, out byte pb);
+            sub.Rgb(i, out var pr, out var pg, out var pb);
             long dr = pr - r, dg = pg - g, db = pb - b;
-            return dr * dr + dg * dg + db * db;
+            return (dr * dr) + (dg * dg) + (db * db);
         }
-        int best = -1;
-        long bestD = long.MaxValue;
-        for (int i = 0; i < 256; ++i)
+        var best = -1;
+        var bestD = long.MaxValue;
+        for (var i = 0; i < 256; ++i)
         {
             if (!IsAllowed(i))
                 continue;
-            long d = Dist(i);
+            var d = Dist(i);
             if (d < bestD)
             {
                 bestD = d;
@@ -124,16 +132,16 @@ public sealed class PaletteBank
         sp.IndexToGreen = new float[256];
         sp.IndexToBlue = new float[256];
         sp.IndexToAlpha = new float[256];
-        for (int i = 0; i < 256; ++i)
+        for (var i = 0; i < 256; ++i)
         {
             sp.IdentityMap[i] = (byte)i;
             sp.IndexToRed[i] = sp.Colors[i * 4] / 255f;
-            sp.IndexToGreen[i] = sp.Colors[i * 4 + 1] / 255f;
-            sp.IndexToBlue[i] = sp.Colors[i * 4 + 2] / 255f;
+            sp.IndexToGreen[i] = sp.Colors[(i * 4) + 1] / 255f;
+            sp.IndexToBlue[i] = sp.Colors[(i * 4) + 2] / 255f;
             sp.IndexToAlpha[i] = i == 0 ? 0f : 1f;
         }
         var bank = new PaletteBank { HazeSteps = 1 };
-        for (int i = 0; i < 8; ++i)
+        for (var i = 0; i < 8; ++i)
             bank.AllowedColors[i] = 0xFFFFFFFF;
         bank.SubPalettes.Add(sp);
         return bank;
@@ -173,16 +181,16 @@ public sealed class PaletteBank
         // Chunks until `data`; the extra chunks (offl, tran, unde) come after it and are ignored.
         while (true)
         {
-            string tag = c.Tag();
-            uint size = c.U32();
+            var tag = c.Tag();
+            var size = c.U32();
             if (tag != "data")
             {
                 c.Bytes(size);
                 continue;
             }
             // The reader divides the chunk size by 4 and subtracts 1 for the count (2.5).
-            long count = size / 4 - 1;
-            if (count < 0 || count > 256)
+            long count = (size / 4) - 1;
+            if (count is < 0 or > 256)
                 throw new GfxFormatException("bad palette entry count");
             var body = c.Bytes(size);
             c.Need(0);
@@ -215,13 +223,13 @@ public sealed class PaletteBank
     internal static PaletteBank ReadPpl(ref Cursor c)
     {
         c.U32(); // "PL98", not checked by the reader
-        uint n = c.U32();
-        if (n < 1 || n > 16)
+        var n = c.U32();
+        if (n is < 1 or > 16)
             throw new GfxFormatException("subpalette count out of range");
         var bank = new PaletteBank { ShadeBits = c.U32(), HazeSteps = c.U32(), HazeColor = c.U32() };
         if (bank.ShadeBits > 8)
             throw new GfxFormatException("shadeBits out of range");
-        for (int i = 0; i < 8; ++i)
+        for (var i = 0; i < 8; ++i)
             bank.AllowedColors[i] = c.U32();
         for (uint i = 0; i < n; ++i)
         {
@@ -234,15 +242,15 @@ public sealed class PaletteBank
 
         // Map blob. Layout used here (checked on the stock files): first every palette's table in order, then
         // every palette's 0x1100 block (identity bytes + four float maps) for kinds 1, 2, 6, 8.
-        long shadeTable = (long)bank.ShadeSteps * 256 * (bank.HazeSteps + 1);
-        foreach (SubPalette sp in bank.SubPalettes)
+        var shadeTable = (long)bank.ShadeSteps * 256 * (bank.HazeSteps + 1);
+        foreach (var sp in bank.SubPalettes)
         {
             if (sp.Kind == 1)
                 sp.ShadeHazeTable = c.Bytes(shadeTable).ToArray();
             else if (sp.Kind is 2 or 6 or 8)
                 sp.BlendTable = c.Bytes(65536).ToArray();
         }
-        foreach (SubPalette sp in bank.SubPalettes)
+        foreach (var sp in bank.SubPalettes)
         {
             if (sp.Kind is not (1 or 2 or 6 or 8))
                 continue;
@@ -260,7 +268,7 @@ public sealed class PaletteBank
             bank.UsedEnd = c.U32();
         }
         // The kind-0 palettes of a bank carry no maps: derive the float maps used for flat colors.
-        foreach (SubPalette sp in bank.SubPalettes)
+        foreach (var sp in bank.SubPalettes)
             if (sp.IndexToRed == null)
                 FillFloatMaps(sp);
         return bank;
@@ -272,11 +280,11 @@ public sealed class PaletteBank
         sp.IndexToGreen = new float[256];
         sp.IndexToBlue = new float[256];
         sp.IndexToAlpha = new float[256];
-        for (int i = 0; i < 256; ++i)
+        for (var i = 0; i < 256; ++i)
         {
             sp.IndexToRed[i] = sp.Colors[i * 4] / 255f;
-            sp.IndexToGreen[i] = sp.Colors[i * 4 + 1] / 255f;
-            sp.IndexToBlue[i] = sp.Colors[i * 4 + 2] / 255f;
+            sp.IndexToGreen[i] = sp.Colors[(i * 4) + 1] / 255f;
+            sp.IndexToBlue[i] = sp.Colors[(i * 4) + 2] / 255f;
             sp.IndexToAlpha[i] = i == 0 ? 0f : 1f;
         }
     }
@@ -285,7 +293,7 @@ public sealed class PaletteBank
     {
         var f = new float[count];
         var b = c.Bytes(count * 4);
-        for (int i = 0; i < count; ++i)
+        for (var i = 0; i < count; ++i)
             f[i] = BitConverter.ToSingle(b.Slice(i * 4, 4));
         return f;
     }

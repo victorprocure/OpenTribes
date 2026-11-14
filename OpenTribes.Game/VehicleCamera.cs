@@ -1,9 +1,6 @@
-using OpenTribes.Core;
-using OpenTribes.Sim;
-using OpenTribes.World;
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>The third person camera of a vehicle or flier.</summary>
 /// <remarks>Follows Vehicle_getCameraTransform (00445d88, slot 0x170; docs/client-net.md 4.2).</remarks>
@@ -30,11 +27,11 @@ public static class VehicleCamera
             return obj;
         var a = new TMat3 { Flags = n.Flags, M = n.M, P = n.P };
         var b = new TMat3 { Flags = obj.Flags, M = obj.M, P = obj.P };
-        Shape.TmatMul(a, b, out TMat3 w);
+        Shape.TmatMul(a, b, out var w);
         var p = new float[] { w.P[0], w.P[1], w.P[2] };
         ObserverCamera.PlaceBehind(container, exclude, p, w.M[3], w.M[4], w.M[5], Store(Mul(arg, DistanceFactor)));
         var t = new Transform { Flags = w.Flags, M = w.M };
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             t.P[i] = p[i];
         if (arg != 0.0f)
         {

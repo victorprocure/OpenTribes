@@ -1,18 +1,18 @@
 // The server browser's favorite, never ping and refresh behaviour (docs/gui.md 3.3; code 004c51f0, 004c52b4, 004c525c, 004c5054, 004c5320,
 // 004c4e2c, 004c7820, 004c8278, delegate 004d7bb4). Synthetic data only: no window, no game data, no network beyond a queued loopback address.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Client.App;
 using OpenTribes.Gui;
-
-namespace OpenTribes.Tests;
 
 public class ServerListFlagsTests
 {
     private static GuiServerList MakeList()
     {
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        GuiControl scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 44, 106, 552, 309, ("headerY", 23u), ("horizontalPolicy", 2u), ("verticalPolicy", 2u), ("style", 6u));
-        GuiControl content = GuiFixture.Make("SimGui::ScrollContentCtrl", 6, 6, 540, 280);
-        GuiControl list = GuiFixture.Make("FearGui::ServerListCtrl", 0, 0, 817, 159, ("active", (byte)1));
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 44, 106, 552, 309, ("headerY", 23u), ("horizontalPolicy", 2u), ("verticalPolicy", 2u), ("style", 6u));
+        var content = GuiFixture.Make("SimGui::ScrollContentCtrl", 6, 6, 540, 280);
+        var list = GuiFixture.Make("FearGui::ServerListCtrl", 0, 0, 817, 159, ("active", (byte)1));
         root.AddChild(scroll);
         scroll.AddChild(content);
         content.AddChild(list);
@@ -28,22 +28,22 @@ public class ServerListFlagsTests
     [Fact]
     public void ScriptRowShortFormTakesFavoriteAndNoNeverPing() // 004c5320, 0041e470
     {
-        var r = GuiServerList.ParseScriptRow(3, new[] { "addGameServer", "IP:1.2.3.4:5", "N", "1.11", "77", "TRUE" })!;
+        var r = GuiServerList.ParseScriptRow(3, ["addGameServer", "IP:1.2.3.4:5", "N", "1.11", "77", "TRUE"])!;
         Assert.Equal(("IP:1.2.3.4:5", "N", 77), (r.Address, r.Name, r.Ping));
         Assert.True(r.Favorite);
         Assert.False(r.NeverPing);
         Assert.Equal(GuiServerList.StateUnknown, r.State);
-        Assert.False(GuiServerList.ParseScriptRow(3, new[] { "x", "a", "b", "c", "1", "false" })!.Favorite);
-        Assert.False(GuiServerList.ParseScriptRow(3, new[] { "x", "a", "b", "c", "1", "False" })!.Favorite);
+        Assert.False(GuiServerList.ParseScriptRow(3, ["x", "a", "b", "c", "1", "false"])!.Favorite);
+        Assert.False(GuiServerList.ParseScriptRow(3, ["x", "a", "b", "c", "1", "False"])!.Favorite);
     }
 
     [Fact]
     public void ScriptRowSevenAndElevenArgumentForms() // 004c5320
     {
-        var seven = GuiServerList.ParseScriptRow(1, new[] { "x", "a", "b", "c", "1", "FALSE", "TRUE" })!;
+        var seven = GuiServerList.ParseScriptRow(1, ["x", "a", "b", "c", "1", "FALSE", "TRUE"])!;
         Assert.False(seven.Favorite);
         Assert.True(seven.NeverPing);
-        var full = GuiServerList.ParseScriptRow(1, new[] { "x", "a", "b", "c", "1", "TRUE", "base", "Broadside", "CTF", "12", "TRUE" })!;
+        var full = GuiServerList.ParseScriptRow(1, ["x", "a", "b", "c", "1", "TRUE", "base", "Broadside", "CTF", "12", "TRUE"])!;
         Assert.Equal(("base", "Broadside", "CTF", 12), (full.ModList, full.Mission, full.MissionType, full.Cpu));
         Assert.True(full.Favorite && full.NeverPing);
     }
@@ -51,24 +51,24 @@ public class ServerListFlagsTests
     [Fact]
     public void ScriptRowNeedsAllFiveFields()
     {
-        Assert.Null(GuiServerList.ParseScriptRow(1, new[] { "x", "a", "b", "c", "1" }));
-        Assert.Null(GuiServerList.ParseScriptRow(1, new[] { "x", "a", "b", "", "1", "TRUE" }));
+        Assert.Null(GuiServerList.ParseScriptRow(1, ["x", "a", "b", "c", "1"]));
+        Assert.Null(GuiServerList.ParseScriptRow(1, ["x", "a", "b", "", "1", "TRUE"]));
     }
 
     [Fact]
     public void SavedFileHasTheFlagsAndLoadsBack() // 004c4e2c
     {
-        GuiServerList l = MakeList();
-        GuiServerList.Server a = Row(1, fav: true);
+        var l = MakeList();
+        var a = Row(1, fav: true);
         a.ModList = "base";
         a.Mission = "Raindance";
         a.MissionType = "CTF";
         a.Cpu = 9;
         l.AddServer(a);
         l.AddServer(Row(2, never: true));
-        string text = l.BuildServerFile();
+        var text = l.BuildServerFile();
         Assert.StartsWith("//-----------------------------------\n//\n// Database of GAME servers\n//\n//-----------------------------------\n\n", text);
-        string[] lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries).Where(x => x.StartsWith("addGameServer", StringComparison.Ordinal)).ToArray();
+        var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries).Where(x => x.StartsWith("addGameServer", StringComparison.Ordinal)).ToArray();
         Assert.Equal("addGameServer(\"IP:10.0.0.1:28001\", \"S1\", \"1.11\", \"50\", \"TRUE\", \"base\", \"Raindance\", \"CTF\", \"9\", \"FALSE\");", lines[0]);
         Assert.EndsWith("\"FALSE\", \"\", \"\", \"\", \"0\", \"TRUE\");", lines[1]);
     }
@@ -76,7 +76,7 @@ public class ServerListFlagsTests
     [Fact]
     public void FlagsSetByAddressIgnoringCase() // 004c51f0, 004c52b4
     {
-        GuiServerList l = MakeList();
+        var l = MakeList();
         l.AddServer(Row(1));
         l.SetFavorite("ip:10.0.0.1:28001", true);
         l.SetNeverPing("IP:10.0.0.1:28001", true);
@@ -89,16 +89,16 @@ public class ServerListFlagsTests
     [Fact]
     public void EndOfRefreshAllDropsUnansweredRowsButKeepsFlaggedOnes() // 004c7820
     {
-        GuiServerList l = MakeList();
+        var l = MakeList();
         l.AddServer(Row(1));
         l.AddServer(Row(2, fav: true));
         l.AddServer(Row(3, never: true));
         l.AddServer(Row(4, state: GuiServerList.StateInfo));
         l.MarkAllUnknown();
         l.Servers[3].State = GuiServerList.StateInfo;
-        List<GuiServerList.Server> ask = l.EndSearch(false);
-        Assert.Equal(new[] { "S2", "S3", "S4" }, l.Servers.Select(s => s.Name));
-        Assert.Equal(new[] { "S2" }, ask.Select(s => s.Name));
+        var ask = l.EndSearch(false);
+        Assert.Equal(["S2", "S3", "S4"], l.Servers.Select(s => s.Name));
+        Assert.Equal(["S2"], ask.Select(s => s.Name));
         Assert.Equal(GuiServerList.StateQuerying, l.Servers[0].State);
         Assert.Equal(GuiServerList.StateUnknown, l.Servers[1].State);
         Assert.False(l.Requery);
@@ -107,7 +107,7 @@ public class ServerListFlagsTests
     [Fact]
     public void EndOfASecondSearchAsksNobodyAndDropsNothing() // 004c7820 with +0x3b2 cleared by the first
     {
-        GuiServerList l = MakeList();
+        var l = MakeList();
         l.AddServer(Row(1, fav: true));
         l.MarkAllUnknown();
         l.EndSearch(false);
@@ -119,7 +119,7 @@ public class ServerListFlagsTests
     [Fact]
     public void EndKeepsEveryRowAfterAMasterErrorAndAsksThem() // 004c7820, 004d7864
     {
-        GuiServerList l = MakeList();
+        var l = MakeList();
         l.AddServer(Row(1));
         l.AddServer(Row(2));
         l.MarkAllUnknown();
@@ -130,7 +130,7 @@ public class ServerListFlagsTests
     [Fact]
     public void NoRowIsDroppedBeforeAFirstRefreshAll() // 004c702e clears +0x3b1
     {
-        GuiServerList l = MakeList();
+        var l = MakeList();
         l.AddServer(Row(1));
         l.ResetSearchFlags();
         l.Servers[0].State = GuiServerList.StateQuerying;
@@ -142,9 +142,9 @@ public class ServerListFlagsTests
     [Fact]
     public void ReplacingARowByAddressKeepsOneRow() // 004c5320
     {
-        GuiServerList l = MakeList();
+        var l = MakeList();
         l.AddServer(Row(1));
-        GuiServerList.Server n = Row(9, fav: true);
+        var n = Row(9, fav: true);
         n.Name = "New";
         n.Address = "ip:10.0.0.1:28001";
         l.ReplaceServer(l.Find(n.Address)!, n);
@@ -156,58 +156,60 @@ public class ServerListFlagsTests
 
 public sealed class ServerBrowserFlagsTests : IDisposable
 {
-    private readonly string mRoot = Path.Combine(Path.GetTempPath(), "ot-sb-" + Guid.NewGuid().ToString("N"));
-    private ClientApp? mApp;
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "ot-sb-" + Guid.NewGuid().ToString("N"));
+    private ClientApp? _app;
 
     public ServerBrowserFlagsTests()
     {
-        Directory.CreateDirectory(Path.Combine(mRoot, "config"));
-        Directory.CreateDirectory(Path.Combine(mRoot, "temp"));
+        Directory.CreateDirectory(Path.Combine(_root, "config"));
+        Directory.CreateDirectory(Path.Combine(_root, "temp"));
     }
 
     public void Dispose()
     {
-        mApp?.Dispose();
-        try { Directory.Delete(mRoot, true); } catch (IOException) { }
+        _app?.Dispose();
+        try
+        { Directory.Delete(_root, true); }
+        catch (IOException) { }
     }
 
     // A join screen of synthetic controls: the server list (140016) in the content, the delegate of the real client.
     private (ClientApp App, GuiServerList List) Boot()
     {
-        File.WriteAllText(Path.Combine(mRoot, "console.cs"),
+        File.WriteAllText(Path.Combine(_root, "console.cs"),
             "newClient(); focusClient();\n" +
             "newObject(MainWindow, SimGui::Canvas, \"Tribes\", 640, 480, True, \"512 384\", \"1024 768\");\n" +
             "function onConnection(%m) { $conn = %m; }\nfunction Game::EndFrame() {}\n" +
             "$ConsoleWorld::DefaultSearchPath = \"config;base;temp\";\n");
-        ClientOptions opt = ClientOptions.Parse(new[] { "--root", mRoot, "--headless" }, out string err)!;
+        var opt = ClientOptions.Parse(["--root", _root, "--headless"], out var err)!;
         Assert.Equal("", err);
-        mApp = new ClientApp(opt);
-        Assert.True(mApp.Start(out string error), error);
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        GuiControl scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 44, 106, 552, 309, ("headerY", 23u), ("horizontalPolicy", 2u), ("verticalPolicy", 2u), ("style", 6u));
-        GuiControl content = GuiFixture.Make("SimGui::ScrollContentCtrl", 6, 6, 540, 280);
-        GuiControl list = GuiFixture.Make("FearGui::ServerListCtrl", 0, 0, 817, 159, ("active", (byte)1));
-        list.Id = (uint)ClientDelegates.ServerList;
+        _app = new ClientApp(opt);
+        Assert.True(_app.Start(out var error), error);
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 44, 106, 552, 309, ("headerY", 23u), ("horizontalPolicy", 2u), ("verticalPolicy", 2u), ("style", 6u));
+        var content = GuiFixture.Make("SimGui::ScrollContentCtrl", 6, 6, 540, 280);
+        var list = GuiFixture.Make("FearGui::ServerListCtrl", 0, 0, 817, 159, ("active", (byte)1));
+        list.Id = ClientDelegates.ServerList;
         root.AddChild(scroll);
         scroll.AddChild(content);
         content.AddChild(list);
-        mApp.Canvas.SetContent(root, mApp.Canvas.Delegates["JoinGame"]);
-        return (mApp, (GuiServerList)list);
+        _app.Canvas.SetContent(root, _app.Canvas.Delegates["JoinGame"]);
+        return (_app, (GuiServerList)list);
     }
 
     private static GuiControl Box(int id)
     {
-        GuiControl b = GuiFixture.Make("FearGui::FGUniversalButton", 10, 10 + (id - 140044) * 40, 20, 20, ("isSwitch", (byte)1), ("bodyVersion", 3u), ("messageTag", (uint)id));
+        var b = GuiFixture.Make("FearGui::FGUniversalButton", 10, 10 + ((id - 140044) * 40), 20, 20, ("isSwitch", (byte)1), ("bodyVersion", 3u), ("messageTag", (uint)id));
         b.Id = (uint)id;
         return b;
     }
 
     private GuiControl PushInfoDialog()
     {
-        GuiControl dlg = GuiFixture.Make("SimGui::Control", 100, 100, 300, 200);
+        var dlg = GuiFixture.Make("SimGui::Control", 100, 100, 300, 200);
         dlg.AddChild(Box(ServerBrowser.InfoFavoriteBoxId));
         dlg.AddChild(Box(ServerBrowser.InfoNeverPingBoxId));
-        mApp!.Canvas.PushDialog(dlg);
+        _app!.Canvas.PushDialog(dlg);
         return dlg;
     }
 
@@ -303,7 +305,7 @@ public sealed class ServerBrowserFlagsTests : IDisposable
         l.AddServer(new GuiServerList.Server(2, "F", "IP:127.0.0.1:28002", "1.11", 5, true));
         app.Interp.SetVariable("$pref::lanOnly", "TRUE");
         app.Delegates.Browser.QueryServers();
-        Assert.Equal(new[] { "IP:127.0.0.1:28001" }, app.Delegates.Browser.SeenAddresses);
+        Assert.Equal(["IP:127.0.0.1:28001"], app.Delegates.Browser.SeenAddresses);
     }
 
     [Fact]
@@ -314,7 +316,7 @@ public sealed class ServerBrowserFlagsTests : IDisposable
         Assert.Single(l.Servers);
         Assert.True(l.Servers[0].Favorite && l.Servers[0].NeverPing);
         app.Canvas.SetContent(new GuiControl { Name = "Other" });
-        string file = Path.Combine(mRoot, "config", "GameServerList.cs");
+        var file = Path.Combine(_root, "config", "GameServerList.cs");
         Assert.True(File.Exists(file));
         Assert.Contains("addGameServer(\"IP:127.0.0.1:28001\", \"A\", \"1.11\", \"30\", \"TRUE\", \"base\", \"Raindance\", \"CTF\", \"7\", \"TRUE\");\n", File.ReadAllText(file));
     }
@@ -345,7 +347,7 @@ public class MasterMotdTests
     [Fact]
     public void DialogTextIsCutAt1023Characters() // 004d7fbf
     {
-        string text = ServerBrowser.MotdText("M", new string('x', 5000));
+        var text = ServerBrowser.MotdText("M", new string('x', 5000));
         Assert.Equal(1023, text.Length);
         Assert.StartsWith("<f1>Message of the day from: M<f0>\n\nxxx", text);
     }

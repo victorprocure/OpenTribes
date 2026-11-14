@@ -1,42 +1,39 @@
 // Port of src/game/game_connection.hpp and src/game/game_connection.cpp: the GameConnection (docs/game-stream.md): the
 // type-0 data stream of one client. Members in stream order: event manager, PlayerPSC, ghost manager. Also the event
 // builders (docs/game-stream.md 2.5); inventoryCounts of src/game/player.cpp is Player.InventoryCounts.
-using OpenTribes.Core;
-using OpenTribes.Net;
-using OpenTribes.Sim;
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>One event, packed once. The body is copied into every packet that carries it.</summary>
 public sealed class OutEvent
 {
     /// <summary>The class tag (0x400 to 0x47f).</summary>
-    public ushort Tag;
+    public ushort Tag { get; set; }
     /// <summary>True when the event is delivered guaranteed.</summary>
-    public bool Guaranteed = true;
+    public bool Guaranteed { get; set; } = true;
     /// <summary>True when the event is delivered in order.</summary>
-    public bool Ordered = true;
+    public bool Ordered { get; set; } = true;
     /// <summary>The packed body bytes.</summary>
-    public byte[] Body = Array.Empty<byte>();
+    public byte[] Body { get; set; } = [];
     /// <summary>The length of the body in bits.</summary>
-    public uint BodyBits;
+    public uint BodyBits { get; set; }
     /// <summary>The ordered sequence number, assigned when the event is first written.</summary>
-    public int Seq = -1;
+    public int Seq { get; set; } = -1;
 }
 
 /// <summary>Packs an event body bit by bit.</summary>
 public sealed class EventWriter
 {
-    private readonly List<byte> mBuf = new();
-    private uint mBits;
+    private readonly List<byte> _buf = [];
+    private uint _bits;
 
     /// <summary>Returns the packed bytes.</summary>
     /// <returns>The buffer, not a copy.</returns>
-    public List<byte> Bytes() => mBuf;
+    public List<byte> Bytes() => _buf;
     /// <summary>Returns the number of bits written.</summary>
     /// <returns>The bit count.</returns>
-    public uint Bits() => mBits;
+    public uint Bits() => _bits;
 
     /// <summary>Writes a one-bit flag.</summary>
     /// <param name="v">The flag.</param>
@@ -47,12 +44,12 @@ public sealed class EventWriter
     /// <param name="bits">The number of bits.</param>
     public void PutInt(uint v, uint bits)
     {
-        for (uint i = 0; i < bits; ++i, ++mBits)
+        for (uint i = 0; i < bits; ++i, ++_bits)
         {
-            if ((mBits >> 3) >= mBuf.Count)
-                mBuf.Add(0);
+            if ((_bits >> 3) >= _buf.Count)
+                _buf.Add(0);
             if (((v >> (int)i) & 1) != 0)
-                mBuf[(int)(mBits >> 3)] |= (byte)(1u << (int)(mBits & 7));
+                _buf[(int)(_bits >> 3)] |= (byte)(1u << (int)(_bits & 7));
         }
     }
 
@@ -60,8 +57,8 @@ public sealed class EventWriter
     /// <param name="s">The string.</param>
     public void PutString(string s)
     {
-        byte[] tmp = new byte[1024];
-        var bs = new BitStream(tmp, tmp.Length);
+        var tmp = new byte[1024];
+        var bs = new BitBuffer(tmp, tmp.Length);
         bs.WriteString(s);
         PutBits(tmp, bs.BitPosition());
     }
@@ -82,9 +79,9 @@ public sealed class EventWriter
     /// <returns>The event.</returns>
     public OutEvent Finish(ushort tag, bool guaranteed = true, bool ordered = true)
     {
-        var e = new OutEvent { Tag = tag, Guaranteed = guaranteed, Ordered = ordered && guaranteed, Body = mBuf.ToArray(), BodyBits = mBits };
-        mBuf.Clear();
-        mBits = 0;
+        var e = new OutEvent { Tag = tag, Guaranteed = guaranteed, Ordered = ordered && guaranteed, Body = [.. _buf], BodyBits = _bits };
+        _buf.Clear();
+        _bits = 0;
         return e;
     }
 }
@@ -93,52 +90,52 @@ public sealed class EventWriter
 public sealed class CommandMapSlot
 {
     /// <summary>True when both coordinates fit in 11 bits. Otherwise the slot is sent as 0.</summary>
-    public bool InRange;
+    public bool InRange { get; set; }
     /// <summary>The x position, in 1/1023 of the mission area, offset by half the area.</summary>
-    public uint X;
+    public uint X { get; set; }
     /// <summary>The y position, in 1/1023 of the mission area, offset by half the area.</summary>
-    public uint Y;
+    public uint Y { get; set; }
     /// <summary>The object team, 3 bits.</summary>
-    public uint Team;
+    public uint Team { get; set; }
     /// <summary>The first status value of vtable +0x128, 2 bits.</summary>
-    public uint Status;
+    public uint Status { get; set; }
     /// <summary>For clients: the record command status plus 1.</summary>
-    public uint CommandStatus;
+    public uint CommandStatus { get; set; }
     /// <summary>For targets: whether the target can be taken over, as a Turret (vtable +0x148).</summary>
-    public bool Controllable;
+    public bool Controllable { get; set; }
     /// <summary>For targets: the second status value of vtable +0x128.</summary>
-    public bool Active;
+    public bool Active { get; set; }
     /// <summary>The datablock group of the target.</summary>
-    public uint DbGroup;
+    public uint DbGroup { get; set; }
     /// <summary>The datablock index of the target.</summary>
-    public uint DbIndex;
+    public uint DbIndex { get; set; }
     /// <summary>The number of bits of the datablock index.</summary>
-    public uint DbIndexBits;
+    public uint DbIndexBits { get; set; }
 }
 
 /// <summary>What the server PlayerPSC block (docs/game-stream.md 6.3) reads from the game at each write.</summary>
 public sealed class PscInput
 {
     /// <summary>The team of the client (client record +0x14).</summary>
-    public int Team = -1;
+    public int Team { get; set; } = -1;
     /// <summary>The shopping item mask (PSC +0x420).</summary>
-    public readonly uint[] Shopping = new uint[7];
+    public uint[] Shopping { get; } = new uint[7];
     /// <summary>The buying item mask (PSC +0x43c).</summary>
-    public readonly uint[] Buying = new uint[7];
+    public uint[] Buying { get; } = new uint[7];
     /// <summary>The visibility mask: clients 0 to 127, then targets 0 to 127.</summary>
-    public readonly uint[] Visible = new uint[8];
+    public uint[] Visible { get; } = new uint[8];
     /// <summary>The command limit flag (PSC +0x90).</summary>
-    public bool LimitCommand;
+    public bool LimitCommand { get; set; }
     /// <summary>True when the waypoint changed.</summary>
-    public bool WaypointChanged;
+    public bool WaypointChanged { get; set; }
     /// <summary>The waypoint x.</summary>
-    public uint WaypointX;
+    public uint WaypointX { get; set; }
     /// <summary>The waypoint y.</summary>
-    public uint WaypointY;
+    public uint WaypointY { get; set; }
     /// <summary>Fills a command map slot by index. Returning false sends the slot as 0.</summary>
-    public Func<uint, CommandMapSlot, bool>? CommandSlot;
+    public Func<uint, CommandMapSlot, bool>? CommandSlot { get; set; }
     /// <summary>The 200 item counts of the inventory object (PSC +0xa8), or null without one.</summary>
-    public int[]? ItemCounts;
+    public int[]? ItemCounts { get; set; }
 }
 
 /// <summary>The destination prefix of a Sim event.</summary>
@@ -156,9 +153,9 @@ public struct EventDest
         ClientGhost,
     }
     /// <summary>The destination kind.</summary>
-    public KindT Kind;
+    public KindT Kind { get; set; }
     /// <summary>The object id or ghost index.</summary>
-    public uint Value;
+    public uint Value { get; set; }
 }
 
 /// <summary>The server side of one client connection: the event queue, the ghost block and the PlayerPSC block of each packet.</summary>
@@ -169,15 +166,15 @@ public sealed class GameConnection
     public sealed class Hooks
     {
         /// <summary>Runs a remote eval from the client. The name is "remote" plus argv[0], and the arguments start with the client id.</summary>
-        public Action<string, List<string>>? RemoteCall;
+        public Action<string, List<string>>? RemoteCall { get; set; }
         /// <summary>Returns the client's control object (client record +0x94, PSC +0xa4), or null.</summary>
-        public Func<GameBase?>? ControlObject;
+        public Func<GameBase?>? ControlObject { get; set; }
         /// <summary>Fills the inputs of the server PSC block. Called only with a control object.</summary>
-        public Action<PscInput>? PscInputFn;
+        public Action<PscInput>? PscInputFn { get; set; }
         /// <summary>Handles a SimActionEvent (0x40b) from the client at its dispatch (docs/game-stream.md 2.6).</summary>
-        public Action<EventDest>? ActionEvent;
+        public Action<EventDest>? ActionEvent { get; set; }
         /// <summary>Called when a member block of a client packet was invalid ("Invalid packet", Net_invalidPacket 0x00553630).</summary>
-        public Action? InvalidPacket;
+        public Action? InvalidPacket { get; set; }
     }
 
     /// <summary>The calls the stream makes on the connection: state and send. Tests supply fakes.</summary>
@@ -185,74 +182,78 @@ public sealed class GameConnection
     public sealed class Transport
     {
         /// <summary>Returns whether the connection is up.</summary>
-        public Func<bool> Connected = () => false;
+        public Func<bool> Connected { get; set; } = () => false;
         /// <summary>Sends a packet: the buffer, its length in bytes, the time in milliseconds and the cookie. Returns false when it was not sent.</summary>
-        public Func<byte[], int, uint, uint, bool> Send = (_, _, _, _) => false;
+        public Func<byte[], int, uint, uint, bool> Send { get; set; } = (_, _, _, _) => false;
     }
 
     // Deltas one packet carried (PSC record, 6.4).
     private sealed class PscRecord
     {
-        public bool InventoryReset;
-        public readonly uint[] Shopping = new uint[7], Buying = new uint[7], Visible = new uint[8];
-        public readonly List<(byte, short)> Items = new(); // inventory deltas {type, delta}
+        public bool InventoryReset { get; set; }
+        public uint[] Shopping { get; } = new uint[7];
+        public uint[] Buying { get; } = new uint[7];
+        public uint[] Visible { get; } = new uint[8];
+        public List<(byte, short)> Items { get; } = []; // inventory deltas {type, delta}
     }
 
     private sealed class InEvent
     {
-        public bool Action;
-        public EventDest Dest;
-        public List<string> Args = new();
+        public bool Action { get; set; }
+        public ref EventDest Dest => ref _dest;
+        private EventDest _dest;
+        public List<string> Args { get; set; } = [];
     }
 
     private sealed class PacketMark
     {
-        public uint Number;
-        public bool RateSet, RateReq;
+        public uint Number { get; set; }
+        public bool RateSet { get; set; }
+        public bool RateReq { get; set; }
     }
 
-    private const int kMaxMovesPerPacket = 30; // client move buffer (00404c3c)
-    private const uint kItemTypes = 200;
+    private const int MaxMovesPerPacket = 30; // client move buffer (00404c3c)
+    private const uint ItemTypes = 200;
 
-    private readonly int mClientId;
-    private readonly Transport mVc;
-    private readonly Hooks mHooks;
-    private readonly LinkedList<OutEvent> mQueue = new();
-    private readonly Dictionary<uint, List<OutEvent>> mInFlight = new(); // packet cookie -> guaranteed events
-    private readonly Dictionary<uint, uint> mGhostTokens = new();        // packet cookie -> ghost manager packet
-    private readonly Dictionary<uint, PscRecord> mPscRecords = new();    // packet cookie -> PSC deltas
-    private readonly uint[] mHasShopping = new uint[7], mHasBuying = new uint[7]; // what the client holds (+0x458, +0x474)
-    private readonly uint[] mHasVisible = new uint[8];                   // +0x490
-    private readonly int[] mHasItems = new int[kItemTypes];              // +0xac: item counts the client holds
-    private uint mCommandCursor = 0xf8;                                  // +0x3ec: -8 in the ctor
-    private readonly GhostManager mGhosts;
-    private uint mNextCookie = 1;
-    private int mNextSeq;          // ordered send counter (+0x60)
-    private readonly bool[] mSeqInFlight = new bool[128];
-    private int mLowSeq;           // window low mark (+0x68)
-    private int mMaxSeq;           // highest sequence written (+0x6c)
-    private int mExpectedSeq;      // ordered receive (+0x64)
-    private readonly SortedDictionary<int, InEvent> mPendingRecv = new();
-    private uint mLastSend;
-    private uint mIntervalMs = 100, mPacketBytes = 200; // active rate (+0x9bc, +0x9c0)
-    private bool mRateSetDirty;    // +0x9c4
-    private bool mRateReqDirty;    // +0x9d0
-    private uint mPacketCount = 1, mDeliveredNo; // +0x9b4, +0x9b8
-    private readonly Dictionary<uint, PacketMark> mMarks = new();
-    private bool mInvalid;
+    private readonly int _clientId;
+    private readonly Transport _vc;
+    private readonly Hooks _hooks;
+    private readonly LinkedList<OutEvent> _queue = new();
+    private readonly Dictionary<uint, List<OutEvent>> _inFlight = []; // packet cookie -> guaranteed events
+    private readonly Dictionary<uint, uint> _ghostTokens = [];        // packet cookie -> ghost manager packet
+    private readonly Dictionary<uint, PscRecord> _pscRecords = [];    // packet cookie -> PSC deltas
+    private readonly uint[] _hasShopping = new uint[7], _hasBuying = new uint[7]; // what the client holds (+0x458, +0x474)
+    private readonly uint[] _hasVisible = new uint[8];                   // +0x490
+    private readonly int[] _hasItems = new int[ItemTypes];              // +0xac: item counts the client holds
+    private uint _commandCursor = 0xf8;                                  // +0x3ec: -8 in the ctor
+    private readonly GhostManager _ghosts;
+    private uint _nextCookie = 1;
+    private int _nextSeq;          // ordered send counter (+0x60)
+    private readonly bool[] _seqInFlight = new bool[128];
+    private int _lowSeq;           // window low mark (+0x68)
+    private int _maxSeq;           // highest sequence written (+0x6c)
+    private int _expectedSeq;      // ordered receive (+0x64)
+    private readonly SortedDictionary<int, InEvent> _pendingRecv = [];
+    private uint _lastSend;
+    private uint _intervalMs = 100, _packetBytes = 200; // active rate (+0x9bc, +0x9c0)
+    private bool _rateSetDirty;    // +0x9c4
+    private bool _rateReqDirty;    // +0x9d0
+    private uint _packetCount = 1, _deliveredNo; // +0x9b4, +0x9b8
+    private readonly Dictionary<uint, PacketMark> _marks = [];
+    private bool _invalid;
 
     /// <summary>The GUI mode of the PlayerPSC state (docs/game-stream.md 6.3).</summary>
-    public uint GuiMode;
+    public uint GuiMode { get; set; }
     /// <summary>The PlayerPSC flag at +0x6a.</summary>
-    public bool Flag6a;
+    public bool Flag6a { get; set; }
     /// <summary>The number of moves received. The last move is <c>MoveCount - 1</c>.</summary>
-    public int MoveCount;
+    public int MoveCount { get; set; }
     /// <summary>True when the inventory is sent again (+0x3dc). It is sent once and re-armed when the packet is lost (docs/game-stream.md 6.4).</summary>
-    public bool InventoryReset;
+    public bool InventoryReset { get; set; }
     /// <summary>The server's own packet interval in milliseconds (1000 / <c>$pref::PacketRate</c>, +0x9c8).</summary>
-    public uint OwnIntervalMs = 100;
+    public uint OwnIntervalMs { get; set; } = 100;
     /// <summary>The server's own packet size in bytes (<c>$pref::PacketSize</c>, +0x9cc).</summary>
-    public uint OwnPacketBytes = 200;
+    public uint OwnPacketBytes { get; set; } = 200;
 
     /// <summary>Creates a connection over a stream connection.</summary>
     /// <param name="clientId">The client id.</param>
@@ -273,27 +274,27 @@ public sealed class GameConnection
     /// <param name="hooks">The callbacks into the game.</param>
     public GameConnection(int clientId, Transport vc, Hooks hooks)
     {
-        mClientId = clientId;
-        mVc = vc;
-        mHooks = hooks;
-        mGhosts = new GhostManager(clientId);
+        _clientId = clientId;
+        _vc = vc;
+        _hooks = hooks;
+        _ghosts = new GhostManager(clientId);
     }
 
     /// <summary>Returns the client id.</summary>
     /// <returns>The client id.</returns>
-    public int ClientId() => mClientId;
+    public int ClientId() => _clientId;
     /// <summary>Returns the number of queued events.</summary>
     /// <returns>The queue length.</returns>
-    public int Queued() => mQueue.Count;
+    public int Queued() => _queue.Count;
     /// <summary>Tells whether the connection received an invalid packet.</summary>
     /// <returns>True after an invalid packet.</returns>
-    public bool Invalid() => mInvalid;
+    public bool Invalid() => _invalid;
     /// <summary>Returns the ghost manager of the connection.</summary>
     /// <returns>The ghost manager.</returns>
-    public GhostManager Ghosts() => mGhosts;
+    public GhostManager Ghosts() => _ghosts;
     /// <summary>Returns the visibility mask the client holds (+0x490).</summary>
     /// <returns>The mask words.</returns>
-    public uint[] ClientVisible() => mHasVisible;
+    public uint[] ClientVisible() => _hasVisible;
 
     /// <summary>Sets the server's own packet rate. The rateReq section is marked dirty when the values change.</summary>
     /// <param name="intervalMs">The packet interval in milliseconds.</param>
@@ -306,7 +307,7 @@ public sealed class GameConnection
         {
             OwnIntervalMs = intervalMs;
             OwnPacketBytes = bytes;
-            mRateReqDirty = true;
+            _rateReqDirty = true;
         }
     }
 
@@ -316,22 +317,22 @@ public sealed class GameConnection
     public void Post(OutEvent e)
     {
         if (e.Ordered)
-            e.Seq = mNextSeq++;
-        mQueue.AddLast(e);
+            e.Seq = _nextSeq++;
+        _queue.AddLast(e);
     }
 
     // src/game/game_connection.cpp GameConnection::writeEvents.
-    private bool WriteEvents(BitStream bs, List<OutEvent> sent)
+    private bool WriteEvents(BitBuffer bs, List<OutEvent> sent)
     {
-        bool any = false;
-        int prev = -4; // first ordered event of a packet carries its sequence
-        while (mQueue.Count != 0 && bs.BitPosition() <= mPacketBytes * 8)
+        var any = false;
+        var prev = -4; // first ordered event of a packet carries its sequence
+        while (_queue.Count != 0 && bs.BitPosition() <= _packetBytes * 8)
         {
-            OutEvent e = mQueue.First!.Value;
+            var e = _queue.First!.Value;
             // Low mark: first sequence still in flight, at most the highest written (0x00551c04).
-            while (!mSeqInFlight[mLowSeq & 127] && mLowSeq < mMaxSeq)
-                ++mLowSeq;
-            if (e.Ordered && e.Seq > mLowSeq + 126)
+            while (!_seqInFlight[_lowSeq & 127] && _lowSeq < _maxSeq)
+                ++_lowSeq;
+            if (e.Ordered && e.Seq > _lowSeq + 126)
                 break; // window full: 127 sequences in flight
             bs.WriteFlag(true);
             bs.WriteFlag(e.Guaranteed);
@@ -339,7 +340,7 @@ public sealed class GameConnection
             {
                 if (e.Ordered)
                 {
-                    bool next = e.Seq == prev + 1;
+                    var next = e.Seq == prev + 1;
                     bs.WriteFlag(next);
                     if (!next)
                     {
@@ -347,9 +348,9 @@ public sealed class GameConnection
                         bs.WriteInt((uint)(e.Seq & 127), 7);
                     }
                     prev = e.Seq;
-                    mSeqInFlight[e.Seq & 127] = true;
-                    if (e.Seq > mMaxSeq)
-                        mMaxSeq = e.Seq;
+                    _seqInFlight[e.Seq & 127] = true;
+                    if (e.Seq > _maxSeq)
+                        _maxSeq = e.Seq;
                 }
                 else
                 {
@@ -363,7 +364,7 @@ public sealed class GameConnection
             any = true;
             if (e.Guaranteed)
                 sent.Add(e);
-            mQueue.RemoveFirst();
+            _queue.RemoveFirst();
         }
         bs.WriteFlag(false);
         return any;
@@ -371,35 +372,35 @@ public sealed class GameConnection
 
     // src/game/game_connection.cpp GameConnection::writePsc: server PlayerPSC block (0040507c server branch). True when a
     // record was filled, which is whenever a control object exists.
-    private bool WritePsc(BitStream bs, PscRecord rec)
+    private bool WritePsc(BitBuffer bs, PscRecord rec)
     {
-        GameBase? control = mHooks.ControlObject?.Invoke();
+        var control = _hooks.ControlObject?.Invoke();
         bs.WriteInt(GuiMode, 3);
         bs.WriteFlag(Flag6a);
         bs.WriteInt(unchecked((uint)MoveCount - 1u), 32);
         if (!bs.WriteFlag(control != null))
             return false;
         var input = new PscInput();
-        mHooks.PscInputFn?.Invoke(input);
+        _hooks.PscInputFn?.Invoke(input);
         // The control object becomes the ghost scope object (00553048).
-        mGhosts.SetScopeObject(control);
-        double flash = Mul(control!.DamageFlash(), 255.0);
-        bs.WriteInt(flash >= 0 && flash < 4294967296.0 ? (uint)flash : 0u, 8);
-        int ghost = mGhosts.GhostIndex(control);
-        uint index = ghost < 0 ? 0x3ffu : (uint)ghost;
+        _ghosts.SetScopeObject(control);
+        var flash = Mul(control!.DamageFlash(), 255.0);
+        bs.WriteInt(flash is >= 0 and < 4294967296.0 ? (uint)flash : 0u, 8);
+        var ghost = _ghosts.GhostIndex(control);
+        var index = ghost < 0 ? 0x3ffu : (uint)ghost;
         bs.WriteInt(index, 10);
         if (index != 0x3ff)
-            control.WriteControlState(bs, new ControlContext { Ghosts = mGhosts });
+            control.WriteControlState(bs, new ControlContext { Ghosts = _ghosts });
         rec.InventoryReset = InventoryReset;
         if (GuiMode == 4)
         {
             // Inventory mode: XOR of the item masks against what the client holds.
             for (uint i = 0; i < 7; ++i)
             {
-                rec.Shopping[i] = input.Shopping[i] ^ mHasShopping[i];
-                rec.Buying[i] = input.Buying[i] ^ mHasBuying[i];
-                mHasShopping[i] = input.Shopping[i];
-                mHasBuying[i] = input.Buying[i];
+                rec.Shopping[i] = input.Shopping[i] ^ _hasShopping[i];
+                rec.Buying[i] = input.Buying[i] ^ _hasBuying[i];
+                _hasShopping[i] = input.Shopping[i];
+                _hasBuying[i] = input.Buying[i];
                 if (rec.Shopping[i] == 0 && rec.Buying[i] == 0)
                     continue;
                 bs.WriteFlag(true);
@@ -414,18 +415,18 @@ public sealed class GameConnection
         if (bs.WriteFlag(InventoryReset))
         {
             InventoryReset = false;
-            Array.Clear(mHasItems);
+            Array.Clear(_hasItems);
         }
         // Item count deltas of the inventory object (PSC +0xa8) against what the client holds (player-sim 7.1).
         if (input.ItemCounts != null)
-            for (uint t = 0; t < kItemTypes; ++t)
+            for (uint t = 0; t < ItemTypes; ++t)
             {
-                long delta = (long)input.ItemCounts[t] - mHasItems[t];
+                var delta = (long)input.ItemCounts[t] - _hasItems[t];
                 if (delta == 0)
                     continue;
                 // sint(10): a larger change goes out over several packets.
                 delta = Math.Max(-512, Math.Min(511, delta));
-                mHasItems[t] += (int)delta;
+                _hasItems[t] += (int)delta;
                 rec.Items.Add(((byte)t, (short)delta));
                 bs.WriteFlag(true);
                 bs.WriteInt(t, 8);
@@ -435,16 +436,16 @@ public sealed class GameConnection
         if (GuiMode == 2)
         {
             // Command map: rows of 8 slots from a cursor that advances over all 256 slots.
-            uint first = (mCommandCursor + 8) & 0xff;
-            mCommandCursor = first;
+            var first = (_commandCursor + 8) & 0xff;
+            _commandCursor = first;
             bs.WriteInt(first, 8);
-            uint start = bs.BitPosition();
+            var start = bs.BitPosition();
             do
             {
                 bs.WriteFlag(true);
                 for (uint k = 0; k < 8; ++k)
                 {
-                    uint slot = mCommandCursor + k; // the cursor is a multiple of 8: no wrap inside a row
+                    var slot = _commandCursor + k; // the cursor is a multiple of 8: no wrap inside a row
                     var s = new CommandMapSlot();
                     // One flag: no object, not visible and out of range are all 0.
                     if (!bs.WriteFlag(input.CommandSlot != null && input.CommandSlot(slot, s) && s.InRange))
@@ -465,9 +466,9 @@ public sealed class GameConnection
                     bs.WriteInt(s.DbGroup, 6);
                     bs.WriteInt(s.DbIndex, s.DbIndexBits);
                 }
-                mCommandCursor = (mCommandCursor + 8) & 0xff;
-            } while ((!input.LimitCommand || bs.BitPosition() <= start + 400) && mCommandCursor != first &&
-                     bs.BitPosition() <= mPacketBytes * 8);
+                _commandCursor = (_commandCursor + 8) & 0xff;
+            } while ((!input.LimitCommand || bs.BitPosition() <= start + 400) && _commandCursor != first &&
+                     bs.BitPosition() <= _packetBytes * 8);
             bs.WriteFlag(false);
         }
         else if (GuiMode == 1)
@@ -481,8 +482,8 @@ public sealed class GameConnection
             }
             for (uint i = 0; i < 8; ++i)
             {
-                rec.Visible[i] = input.Visible[i] ^ mHasVisible[i];
-                mHasVisible[i] ^= rec.Visible[i];
+                rec.Visible[i] = input.Visible[i] ^ _hasVisible[i];
+                _hasVisible[i] ^= rec.Visible[i];
                 if (rec.Visible[i] == 0)
                     continue;
                 bs.WriteFlag(true);
@@ -500,15 +501,15 @@ public sealed class GameConnection
     {
         if (rec.InventoryReset)
             InventoryReset = true;
-        for (int i = 0; i < 7; ++i)
+        for (var i = 0; i < 7; ++i)
         {
-            mHasShopping[i] ^= rec.Shopping[i];
-            mHasBuying[i] ^= rec.Buying[i];
+            _hasShopping[i] ^= rec.Shopping[i];
+            _hasBuying[i] ^= rec.Buying[i];
         }
-        for (int i = 0; i < 8; ++i)
-            mHasVisible[i] ^= rec.Visible[i];
-        foreach ((byte type, short delta) in rec.Items)
-            mHasItems[type] -= delta;
+        for (var i = 0; i < 8; ++i)
+            _hasVisible[i] ^= rec.Visible[i];
+        foreach ((var type, var delta) in rec.Items)
+            _hasItems[type] -= delta;
     }
 
     /// <summary>Writes a packet when the send interval has passed.</summary>
@@ -517,29 +518,29 @@ public sealed class GameConnection
     {
         // Pacing (0x00550d2c): the interval since the last packet, and 1000 / interval below the packets written since
         // the last delivered one. An interval of 0 (a client rateSet) divides by zero in the original; it is read as 1.
-        if (!mVc.Connected() || unchecked(nowMs - mLastSend) < mIntervalMs ||
-            1000u / Math.Max(mIntervalMs, 1u) < unchecked(mPacketCount - mDeliveredNo))
+        if (!_vc.Connected() || unchecked(nowMs - _lastSend) < _intervalMs ||
+            1000u / Math.Max(_intervalMs, 1u) < unchecked(_packetCount - _deliveredNo))
             return;
-        byte[] buf = new byte[Connection.kMaxPacket - 32];
-        var bs = new BitStream(buf, buf.Length);
-        bool rateSetWas = mRateSetDirty, rateReqWas = mRateReqDirty;
-        if (bs.WriteFlag(mRateSetDirty))
+        var buf = new byte[Connection.MaxPacket - 32];
+        var bs = new BitBuffer(buf, buf.Length);
+        bool rateSetWas = _rateSetDirty, rateReqWas = _rateReqDirty;
+        if (bs.WriteFlag(_rateSetDirty))
         {
             // rateSet: the negotiated interval and size (1.1)
-            bs.WriteInt(mIntervalMs, 10);
-            bs.WriteInt(mPacketBytes, 10);
-            mRateSetDirty = false;
+            bs.WriteInt(_intervalMs, 10);
+            bs.WriteInt(_packetBytes, 10);
+            _rateSetDirty = false;
         }
-        var mark = new PacketMark { Number = mPacketCount, RateSet = rateSetWas, RateReq = rateReqWas };
-        if (bs.WriteFlag(mRateReqDirty))
+        var mark = new PacketMark { Number = _packetCount, RateSet = rateSetWas, RateReq = rateReqWas };
+        if (bs.WriteFlag(_rateReqDirty))
         {
             // rateReq: the server's own interval and size (+0x9c8, +0x9cc)
             bs.WriteInt(OwnIntervalMs, 10);
             bs.WriteInt(OwnPacketBytes, 10);
-            mRateReqDirty = false;
+            _rateReqDirty = false;
         }
         var sent = new List<OutEvent>();
-        uint flagPos = bs.BitPosition();
+        var flagPos = bs.BitPosition();
         bs.WriteFlag(true);
         if (!WriteEvents(bs, sent))
         {
@@ -549,36 +550,36 @@ public sealed class GameConnection
         }
         bs.WriteFlag(true);
         var pscRecord = new PscRecord();
-        bool hasPscRecord = WritePsc(bs, pscRecord);
+        var hasPscRecord = WritePsc(bs, pscRecord);
         flagPos = bs.BitPosition();
         bs.WriteFlag(true);
-        if (!mGhosts.WritePacket(bs, mPacketBytes * 8, out uint ghostToken))
+        if (!_ghosts.WritePacket(bs, _packetBytes * 8, out var ghostToken))
         {
             bs.SetBitPosition(flagPos);
             bs.WriteFlag(false);
         }
-        uint cookie = mNextCookie++;
-        if (!mVc.Send(buf, bs.BytePosition(), nowMs, cookie))
+        var cookie = _nextCookie++;
+        if (!_vc.Send(buf, bs.BytePosition(), nowMs, cookie))
         {
-            for (int i = sent.Count - 1; i >= 0; --i)
-                mQueue.AddFirst(sent[i]);
+            for (var i = sent.Count - 1; i >= 0; --i)
+                _queue.AddFirst(sent[i]);
             if (ghostToken != 0)
-                mGhosts.Notify(ghostToken, false);
+                _ghosts.Notify(ghostToken, false);
             if (hasPscRecord)
                 PscDropped(pscRecord);
-            mRateSetDirty |= rateSetWas;
-            mRateReqDirty |= rateReqWas;
+            _rateSetDirty |= rateSetWas;
+            _rateReqDirty |= rateReqWas;
             return;
         }
-        ++mPacketCount;
-        mMarks[cookie] = mark;
+        ++_packetCount;
+        _marks[cookie] = mark;
         if (hasPscRecord)
-            mPscRecords[cookie] = pscRecord;
+            _pscRecords[cookie] = pscRecord;
         if (sent.Count != 0)
-            mInFlight[cookie] = sent;
+            _inFlight[cookie] = sent;
         if (ghostToken != 0)
-            mGhostTokens[cookie] = ghostToken;
-        mLastSend = nowMs;
+            _ghostTokens[cookie] = ghostToken;
+        _lastSend = nowMs;
     }
 
     /// <summary>Reports whether a packet was delivered.</summary>
@@ -588,45 +589,45 @@ public sealed class GameConnection
     // carried; a delivered one moves the watermark.
     public void Notify(uint cookie, bool delivered)
     {
-        if (mMarks.TryGetValue(cookie, out PacketMark? mk))
+        if (_marks.TryGetValue(cookie, out var mk))
         {
             if (delivered)
             {
-                mDeliveredNo = mk.Number;
+                _deliveredNo = mk.Number;
             }
             else
             {
-                mRateSetDirty |= mk.RateSet;
-                mRateReqDirty |= mk.RateReq;
+                _rateSetDirty |= mk.RateSet;
+                _rateReqDirty |= mk.RateReq;
             }
-            mMarks.Remove(cookie);
+            _marks.Remove(cookie);
         }
-        if (mGhostTokens.TryGetValue(cookie, out uint g))
+        if (_ghostTokens.TryGetValue(cookie, out var g))
         {
-            mGhosts.Notify(g, delivered);
-            mGhostTokens.Remove(cookie);
+            _ghosts.Notify(g, delivered);
+            _ghostTokens.Remove(cookie);
         }
-        if (mPscRecords.TryGetValue(cookie, out PscRecord? p))
+        if (_pscRecords.TryGetValue(cookie, out var p))
         {
             if (!delivered)
                 PscDropped(p);
-            mPscRecords.Remove(cookie);
+            _pscRecords.Remove(cookie);
         }
-        if (!mInFlight.TryGetValue(cookie, out List<OutEvent>? events))
+        if (!_inFlight.TryGetValue(cookie, out var events))
             return;
         if (delivered)
         {
-            foreach (OutEvent e in events)
+            foreach (var e in events)
                 if (e.Ordered)
-                    mSeqInFlight[e.Seq & 127] = false;
+                    _seqInFlight[e.Seq & 127] = false;
         }
         else
         {
             // Lost: requeue at the head in original order with original sequences.
-            for (int i = events.Count - 1; i >= 0; --i)
-                mQueue.AddFirst(events[i]);
+            for (var i = events.Count - 1; i >= 0; --i)
+                _queue.AddFirst(events[i]);
         }
-        mInFlight.Remove(cookie);
+        _inFlight.Remove(cookie);
     }
 
     // ---- receive ----
@@ -636,24 +637,24 @@ public sealed class GameConnection
     {
         if (e.Action)
         {
-            mHooks.ActionEvent?.Invoke(e.Dest);
+            _hooks.ActionEvent?.Invoke(e.Dest);
             return;
         }
-        mHooks.RemoteCall?.Invoke(e.Args[0], e.Args.GetRange(1, e.Args.Count - 1));
+        _hooks.RemoteCall?.Invoke(e.Args[0], e.Args.GetRange(1, e.Args.Count - 1));
     }
 
     // src/game/game_connection.cpp GameConnection::readConsoleEvent: SimConsoleEvent unpack (0x00510118): argv[0] =
     // "remote" + string 0 (read even when argc is 0), argv[1] = the source id, then strings 1..argc-1 while the argv
     // text, each string with its NUL, stays within 0x1ff bytes. The string that crosses the limit is dropped and the rest
     // are not read.
-    private List<string> ReadConsoleEvent(BitStream bs)
+    private List<string> ReadConsoleEvent(BitBuffer bs)
     {
-        int argc = (int)bs.ReadInt(5);
-        var args = new List<string> { "remote" + bs.ReadString(), mClientId.ToString(System.Globalization.CultureInfo.InvariantCulture) };
-        int used = args[0].Length + args[1].Length + 2;
-        for (int i = 0; i < argc - 1; ++i)
+        var argc = (int)bs.ReadInt(5);
+        var args = new List<string> { "remote" + bs.ReadString(), _clientId.ToString(System.Globalization.CultureInfo.InvariantCulture) };
+        var used = args[0].Length + args[1].Length + 2;
+        for (var i = 0; i < argc - 1; ++i)
         {
-            string s = bs.ReadString();
+            var s = bs.ReadString();
             used += s.Length + 1;
             if (used > 0x1ff)
                 break;
@@ -665,13 +666,13 @@ public sealed class GameConnection
     // src/game/game_connection.cpp GameConnection::readEvents: event manager read (0x00551ef8). False on "Invalid
     // packet": the rest of the packet is ignored. A server reads two classes (docs/game-stream.md 2.6): SimConsoleEvent
     // 0x408 and SimActionEvent 0x40b.
-    private bool ReadEvents(BitStream bs)
+    private bool ReadEvents(BitBuffer bs)
     {
-        int prev = -4;
+        var prev = -4;
         while (bs.ReadFlag())
         {
-            bool guaranteed = bs.ReadFlag();
-            int seq = -2; // dispatched at once: unguaranteed or guaranteed unordered
+            var guaranteed = bs.ReadFlag();
+            var seq = -2; // dispatched at once: unguaranteed or guaranteed unordered
             if (guaranteed)
             {
                 if (bs.ReadFlag())
@@ -680,7 +681,7 @@ public sealed class GameConnection
                     seq = (int)bs.ReadInt(7);
                 prev = seq;
             }
-            uint tag = bs.ReadInt(7) + 0x400;
+            var tag = bs.ReadInt(7) + 0x400;
             var e = new InEvent();
             if (tag == 0x408)
             {
@@ -714,11 +715,11 @@ public sealed class GameConnection
                 continue;
             }
             // Ordered: dispatch in sequence; others wait, keyed by sequence, until their turn.
-            mPendingRecv[seq] = e;
-            while (mPendingRecv.TryGetValue(mExpectedSeq, out InEvent? next))
+            _pendingRecv[seq] = e;
+            while (_pendingRecv.TryGetValue(_expectedSeq, out var next))
             {
-                mPendingRecv.Remove(mExpectedSeq);
-                mExpectedSeq = (mExpectedSeq + 1) & 127;
+                _pendingRecv.Remove(_expectedSeq);
+                _expectedSeq = (_expectedSeq + 1) & 127;
                 Dispatch(next);
             }
         }
@@ -727,19 +728,18 @@ public sealed class GameConnection
 
     // src/game/game_connection.cpp GameConnection::readPsc: client PlayerPSC block (00405ec8 server branch): fov, first
     // move index, moves. Moves the server already has are skipped; the rest go to the control object in one call.
-    private bool ReadPsc(BitStream bs)
+    private bool ReadPsc(BitBuffer bs)
     {
-        GameBase? control = mHooks.ControlObject?.Invoke();
-        uint fov = bs.ReadInt(8);
-        if (control != null) // unit(8) of fov / 135 degrees, stored in radians (+0x22c)
-            control.Fov = Store(Mul(Mul(Div(Div(fov, 255.0), 180.0), 3.141592653589793), 135.0));
+        var control = _hooks.ControlObject?.Invoke();
+        var fov = bs.ReadInt(8);
+        control?.Fov = Store(Mul(Mul(Div(Div(fov, 255.0), 180.0), 3.141592653589793), 135.0));
         // The index is client data: 32-bit wrap like the original's subtraction, never overflow.
-        int skip = unchecked((int)((uint)MoveCount - bs.ReadInt(32)));
+        var skip = unchecked((int)((uint)MoveCount - bs.ReadInt(32)));
         if (skip < 0)
             return false; // "Invalid packet.": the packet starts after the next expected move
         var moves = new List<Move>();
         var m = new Move();
-        bool havePrev = false;
+        var havePrev = false;
         while (!bs.Error() && bs.ReadFlag())
         {
             Moves.UnpackMove(bs, ref m, true, havePrev);
@@ -753,19 +753,19 @@ public sealed class GameConnection
             }
             // A client buffers 30 moves (6.2); more new moves in one packet are read and dropped uncounted, so the
             // client resends them (D13).
-            if (moves.Count >= kMaxMovesPerPacket)
+            if (moves.Count >= MaxMovesPerPacket)
                 continue;
             moves.Add(m);
             MoveCount = unchecked((int)((uint)MoveCount + 1u));
         }
         if (control != null && moves.Count != 0)
-            control.ApplyMoves(moves.ToArray(), moves.Count);
+            control.ApplyMoves([.. moves], moves.Count);
         return true;
     }
 
     // src/game/game_connection.cpp GameConnection::readGhostBlock: GhostManager read on the server (0x00552cc8): the
     // always flag and the id width are read, then any entry is "Invalid packet" because a server accepts no ghosts.
-    private static bool ReadGhostBlock(BitStream bs)
+    private static bool ReadGhostBlock(BitBuffer bs)
     {
         bs.ReadFlag();
         bs.ReadInt(3);
@@ -778,44 +778,44 @@ public sealed class GameConnection
         if (Environment.GetEnvironmentVariable("OT_LOG_INVALID") != null)
         {
             var sb = new System.Text.StringBuilder("invalid packet (" + stage + "), " + data.Length + " bytes:");
-            foreach (byte b in data)
+            foreach (var b in data)
                 sb.Append(' ').Append(b.ToString("x2", System.Globalization.CultureInfo.InvariantCulture));
-            System.Console.Error.WriteLine(sb.ToString());
+            Console.Error.WriteLine(sb.ToString());
         }
-        mInvalid = true;
-        mHooks.InvalidPacket?.Invoke();
+        _invalid = true;
+        _hooks.InvalidPacket?.Invoke();
     }
 
     /// <summary>Reads a client packet.</summary>
     /// <param name="data">The packet data.</param>
     public void Receive(ReadOnlySpan<byte> data)
     {
-        if (mInvalid)
+        if (_invalid)
             return;
-        byte[] copy = data.ToArray();
-        var bs = new BitStream(copy, copy.Length);
+        var copy = data.ToArray();
+        var bs = new BitBuffer(copy, copy.Length);
         if (bs.ReadFlag())
         {
             // rateSet (0x005509a4): the peer's interval and size become the active ones.
-            uint interval = bs.ReadInt(10);
-            uint bytes = bs.ReadInt(10);
+            var interval = bs.ReadInt(10);
+            var bytes = bs.ReadInt(10);
             if (!bs.Error())
             {
-                mIntervalMs = interval;
-                mPacketBytes = bytes;
+                _intervalMs = interval;
+                _packetBytes = bytes;
             }
         }
         if (bs.ReadFlag())
         {
             // rateReq (docs/game-stream.md 1.3): interval = max(request, own), size = min(request, own); a change is
             // answered with rateSet in the next packet.
-            uint interval = Math.Max(bs.ReadInt(10), OwnIntervalMs);
-            uint bytes = Math.Min(bs.ReadInt(10), OwnPacketBytes);
-            if (!bs.Error() && (interval != mIntervalMs || bytes != mPacketBytes))
+            var interval = Math.Max(bs.ReadInt(10), OwnIntervalMs);
+            var bytes = Math.Min(bs.ReadInt(10), OwnPacketBytes);
+            if (!bs.Error() && (interval != _intervalMs || bytes != _packetBytes))
             {
-                mIntervalMs = interval;
-                mPacketBytes = bytes;
-                mRateSetDirty = true;
+                _intervalMs = interval;
+                _packetBytes = bytes;
+                _rateSetDirty = true;
             }
         }
         // The members in the order of the original's list (0x005509a4): after each one an error text stops the loop, and
@@ -860,7 +860,7 @@ public static class GameEvents
     {
         var w = new EventWriter();
         w.PutInt((uint)argv.Count, 5);
-        foreach (string s in argv)
+        foreach (var s in argv)
             w.PutString(s);
         return w.Finish(0x408);
     }
@@ -958,7 +958,7 @@ public static class GameEvents
     public static List<OutEvent> MakeTargetNameEvents(IReadOnlyList<string> names)
     {
         var output = new List<OutEvent>();
-        for (int i = 0; i < names.Count; ++i)
+        for (var i = 0; i < names.Count; ++i)
             if (names[i].Length != 0)
                 output.Add(MakeTargetName((uint)i, names[i]));
         return output;

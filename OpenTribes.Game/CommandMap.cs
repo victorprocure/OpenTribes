@@ -1,18 +1,18 @@
 // Port of src/game/command_map.hpp and src/game/command_map.cpp: commander commands and positional sound events
 // (docs/script.md 6.8, docs/player-manager.md 10): issueCommand, issueCommandI, issueTargCommand, setCommandStatus,
 // remoteSelectCommander, playSound, GameBase::playSound and playVoice.
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>Routes sounds to clients: what the network layer adds to the command map.</summary>
 /// <remarks>Both hooks are optional. Without a network no sound reaches anyone.</remarks>
 public static class SoundRoute
 {
     /// <summary>Returns the ghost index of an object on a client's connection, or -1 when it is not ghosted.</summary>
-    public static Func<int, SimObject, int>? GhostIndex;
+    public static Func<int, SimObject, int>? GhostIndex { get; set; }
     /// <summary>Returns the scope object of a client. The default is the control object.</summary>
-    public static Func<int, SimObject?>? ScopeObject;
+    public static Func<int, SimObject?>? ScopeObject { get; set; }
 }
 
 /// <summary>The command map events and script commands.</summary>
@@ -21,16 +21,16 @@ public static class CommandMap
     // src/game/command_map.cpp putUnit: BitStream::writeFloat (0x00582fb0) into an event.
     private static void PutUnit(EventWriter w, float v, uint bits)
     {
-        double x = Mul((double)(int)((1u << (int)bits) - 1), v);
-        long i = double.IsFinite(x) && Math.Abs(x) < 2147483648.0 ? (long)Math.Truncate(x) : 0;
+        var x = Mul((int)((1u << (int)bits) - 1), v);
+        var i = double.IsFinite(x) && Math.Abs(x) < 2147483648.0 ? (long)Math.Truncate(x) : 0;
         w.PutInt((uint)i & ((1u << (int)bits) - 1), bits);
     }
 
     // src/game/command_map.cpp putSignedUnit: BitStream::writeSignedFloat (0x00583018) into an event.
     private static void PutSignedUnit(EventWriter w, float v, uint bits)
     {
-        double x = Mul(Mul(Add(v, 1.0f), 0.5f), (double)(int)((1u << (int)bits) - 1));
-        long i = double.IsFinite(x) && Math.Abs(x) < 2147483648.0 ? (long)Math.Truncate(x) : 0;
+        var x = Mul(Mul(Add(v, 1.0f), 0.5f), (int)((1u << (int)bits) - 1));
+        var i = double.IsFinite(x) && Math.Abs(x) < 2147483648.0 ? (long)Math.Truncate(x) : 0;
         w.PutInt((uint)i & ((1u << (int)bits) - 1), bits);
     }
 
@@ -64,17 +64,17 @@ public static class CommandMap
         maxDist = range = 0;
         if (game.Sim == null)
             return false;
-        DataBlockManager db = game.Sim.DataBlocks();
-        DataBlockManager.Block? sound = db.Find(name);
+        var db = game.Sim.DataBlocks();
+        var sound = db.Find(name);
         if (sound == null || sound.Group != 1)
             return false;
         index = sound.Index;
-        if (!db.GetField(sound, "profile", "", out string profileName) || profileName.Length == 0)
+        if (!db.GetField(sound, "profile", "", out var profileName) || profileName.Length == 0)
             return false;
-        DataBlockManager.Block? profile = db.Find(profileName);
+        var profile = db.Find(profileName);
         if (profile == null || profile.Group != 0)
             return false;
-        if (!db.GetField(profile, "minDistance", "", out string mn) || !db.GetField(profile, "maxDistance", "", out string mx))
+        if (!db.GetField(profile, "minDistance", "", out var mn) || !db.GetField(profile, "maxDistance", "", out var mx))
             return false;
         float lo = Store(Numbers.BorlandAtof(mn)), hi = Store(Numbers.BorlandAtof(mx));
         maxDist = hi;
@@ -85,13 +85,13 @@ public static class CommandMap
     // src/game/command_map.cpp issueCommand: 0x0040c828.
     private static void IssueCommand(GameState game, Interpreter interp, int issuer, int commanded, int icon, string text, int[] pair, int target)
     {
-        PlayerManager pm = game.Players;
+        var pm = game.Players;
         if (game.Sim?.Server() == null)
             return; // isServer
-        if (target < -1 || target > 255)
+        if (target is < (-1) or > 255)
             return;
-        ClientRecord? issuerRec = pm.FindHuman(issuer);
-        ClientRecord? cmd = pm.Find(commanded);
+        var issuerRec = pm.FindHuman(issuer);
+        var cmd = pm.Find(commanded);
         ++pm.CommandCounter();
         if (issuer != 0)
         {
@@ -101,8 +101,8 @@ public static class CommandMap
         if (issuer != commanded && issuer != 0)
         {
             // 0x0040cad4: is the issuer on the commander chain above the commanded client?
-            bool above = false;
-            for (ClientRecord? r = cmd; r != null;)
+            var above = false;
+            for (var r = cmd; r != null;)
             {
                 if (r.Commander == issuer)
                 {
@@ -135,26 +135,26 @@ public static class CommandMap
                 return;
             // AI::onCommand(name, issuer, icon, "x y", target, text, status, stamp) as a script call.
             string[] args =
-            {
+            [
                 cmd.Name, Numbers.FormatInt(cmd.CommandIssuer), Numbers.FormatInt(cmd.CommandIcon),
                 Numbers.FormatInt(cmd.WaypointX) + " " + Numbers.FormatInt(cmd.WaypointY), Numbers.FormatInt(cmd.CommandTarget),
                 cmd.CommandText ?? "(null)", Numbers.FormatInt(cmd.CommandStatus), Numbers.FormatInt((int)cmd.CommandStamp),
-            };
+            ];
             interp.CallFunction("AI::onCommand", args);
         }
         if (issuerRec == null)
             return; // issuer 0: the original dereferences null in the delivery loop (D11)
-        foreach (int id in pm.Humans())
+        foreach (var id in pm.Humans())
         {
-            ClientRecord? h = pm.Find(id);
+            var h = pm.Find(id);
             if (h == null)
                 continue;
             if (h.GuiMirror == 2)
                 h.CommandMark = pm.CommandCounter();
             if (h.Team != issuerRec.Team || !(h.GuiMirror == 2 || h == cmd))
                 continue;
-            string? send = (h.Id == commanded || h.Id == issuer) ? cmd.CommandText : null;
-            bool isNew = send != null && !ReferenceEquals(h.LastCommandText, send);
+            var send = (h.Id == commanded || h.Id == issuer) ? cmd.CommandText : null;
+            var isNew = send != null && !ReferenceEquals(h.LastCommandText, send);
             if (isNew)
                 h.LastCommandText = send;
             pm.SendEvent(h.Id, MakeCommandEvent(commanded, issuer, cmd.CommandStatus, false, cmd.CommandIcon, cmd.CommandTarget,
@@ -165,27 +165,27 @@ public static class CommandMap
     // src/game/command_map.cpp selectCommander: 0x0040cb50 remoteSelectCommander.
     private static void SelectCommander(GameState game, int client, int commander)
     {
-        PlayerManager pm = game.Players;
+        var pm = game.Players;
         if (game.Sim?.Server() == null)
             return;
         // 0x0040b46c: a commander that is not a human in the list is dropped first.
-        for (int id = 2048; id < 2048 + 128; ++id)
+        for (var id = 2048; id < 2048 + 128; ++id)
             if (pm.Find(id) is ClientRecord r && (r.Commander == 0 || pm.FindHuman(r.Commander) == null))
                 r.Commander = -1;
         if (commander == client)
             return;
-        ClientRecord? rec = pm.Find(client);
-        ClientRecord? cmdr = commander >= 0 ? pm.FindHuman(commander) : null;
+        var rec = pm.Find(client);
+        var cmdr = commander >= 0 ? pm.FindHuman(commander) : null;
         if (rec == null)
             return;
         if (cmdr != null && cmdr.Team != rec.Team)
             return;
         if (cmdr == rec)
             return;
-        ClientRecord? current = pm.FindHuman(rec.Commander);
+        var current = pm.FindHuman(rec.Commander);
         if (cmdr == current)
             return;
-        int old = rec.Commander;
+        var old = rec.Commander;
         // 0x0040cb0c: no cycle through the new commander's chain.
         if (cmdr == null)
         {
@@ -193,7 +193,7 @@ public static class CommandMap
         }
         else
         {
-            ClientRecord? r = cmdr;
+            var r = cmdr;
             while (r != null && rec.Id != r.Commander)
                 r = pm.FindHuman(r.Commander);
             if (r == null)
@@ -201,17 +201,17 @@ public static class CommandMap
         }
         if (rec.Commander == old)
             return;
-        foreach (int id in pm.Humans())
+        foreach (var id in pm.Humans())
             pm.SendEvent(id, MakeSelectCommanderEvent(client, commander));
     }
 
     // src/game/command_map.cpp setCommandStatus: 0x0040cbf0.
     private static bool SetCommandStatus(GameState game, int client, int status, string text)
     {
-        PlayerManager pm = game.Players;
+        var pm = game.Players;
         if (game.Sim?.Server() == null)
             return false;
-        ClientRecord? rec = pm.FindHuman(client);
+        var rec = pm.FindHuman(client);
         if (rec == null)
             return false;
         ++pm.CommandCounter();
@@ -219,23 +219,23 @@ public static class CommandMap
             return false;
         rec.CommandStamp = pm.CommandCounter();
         rec.CommandStatus = status != 0 ? 2 : 0;
-        int oldIssuer = rec.CommandIssuer;
+        var oldIssuer = rec.CommandIssuer;
         if (status == 0)
         {
             rec.CommandIcon = -1;
             rec.CommandIssuer = -1;
         }
-        foreach (int id in pm.Humans())
+        foreach (var id in pm.Humans())
         {
-            ClientRecord? h = pm.Find(id);
+            var h = pm.Find(id);
             if (h == null)
                 continue;
             if (h.GuiMirror == 2)
                 h.CommandMark = pm.CommandCounter();
             if (h.Team != rec.Team || !(h.GuiMirror == 2 || h == rec))
                 continue;
-            string? send = (h == rec || h.Id == oldIssuer) ? text : null;
-            bool isNew = false;
+            var send = (h == rec || h.Id == oldIssuer) ? text : null;
+            var isNew = false;
             if (send != null && !ReferenceEquals(h.LastCommandText, send))
             {
                 isNew = true;
@@ -345,13 +345,13 @@ public static class CommandMap
     {
         var w = new EventWriter();
         w.PutInt((uint)(sound + 1), 8);
-        bool far = dist > 0.05;
+        var far = dist > 0.05;
         w.PutFlag(far);
         if (far)
         {
-            float inv = Store(Div(1.0, dist));
+            var inv = Store(Div(1.0, dist));
             Span<float> v = stackalloc float[3];
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 v[i] = Store(Mul(inv, delta[i]));
             PutSignedUnit(w, v[0], 8);
             PutSignedUnit(w, v[1], 8);
@@ -371,13 +371,13 @@ public static class CommandMap
         {
             if (a.Length != 7)
                 return "False";
-            float[] area = new float[4];
+            var area = new float[4];
             game.Players.MissionArea(area);
-            int[] pair = new int[2];
-            for (int i = 0; i < 2; ++i)
+            var pair = new int[2];
+            for (var i = 0; i < 2; ++i)
             {
                 // (coordinate - origin) * 1023 / extent, truncated by the float to int helper.
-                double v = Div(Mul(Sub(Store(Numbers.BorlandAtof(a[5 + i])), area[i]), 1023.0f), area[2 + i]);
+                var v = Div(Mul(Sub(Store(Numbers.BorlandAtof(a[5 + i])), area[i]), 1023.0f), area[2 + i]);
                 pair[i] = Numbers.FloatToInt(v);
             }
             IssueCommand(game, inr, Numbers.BorlandAtoi(a[1]), Numbers.BorlandAtoi(a[2]), Numbers.BorlandAtoi(a[3]), InternText(a[4]), pair, -1);
@@ -387,7 +387,7 @@ public static class CommandMap
         {
             if (a.Length != 7)
                 return "False";
-            int[] pair = { Numbers.BorlandAtoi(a[5]), Numbers.BorlandAtoi(a[6]) };
+            int[] pair = [Numbers.BorlandAtoi(a[5]), Numbers.BorlandAtoi(a[6])];
             IssueCommand(game, inr, Numbers.BorlandAtoi(a[1]), Numbers.BorlandAtoi(a[2]), Numbers.BorlandAtoi(a[3]), InternText(a[4]), pair, -1);
             return "False";
         });
@@ -395,7 +395,7 @@ public static class CommandMap
         {
             if (a.Length != 6)
                 return "False";
-            int[] pair = { 0, 0 };
+            int[] pair = [0, 0];
             IssueCommand(game, inr, Numbers.BorlandAtoi(a[1]), Numbers.BorlandAtoi(a[2]), Numbers.BorlandAtoi(a[3]), InternText(a[4]), pair,
                          Numbers.BorlandAtoi(a[5]));
             return "False";
@@ -423,22 +423,21 @@ public static class CommandMap
         {
             if (game.Sim?.Server() == null || a.Length != 3)
                 return "False";
-            int speaker = Numbers.BorlandAtoi(a[1]);
-            ClientRecord? rec = game.Players.FindHuman(speaker);
+            var speaker = Numbers.BorlandAtoi(a[1]);
+            var rec = game.Players.FindHuman(speaker);
             if (rec == null || rec.OwnedObject == 0)
                 return "True";
-            GameBase? owned = ServerObject(game, rec.OwnedObject) as GameBase;
-            DataBlockManager.Block? profile = game.Sim.DataBlocks().At(0, 0);
-            if (owned == null || profile == null || !game.Sim.DataBlocks().GetField(profile, "maxDistance", "", out string mx))
+            var profile = game.Sim.DataBlocks().At(0, 0);
+            if (ServerObject(game, rec.OwnedObject) is not GameBase owned || profile == null || !game.Sim.DataBlocks().GetField(profile, "maxDistance", "", out var mx))
                 return "True";
-            float maxDist = Store(Numbers.BorlandAtof(mx));
-            float[] d = new float[3];
-            foreach (int id in game.Players.Humans())
+            var maxDist = Store(Numbers.BorlandAtof(mx));
+            var d = new float[3];
+            foreach (var id in game.Players.Humans())
             {
-                GameBase? scope = ScopeOf(game, id);
+                var scope = ScopeOf(game, id);
                 if (scope == null)
                     continue;
-                for (int i = 0; i < 3; ++i)
+                for (var i = 0; i < 3; ++i)
                     d[i] = Store(Sub(scope.Transform.P[i], owned.Transform.P[i]));
                 if (Distance3(d) < maxDist)
                     game.Players.SendEvent(id, MakeVoiceEvent(speaker, a[2]));
@@ -451,19 +450,19 @@ public static class CommandMap
         {
             if (game.Sim?.Server() == null || a.Length != 3)
                 return "False";
-            if (!SoundProfile(game, a[1], out int index, out float maxDist, out float range))
+            if (!SoundProfile(game, a[1], out var index, out var maxDist, out var range))
                 return "False";
-            float[] pos = { 0, 0, 0 };
+            float[] pos = [0, 0, 0];
             CScan.Floats(a[2], pos);
-            float[] d = new float[3];
-            foreach (int id in game.Players.Humans())
+            var d = new float[3];
+            foreach (var id in game.Players.Humans())
             {
-                GameBase? scope = ScopeOf(game, id);
+                var scope = ScopeOf(game, id);
                 if (scope == null)
                     continue;
-                for (int i = 0; i < 3; ++i)
+                for (var i = 0; i < 3; ++i)
                     d[i] = Store(Sub(scope.Transform.P[i], pos[i]));
-                float dist = Distance3(d);
+                var dist = Distance3(d);
                 if (dist < range)
                     game.Players.SendEvent(id, MakeLocSoundEvent(index, d, dist, maxDist));
             }
@@ -476,20 +475,20 @@ public static class CommandMap
         {
             if (game.Sim?.Server() == null || a.Length != 4)
                 return "False";
-            GameBase? gb = game.Players.FindServerObject(a[1]);
+            var gb = game.Players.FindServerObject(a[1]);
             if (gb == null)
                 return "False";
-            if (!SoundProfile(game, a[2], out int index, out _, out float range))
+            if (!SoundProfile(game, a[2], out var index, out _, out var range))
                 return "False";
-            int channel = Numbers.BorlandAtoi(a[3]);
-            float[] d = new float[3];
-            foreach (int id in game.Players.Humans())
+            var channel = Numbers.BorlandAtoi(a[3]);
+            var d = new float[3];
+            foreach (var id in game.Players.Humans())
             {
-                int ghost = SoundRoute.GhostIndex != null ? SoundRoute.GhostIndex(id, gb) : -1;
-                GameBase? scope = ScopeOf(game, id);
+                var ghost = SoundRoute.GhostIndex != null ? SoundRoute.GhostIndex(id, gb) : -1;
+                var scope = ScopeOf(game, id);
                 if (ghost < 0 || scope == null)
                     continue;
-                for (int i = 0; i < 3; ++i)
+                for (var i = 0; i < 3; ++i)
                     d[i] = Store(Sub(scope.Transform.P[i], gb.Transform.P[i]));
                 if (Distance3(d) < range)
                     game.Players.SendEvent(id, MakeSoundEvent(ghost, channel, index));

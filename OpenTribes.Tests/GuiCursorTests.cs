@@ -1,15 +1,15 @@
 // The cursor tag of the hovered control (docs/gui.md 2.6; code 0049f1cc, 004958bc, 004b65e0, 004cd838, 004c2c70, 004c6888): synthetic controls only (R5).
+namespace OpenTribes.Tests;
+
 using OpenTribes.Gui;
 using OpenTribes.Platform.Gfx;
-
-namespace OpenTribes.Tests;
 
 public class GuiCursorTests
 {
     private static GuiControl Root(params GuiControl[] kids)
     {
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        foreach (GuiControl k in kids)
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        foreach (var k in kids)
             root.AddChild(k);
         return root;
     }
@@ -17,7 +17,7 @@ public class GuiCursorTests
     [Fact]
     public void AnActiveButtonShowsTheHandAnInactiveOneNothing()
     {
-        GuiControl b = GuiFixture.Make("FearGui::FGUniversalButton", 10, 10, 60, 20, ("active", (byte)1));
+        var b = GuiFixture.Make("FearGui::FGUniversalButton", 10, 10, 60, 20, ("active", (byte)1));
         Assert.Equal(GuiControl.CursorHand, b.CursorTagAt(5, 5));
         ((GuiActive)b).Active = false;
         Assert.Equal(0u, b.CursorTagAt(5, 5));
@@ -27,10 +27,7 @@ public class GuiCursorTests
     [InlineData("FearGui::FGMenuItem")]
     [InlineData("FearGui::FGTab")]
     [InlineData("FearGui::FGStandardComboBox")]
-    public void MenuItemsTabsAndCombosAlwaysShowTheHand(string cls)
-    {
-        Assert.Equal(GuiControl.CursorHand, GuiFixture.Make(cls).CursorTagAt(1, 1));
-    }
+    public void MenuItemsTabsAndCombosAlwaysShowTheHand(string cls) => Assert.Equal(GuiControl.CursorHand, GuiFixture.Make(cls).CursorTagAt(1, 1));
 
     [Fact]
     public void TextEditsOfTheIrcAndTheTestEditShowTheTextCursor()
@@ -41,16 +38,13 @@ public class GuiCursorTests
     }
 
     [Fact]
-    public void ThePlainControlKeepsTheDefault()
-    {
-        Assert.Equal(0u, GuiFixture.Make("SimGui::Control").CursorTagAt(1, 1));
-    }
+    public void ThePlainControlKeepsTheDefault() => Assert.Equal(0u, GuiFixture.Make("SimGui::Control").CursorTagAt(1, 1));
 
     [Fact]
     public void TheCanvasTakesTheTagOfTheHoveredControlAndLetsGoOnLeaving()
     {
         var fx = new GuiFixture();
-        GuiControl b = GuiFixture.Make("FearGui::FGUniversalButton", 100, 100, 60, 20, ("active", (byte)1));
+        var b = GuiFixture.Make("FearGui::FGUniversalButton", 100, 100, 60, 20, ("active", (byte)1));
         fx.Content(Root(b));
         fx.Move(110, 110);
         fx.Frame();
@@ -63,9 +57,9 @@ public class GuiCursorTests
     [Fact]
     public void ARowOfTheServerListShowsTheHandAndAHeaderBorderTheAdjustCursor()
     {
-        GuiControl scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 44, 106, 552, 309, ("headerY", 23u), ("horizontalPolicy", 2u), ("verticalPolicy", 2u), ("style", 6u));
-        GuiControl content = GuiFixture.Make("SimGui::ScrollContentCtrl", 6, 6, 540, 280);
-        GuiControl list = GuiFixture.Make("FearGui::ServerListCtrl", 0, 0, 817, 159, ("active", (byte)1));
+        var scroll = GuiFixture.Make("FearGui::FearGuiScrollCtrl", 44, 106, 552, 309, ("headerY", 23u), ("horizontalPolicy", 2u), ("verticalPolicy", 2u), ("style", 6u));
+        var content = GuiFixture.Make("SimGui::ScrollContentCtrl", 6, 6, 540, 280);
+        var list = GuiFixture.Make("FearGui::ServerListCtrl", 0, 0, 817, 159, ("active", (byte)1));
         scroll.AddChild(content);
         content.AddChild(list);
         var fx = new GuiFixture();
@@ -83,11 +77,11 @@ public class GuiHelpTests
     {
         var fx = new GuiFixture();
         fx.Interp.Evaluate("IDHELP_T = 00220700, \"-1,Hello <f1>world<f0>\";");
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        GuiControl b = GuiFixture.Make("FearGui::FGUniversalButton", 100, 100, 60, 20, ("active", (byte)1));
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var b = GuiFixture.Make("FearGui::FGUniversalButton", 100, 100, 60, 20, ("active", (byte)1));
         b.HelpTag = 220700;
         root.AddChild(b);
-        fx.Content(root, new GuiDelegate { Name = "T", HelpPopups = popups });
+        fx.Content(root, new GuiScreenResponder { Name = "T", HelpPopups = popups });
         return (fx, b);
     }
 

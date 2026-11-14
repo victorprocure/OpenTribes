@@ -1,26 +1,26 @@
 // Port of tests/test_net_server.cpp: NetServer unit tests, connectionless queries and connect request checks
 // (docs/net-protocol.md 5 and 6, docs/lasthope-1.30.md 2.1 and 2.2). No socket is opened: datagrams go in through
 // NetServer.Receive and out through the send seam.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Core;
 using OpenTribes.Net;
 using OpenTribes.Server;
-
-namespace OpenTribes.Tests;
 
 public class NetServerTests
 {
     private sealed class Harness
     {
-        public readonly NetServer Server;
-        public readonly List<(Address to, byte[] data)> Sent = new();
-        public readonly List<string> Log = new();
-        public uint NextId = 0x1000; // client connection ids; low bit varies
+        public NetServer Server { get; }
+        public List<(Address to, byte[] data)> Sent { get; } = [];
+        public List<string> Log { get; } = [];
+        public uint NextId { get; set; } = 0x1000; // client connection ids; low bit varies
 
         public Harness(ServerConfig cfg)
         {
             Server = new NetServer(cfg);
             Server.SetSendFunction((to, d) => Sent.Add((to, d.ToArray())));
-            Server.SetLog(line => Log.Add(line));
+            Server.SetLog(Log.Add);
         }
 
         public byte[] Query(Address from, byte[] req)
@@ -28,33 +28,39 @@ public class NetServerTests
             Sent.Clear();
             Server.Receive(from, req, 0);
             Assert.True(Sent.Count <= 1);
-            return Sent.Count == 0 ? Array.Empty<byte>() : Sent[0].data;
+            return Sent.Count == 0 ? [] : Sent[0].data;
         }
     }
 
     private sealed class Request
     {
-        public ushort PacketVersion = 1;
-        public string Game = "Tribes", Version = "1.11", Password = "", Name = "Player", Gender = "Male", Voice = "male1",
-                      Skin = "base";
+        public ushort PacketVersion { get; set; } = 1;
+        public string Game { get; set; } = "Tribes";
+        public string Version { get; set; } = "1.11";
+        public string Password { get; set; } = "";
+        public string Name { get; set; } = "Player";
+        public string Gender { get; set; } = "Male";
+        public string Voice { get; set; } = "male1";
+        public string Skin { get; set; } = "base";
     }
 
     private static byte[] RequestPayload(Request r)
     {
         var buf = new byte[1500];
-        var bs = new BitStream(buf, buf.Length);
-        bs.WriteBytes(new[] { (byte)r.PacketVersion, (byte)(r.PacketVersion >> 8) });
-        foreach (string s in new[] { r.Game, r.Version, r.Password, r.Name, r.Gender, r.Voice, r.Skin })
+        var bs = new BitBuffer(buf, buf.Length);
+        bs.WriteBytes([(byte)r.PacketVersion, (byte)(r.PacketVersion >> 8)]);
+        foreach (var s in new[] { r.Game, r.Version, r.Password, r.Name, r.Gender, r.Voice, r.Skin })
             bs.WriteString(s);
         return buf.AsSpan(0, bs.BytePosition()).ToArray();
     }
 
     private sealed class Reply
     {
-        public bool Accepted;
-        public string Reason = ""; // reject text without the NUL
-        public uint PlayerId, ManagerId;
-        public uint ConnectionId;
+        public bool Accepted { get; set; }
+        public string Reason { get; set; } = ""; // reject text without the NUL
+        public uint PlayerId { get; set; }
+        public uint ManagerId { get; set; }
+        public uint ConnectionId { get; set; }
     }
 
     private static Address Client(uint n) => new(0x0a000000u + n, (ushort)(2000 + n));
@@ -67,18 +73,18 @@ public class NetServerTests
         p.Seq = 1;
         p.Type = 3;
         p.Payload = RequestPayload(r);
-        byte[] d = VcPacket.Build(p);
+        var d = VcPacket.Build(p);
         h.Sent.Clear();
         h.Server.Receive(from, d, now);
         Assert.Single(h.Sent);
-        VcPacket output = VcPacket.Parse(h.Sent[0].data);
+        var output = VcPacket.Parse(h.Sent[0].data);
         Assert.True(output.HasId && output.Id == p.Id && output.Seq == 1);
         var rep = new Reply { ConnectionId = p.Id };
         if (output.Type == 0x0c)
         {
             rep.Accepted = true;
             Assert.Equal(8, output.Payload.Length);
-            var input = new BitStream(output.Payload, 8);
+            var input = new BitBuffer(output.Payload, 8);
             rep.PlayerId = input.ReadInt(32);
             rep.ManagerId = input.ReadInt(32);
         }
@@ -111,17 +117,17 @@ public class NetServerTests
         return v;
     }
 
-    private const string kStockUpgrade =
+    private const string StockUpgrade =
         "You must upgrade your executable to play on this server (requires version 1.11 or higher).  " +
         "Check www.tribesplayers.com for the most recent patches.";
-    private const string kLastHopeUpgrade =
+    private const string LastHopeUpgrade =
         "You must upgrade your executable to play on this server (requires version 1.30). " +
         "Check www.lasthope.us for the most recent patches.";
 
     [Fact]
     public void TestNetServer()
     {
-        int cases = 0;
+        var cases = 0;
         var cfg = new ServerConfig { Hostname = "Host", MaxPlayers = "8" };
 
         // 6.1: 0x60 ping reply, byte stream with length-prefixed strings (4.2).
@@ -131,16 +137,16 @@ public class NetServerTests
             want.AddRange(Str("Tribes"));
             want.AddRange(Str("1.11"));
             want.AddRange(Str("Host"));
-            want.AddRange(new byte[] { 1, 0, 0, 8 });
-            Assert.Equal(want.ToArray(), h.Query(Client(1), new byte[] { 0x60, 0xaa, 0xbb }));
+            want.AddRange([1, 0, 0, 8]);
+            Assert.Equal([.. want], h.Query(Client(1), [0x60, 0xaa, 0xbb]));
             // Any length is answered.
-            Assert.Equal(0x61, h.Query(Client(1), new byte[] { 0x60, 0xaa, 0xbb, 0x00, 0x01 })[0]);
+            Assert.Equal(0x61, h.Query(Client(1), [0x60, 0xaa, 0xbb, 0x00, 0x01])[0]);
             ++cases;
         }
 
         // 6.1: hostname clipped to 32, password flag, LastHope version string (lasthope L1).
         {
-            ServerConfig c = cfg.Clone();
+            var c = cfg.Clone();
             c.Hostname = new string('h', 40);
             c.Password = "pw";
             c.LastHope = true;
@@ -149,8 +155,8 @@ public class NetServerTests
             want.AddRange(Str("Tribes"));
             want.AddRange(Str("1.30"));
             want.AddRange(Str(new string('h', 32)));
-            want.AddRange(new byte[] { 1, 1, 0, 8 });
-            Assert.Equal(want.ToArray(), h.Query(Client(1), new byte[] { 0x60, 1, 2 }));
+            want.AddRange([1, 1, 0, 8]);
+            Assert.Equal([.. want], h.Query(Client(1), [0x60, 1, 2]));
             ++cases;
         }
 
@@ -158,9 +164,9 @@ public class NetServerTests
         // teams and per-player rows (ping/4, loss*100, team, name).
         {
             var h = new Harness(cfg);
-            Assert.Empty(h.Query(Client(1), new byte[] { 0x62, 1, 2, 3 }));
-            Assert.Empty(h.Query(Client(1), new byte[] { 0x62, 1 }));
-            Reply r = Connect(h, Client(5), new Request());
+            Assert.Empty(h.Query(Client(1), [0x62, 1, 2, 3]));
+            Assert.Empty(h.Query(Client(1), [0x62, 1]));
+            var r = Connect(h, Client(5), new Request());
             Assert.True(r.Accepted);
             h.Server.SetGameInfo(() => new GameInfo
             {
@@ -181,40 +187,40 @@ public class NetServerTests
             want.AddRange(Str("Tribes"));
             want.AddRange(Str("1.11"));
             want.AddRange(Str("Live"));
-            want.AddRange(new byte[] { 0, 0, 1, 16, 0x34, 0x12 });
+            want.AddRange([0, 0, 1, 16, 0x34, 0x12]);
             want.AddRange(Str("base"));
             want.AddRange(Str("Capture "));
             want.AddRange(Str("Raindance"));
             want.AddRange(Str("info"));
-            want.AddRange(new byte[] { 2 });
+            want.AddRange([2]);
             want.AddRange(Str("TH"));
             want.AddRange(Str("CH"));
             want.AddRange(Str("Blood Eagle"));
             want.AddRange(Str("0"));
             want.AddRange(Str("Diamond Sword"));
             want.AddRange(Str("1"));
-            want.AddRange(new byte[] { 0, 0, 0xff }); // no client record yet: ping 0, loss 0, no team
+            want.AddRange([0, 0, 0xff]); // no client record yet: ping 0, loss 0, no team
             want.AddRange(Str("Player"));
             want.AddRange(Str(""));
-            Assert.Equal(want.ToArray(), h.Query(Client(1), new byte[] { 0x62, 7, 9 }));
+            Assert.Equal([.. want], h.Query(Client(1), [0x62, 7, 9]));
             ++cases;
         }
 
         // 6.2: 0x10 type 3 ping, 40-byte reply with the packet version (1 for "1.11" and "1.30").
-        foreach (bool lastHope in new[] { false, true })
+        foreach (var lastHope in new[] { false, true })
         {
-            ServerConfig c = cfg.Clone();
+            var c = cfg.Clone();
             c.LastHope = lastHope;
             c.Hostname = new string('x', 35);
             var h = new Harness(c);
-            byte[] reply = h.Query(Client(1), new byte[] { 0x10, 0x03, 0xff, 0x00, 0x34, 0x12, 0x00, 0x00 });
+            var reply = h.Query(Client(1), [0x10, 0x03, 0xff, 0x00, 0x34, 0x12, 0x00, 0x00]);
             var want = new List<byte> { 0x10, 0x04, 0xff, 0xf0, 0x34, 0x12, 0x20, 0x00, 0x01, 0x00 };
             want.AddRange(Enumerable.Repeat((byte)'x', 29));
             want.Add(0);
-            Assert.Equal(want.ToArray(), reply);
+            Assert.Equal([.. want], reply);
             // A request cut before the key is answered with key 0 (docs/server-ops.md 2.2).
             want[4] = want[5] = 0;
-            Assert.Equal(want.ToArray(), h.Query(Client(1), new byte[] { 0x10, 0x03, 0xff, 0x00 }));
+            Assert.Equal([.. want], h.Query(Client(1), [0x10, 0x03, 0xff, 0x00]));
             ++cases;
         }
 
@@ -237,9 +243,9 @@ public class NetServerTests
         {
             var h = new Harness(cfg);
             Reply Version(string v, uint n) => Connect(h, Client(n), new Request { Version = v });
-            Assert.Equal(kStockUpgrade, Version("1.10", 1).Reason);
-            Assert.Equal(kStockUpgrade, Version("1.9", 2).Reason);
-            Assert.Equal(kStockUpgrade, Version("111", 3).Reason); // no dot: minor 0
+            Assert.Equal(StockUpgrade, Version("1.10", 1).Reason);
+            Assert.Equal(StockUpgrade, Version("1.9", 2).Reason);
+            Assert.Equal(StockUpgrade, Version("111", 3).Reason); // no dot: minor 0
             Assert.True(Version("1.11", 4).Accepted);
             Assert.True(Version("1.119", 5).Accepted); // "11" only
             Assert.True(Version("9.30", 6).Accepted);  // major ignored
@@ -249,13 +255,13 @@ public class NetServerTests
 
         // lasthope 2.1 L1: threshold 30 and the 1.30 upgrade text.
         {
-            ServerConfig c = cfg.Clone();
+            var c = cfg.Clone();
             c.LastHope = true;
             var h = new Harness(c);
             var r = new Request();
-            Assert.Equal(kLastHopeUpgrade, Connect(h, Client(1), r).Reason);
+            Assert.Equal(LastHopeUpgrade, Connect(h, Client(1), r).Reason);
             r.Version = "1.29";
-            Assert.Equal(kLastHopeUpgrade, Connect(h, Client(2), r).Reason);
+            Assert.Equal(LastHopeUpgrade, Connect(h, Client(2), r).Reason);
             r.Version = "1.30";
             Assert.True(Connect(h, Client(3), r).Accepted);
             ++cases;
@@ -263,7 +269,7 @@ public class NetServerTests
 
         // 5.2 step 6: a non-empty server password must match exactly.
         {
-            ServerConfig c = cfg.Clone();
+            var c = cfg.Clone();
             c.Password = "pw";
             var h = new Harness(c);
             var r = new Request();
@@ -282,12 +288,12 @@ public class NetServerTests
         {
             int Capacity(string max)
             {
-                ServerConfig c = cfg.Clone();
+                var c = cfg.Clone();
                 c.MaxPlayers = max;
                 var h = new Harness(c);
                 for (uint n = 1; n <= 200; ++n)
                 {
-                    Reply r = Connect(h, Client(n), new Request());
+                    var r = Connect(h, Client(n), new Request());
                     if (!r.Accepted)
                     {
                         Assert.Equal("Server is full.", r.Reason);
@@ -310,7 +316,7 @@ public class NetServerTests
             var h = new Harness(cfg);
             string Join(string name, uint n)
             {
-                Reply rep = Connect(h, Client(n), new Request { Name = name });
+                var rep = Connect(h, Client(n), new Request { Name = name });
                 Assert.True(rep.Accepted);
                 return h.Server.PlayerById(rep.PlayerId)!.Name;
             }
@@ -330,9 +336,9 @@ public class NetServerTests
         {
             var h = new Harness(cfg);
             var r = new Request { Gender = "MALE", Voice = "Male3" };
-            Reply a = Connect(h, Client(1), r);
+            var a = Connect(h, Client(1), r);
             r.Gender = "Female";
-            Reply b = Connect(h, Client(2), r);
+            var b = Connect(h, Client(2), r);
             Assert.True(a.Accepted && b.Accepted && a.ManagerId == 2048 && b.ManagerId == 2048);
             Assert.True(h.Server.PlayerById(a.PlayerId)!.Male && !h.Server.PlayerById(b.PlayerId)!.Male);
             Assert.Equal("Male3", h.Server.PlayerById(a.PlayerId)!.Voice);
@@ -342,9 +348,9 @@ public class NetServerTests
         // 8 (live verification): player ids from 2049, freed ids reused last-freed-first.
         {
             var h = new Harness(cfg);
-            Reply a = Connect(h, Client(1), new Request());
-            Reply b = Connect(h, Client(2), new Request());
-            Reply c = Connect(h, Client(3), new Request());
+            var a = Connect(h, Client(1), new Request());
+            var b = Connect(h, Client(2), new Request());
+            var c = Connect(h, Client(3), new Request());
             Assert.True(a.PlayerId == 2049 && b.PlayerId == 2050 && c.PlayerId == 2051);
             Disconnect(h, Client(2), b.ConnectionId);
             Disconnect(h, Client(1), a.ConnectionId);
@@ -359,15 +365,15 @@ public class NetServerTests
         // 3.5 / 5.6: the accept ack establishes the stream; data reaches the hooks.
         {
             var h = new Harness(cfg);
-            int accepted = 0;
-            string data = "";
+            var accepted = 0;
+            var data = "";
             var hooks = new NetHooks
             {
                 OnAccepted = (p, c) => ++accepted,
                 OnData = (p, d) => data = ByteString.FromBytes(d),
             };
             h.Server.SetHooks(hooks);
-            Reply a = Connect(h, Client(1), new Request());
+            var a = Connect(h, Client(1), new Request());
             Assert.Equal(0, accepted);
             AckAccept(h, Client(1), a.ConnectionId);
             Assert.Equal(1, accepted);
@@ -379,13 +385,13 @@ public class NetServerTests
 
         // DECISIONS D11 / lasthope 2.2 L2: more than 20 ack ranges is dropped; in LastHope mode the
         // drop logs "Crash Attempt: <address>".
-        foreach (bool lastHope in new[] { false, true })
+        foreach (var lastHope in new[] { false, true })
         {
-            ServerConfig c = cfg.Clone();
+            var c = cfg.Clone();
             c.LastHope = lastHope;
             var h = new Harness(c);
             var p = new VcPacket { Id = 0x2001, IdBit = 1, Seq = 1, Type = 3 };
-            for (int i = 0; i < 21; ++i)
+            for (var i = 0; i < 21; ++i)
                 p.Ranges.Add((1, 3));
             var r = new Request { Version = lastHope ? "1.30" : "1.11" };
             p.Payload = RequestPayload(r);
@@ -402,7 +408,7 @@ public class NetServerTests
         // Frame steps (docs/sim.md 8.3 step 3): the game tick hook runs in sendPackets only.
         {
             var h = new Harness(cfg);
-            int ticks = 0;
+            var ticks = 0;
             uint last = 0;
             var hooks = new NetHooks
             {

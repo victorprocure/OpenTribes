@@ -1,9 +1,9 @@
 // Port of src/game/util_commands.hpp and src/game/util_commands.cpp: utility commands that read game state:
 // getIntegerTime, getClientByName, getNumItems, getObjectByTargetIndex, findPointOnSphere (docs/script.md 6.7). The
 // f32 helper of the file is a plain store in the current mode (Fpu.Store).
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>The utility script commands that read game state: getIntegerTime, getClientByName, getNumItems, getObjectByTargetIndex, findPointOnSphere (docs/script.md 6.7).</summary>
 public static class UtilCommands
@@ -21,13 +21,13 @@ public static class UtilCommands
         long size = d.Length;
         if (size < 14 || d[0] != 'P' || d[1] != 'E' || d[2] != 'R' || d[3] != 'S')
             return false;
-        ushort nameLen = BitConverter.ToUInt16(d, 8);
-        long pos = 10 + ((nameLen + 1L) & ~1L);
+        var nameLen = BitConverter.ToUInt16(d, 8);
+        var pos = 10 + ((nameLen + 1L) & ~1L);
         if (pos + 4 > size)
             return false;
-        uint version = BitConverter.ToUInt32(d, (int)pos);
+        var version = BitConverter.ToUInt32(d, (int)pos);
         pos += 4;
-        if (version < 1 || version > 8)
+        if (version is < 1 or > 8)
             return false;
         pos += 4 * (9 + (version >= 2 ? 1 : 0) + (version >= 4 ? 1 : 0));
         if (pos + 4 > size)
@@ -46,18 +46,18 @@ public static class UtilCommands
     /// <remarks>Follows findPointOnSphere (0x0041ebf4).</remarks>
     public static bool FindPointOnSphere(ReadOnlySpan<float> from, ReadOnlySpan<float> to, ReadOnlySpan<float> dir, float radius, Span<float> output)
     {
-        float r = Store(Sub(radius, 0.5f));
-        float len = Store(Sqrt(Sum3(Mul(dir[0], dir[0]), Mul(dir[1], dir[1]), Mul(dir[2], dir[2]))));
+        var r = Store(Sub(radius, 0.5f));
+        var len = Store(Sqrt(Sum3(Mul(dir[0], dir[0]), Mul(dir[1], dir[1]), Mul(dir[2], dir[2]))));
         if (!(len >= 0.01))
             return false;
         Span<float> unit = stackalloc float[3], d = stackalloc float[3], w = stackalloc float[3];
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             unit[i] = Store(Div(dir[i], len));
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             d[i] = Store(Sub(to[i], from[i]));
-        float b = Store(Sum3(Mul(d[0], unit[0]), Mul(d[1], unit[1]), Mul(d[2], unit[2])));
-        double dd = Sum3(Mul(d[0], d[0]), Mul(d[1], d[1]), Mul(d[2], d[2]));
-        float disc = Store(Sub(Mul(r, r), Sub(dd, Mul(b, b))));
+        var b = Store(Sum3(Mul(d[0], unit[0]), Mul(d[1], unit[1]), Mul(d[2], unit[2])));
+        var dd = Sum3(Mul(d[0], d[0]), Mul(d[1], d[1]), Mul(d[2], d[2]));
+        var disc = Store(Sub(Mul(r, r), Sub(dd, Mul(b, b))));
         float t;
         if (float.IsNaN(disc) && !float.IsNegative(disc))
         {
@@ -65,20 +65,20 @@ public static class UtilCommands
         }
         else
         {
-            double arg = disc >= 0 ? disc : Mul(disc, -1.0f);
+            var arg = disc >= 0 ? disc : Mul(disc, -1.0f);
             t = Store(Sqrt(arg));
         }
-        float s = Store(Sub(b, t));
-        for (int i = 0; i < 3; ++i)
+        var s = Store(Sub(b, t));
+        for (var i = 0; i < 3; ++i)
         {
-            float step = Store(Mul(unit[i], s));
-            float point = Store(Add(from[i], step));
+            var step = Store(Mul(unit[i], s));
+            var point = Store(Add(from[i], step));
             w[i] = Store(Sub(to[i], point));
         }
-        float len2 = Store(Sqrt(Sum3(Mul(w[0], w[0]), Mul(w[1], w[1]), Mul(w[2], w[2]))));
+        var len2 = Store(Sqrt(Sum3(Mul(w[0], w[0]), Mul(w[1], w[1]), Mul(w[2], w[2]))));
         if (!(len2 >= 0.01))
             return false;
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             output[i] = Store(Div(w[i], len2));
         return true;
     }
@@ -94,7 +94,7 @@ public static class UtilCommands
         {
             if (a.Length != 2)
                 return "";
-            uint t = Numbers.ParseBool(a[1]) && game.Sim != null ? game.Sim.TickMs() : 0;
+            var t = Numbers.ParseBool(a[1]) && game.Sim != null ? game.Sim.TickMs() : 0;
             return Numbers.FormatInt((int)(t >> 5)) + "." + Numbers.FormatInt((int)(t & 0x1f));
         });
 
@@ -102,7 +102,7 @@ public static class UtilCommands
         {
             if (a.Length != 2)
                 return "0";
-            foreach (int id in game.Players.Humans())
+            foreach (var id in game.Players.Humans())
                 if (game.Players.Find(id) is ClientRecord c && GameUtil.EqualsNoCase(c.Name, a[1]))
                     return Numbers.FormatInt(c.Id);
             return "0";
@@ -124,7 +124,7 @@ public static class UtilCommands
         {
             if (a.Length != 2)
                 return "-1";
-            int i = Numbers.BorlandAtoi(a[1]);
+            var i = Numbers.BorlandAtoi(a[1]);
             if (i >= 0 && i < 128 && i < game.Targets.Count && game.Targets[i] is GameBase t)
                 return Numbers.FormatInt(t.Id());
             return "-1";
@@ -142,12 +142,12 @@ public static class UtilCommands
                 return "0 0 0";
             if (game.Sim?.Server()?.Find(a[4]) is not GameBase gb || !gb.IsShapeBase() || gb.DataBlockName == null || game.Resources == null)
                 return "0 0 0";
-            DataBlockManager.Block? block = game.Sim.DataBlocks().Find(gb.DataBlockName);
-            if (block == null || !game.Sim.DataBlocks().GetField(block, "shapeFile", "", out string shape) || shape.Length == 0)
+            var block = game.Sim.DataBlocks().Find(gb.DataBlockName);
+            if (block == null || !game.Sim.DataBlocks().GetField(block, "shapeFile", "", out var shape) || shape.Length == 0)
                 return "0 0 0";
-            if (!game.Resources.Read(shape + ".dts", out byte[] data) || !ReadShapeRadius(data, out float radius))
+            if (!game.Resources.Read(shape + ".dts", out var data) || !ReadShapeRadius(data, out var radius))
                 return "0 0 0";
-            float[] output = new float[3];
+            var output = new float[3];
             if (FindPointOnSphere(from, to, dir, radius, output))
                 return MathCommands.FormatF32(output[0]) + " " + MathCommands.FormatF32(output[1]) + " " + MathCommands.FormatF32(output[2]);
             return "0 0 0";

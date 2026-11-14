@@ -1,14 +1,14 @@
+namespace OpenTribes.Core;
+
 using System.Globalization;
 using System.Numerics;
-
-namespace OpenTribes.Core;
 
 /// <summary>Emulates the original's floating point rounding mode. C# has no rounding mode, so the mode is the flag <see cref="TowardZero"/> and toward-zero results are computed in software from the nearest result and its exact error.</summary>
 /// <remarks>Port of the rounding-mode parts of the portable truncating build (src/core/ldouble.hpp with OT_PORTABLE_TRUNCATE, the Chop guard and x87::f32 of src/world/collision.cpp, docs/portable-float.md 1). The Chop guards, <see cref="EnterChop"/> and the float-to-int conversion set the mode, and every double operation, strtod, float store and printf digit generation follows it.</remarks>
 public static class Fpu
 {
     /// <summary>The current rounding mode of the C++ process: true for FE_TOWARDZERO, false for FE_TONEAREST (the start-up mode).</summary>
-    public static bool TowardZero;
+    public static bool TowardZero { get; set; }
 
     /// <summary>Switches to toward-zero rounding, as <c>fesetround(kChopMode)</c> does in the script start-up and float-to-int paths.</summary>
     public static void EnterChop() => TowardZero = true;
@@ -16,16 +16,16 @@ public static class Fpu
     /// <summary>Scope that rounds toward zero and restores the previous mode when disposed. Port of <c>x87::Chop</c>.</summary>
     public readonly struct Chop : IDisposable
     {
-        private readonly bool mOld;
+        private readonly bool _old;
         /// <summary>Starts the scope in toward-zero mode.</summary>
         /// <param name="old">The mode to restore on dispose.</param>
         public Chop(bool old)
         {
-            mOld = old;
+            _old = old;
             TowardZero = true;
         }
         /// <summary>Restores the mode saved at construction.</summary>
-        public void Dispose() => TowardZero = mOld;
+        public void Dispose() => TowardZero = _old;
     }
 
     /// <summary>Starts a toward-zero scope that restores the current mode when disposed.</summary>
@@ -43,11 +43,11 @@ public static class Fpu
     /// <returns>The sum rounded toward zero.</returns>
     public static double AddChop(double a, double b)
     {
-        double r = a + b;
+        var r = a + b;
         if (!double.IsFinite(r))
             return double.IsInfinity(r) && double.IsFinite(a) && double.IsFinite(b) ? Overflow(r) : r;
-        double bb = r - a;
-        double err = (a - (r - bb)) + (b - bb);
+        var bb = r - a;
+        var err = a - (r - bb) + (b - bb);
         if ((r > 0 && err < 0) || (r < 0 && err > 0))
             r = TowardZeroStep(r);
         return r;
@@ -65,10 +65,10 @@ public static class Fpu
     /// <returns>The product rounded toward zero.</returns>
     public static double MulChop(double a, double b)
     {
-        double r = a * b;
+        var r = a * b;
         if (!double.IsFinite(r))
             return double.IsInfinity(r) && double.IsFinite(a) && double.IsFinite(b) ? Overflow(r) : r;
-        double err = Math.FusedMultiplyAdd(a, b, -r);
+        var err = Math.FusedMultiplyAdd(a, b, -r);
         if ((r > 0 && err < 0) || (r < 0 && err > 0))
             r = TowardZeroStep(r);
         return r;
@@ -80,13 +80,13 @@ public static class Fpu
     /// <returns>The quotient rounded toward zero.</returns>
     public static double DivChop(double a, double b)
     {
-        double r = a / b;
+        var r = a / b;
         if (!double.IsFinite(r))
             return double.IsInfinity(r) && double.IsFinite(a) && double.IsFinite(b) && b != 0 ? Overflow(r) : r;
         if (r == 0)
             return r;
-        double rem = Math.FusedMultiplyAdd(-r, b, a);
-        double diff = b > 0 ? rem : -rem; // sign of exact - r
+        var rem = Math.FusedMultiplyAdd(-r, b, a);
+        var diff = b > 0 ? rem : -rem; // sign of exact - r
         if ((r > 0 && diff < 0) || (r < 0 && diff > 0))
             r = TowardZeroStep(r);
         return r;
@@ -97,7 +97,7 @@ public static class Fpu
     /// <returns>The root rounded toward zero.</returns>
     public static double SqrtChop(double a)
     {
-        double r = Math.Sqrt(a);
+        var r = Math.Sqrt(a);
         if (!double.IsFinite(r) || r == 0)
             return r;
         if (Math.FusedMultiplyAdd(-r, r, a) < 0)
@@ -111,18 +111,18 @@ public static class Fpu
     /// <remarks>The original parses into the 80-bit unit, which holds 1e400, and the store overflows. The C++ truncating build clamps to DBL_MAX there (docs/portable-float.md 5 item 1). The port follows the original.</remarks>
     public static double ParseChop(string text)
     {
-        double r = ParseNearest(text);
+        var r = ParseNearest(text);
         if (double.IsInfinity(r))
             return r;
         if (r == 0 || double.IsNaN(r))
             return r;
         // Exact decimal value: mantissa digits m times 10^e10.
-        int i = 0;
+        var i = 0;
         if (i < text.Length && (text[i] == '+' || text[i] == '-'))
             ++i;
         var digits = new System.Text.StringBuilder("0");
         long e10 = 0;
-        bool point = false;
+        var point = false;
         for (; i < text.Length && text[i] != 'e' && text[i] != 'E'; ++i)
         {
             if (text[i] == '.')
@@ -137,16 +137,16 @@ public static class Fpu
         if (i < text.Length)
         {
             // r is finite and non-zero, so the exponent is within a few hundred of the digit count.
-            string exp = text[(i + 1)..];
-            e10 += long.TryParse(exp, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out long ex) ? ex : 0;
+            var exp = text[(i + 1)..];
+            e10 += long.TryParse(exp, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var ex) ? ex : 0;
         }
-        BigInteger m = BigInteger.Parse(digits.ToString(), CultureInfo.InvariantCulture);
+        var m = BigInteger.Parse(digits.ToString(), CultureInfo.InvariantCulture);
         // |r| = m2 * 2^e2.
-        long bits = BitConverter.DoubleToInt64Bits(r) & 0x7fffffffffffffffL;
-        int be = (int)(bits >> 52);
-        long frac = bits & 0xfffffffffffffL;
+        var bits = BitConverter.DoubleToInt64Bits(r) & 0x7fffffffffffffffL;
+        var be = (int)(bits >> 52);
+        var frac = bits & 0xfffffffffffffL;
         BigInteger m2 = be == 0 ? frac : frac | (1L << 52);
-        int e2 = (be == 0 ? 1 : be) - 1075;
+        var e2 = (be == 0 ? 1 : be) - 1075;
         BigInteger lhs = m2, rhs = m;
         if (e2 > 0)
             lhs <<= e2;
@@ -229,7 +229,7 @@ public static class Fpu
     /// <returns>The float. A finite value beyond the float range gives plus or minus <see cref="float.MaxValue"/>. NaN, infinities, zeros and exact values are unchanged.</returns>
     public static float F32Chop(double d)
     {
-        float f = (float)d;
+        var f = (float)d;
         if (double.IsNaN(d) || double.IsInfinity(d))
             return f;
         if (float.IsInfinity(f))
@@ -246,20 +246,20 @@ public static class Fpu
     /// <remarks>Used by the script number conversions (ROADMAP M9 C8, client-scripts.md E7).</remarks>
     public static bool IsPrintedDecimal(string text, int decimals)
     {
-        int i = text.Length > 0 && text[0] == '-' ? 1 : 0;
-        int dot = text.IndexOf('.');
-        int intDigits = (dot < 0 ? text.Length : dot) - i;
+        var i = text.Length > 0 && text[0] == '-' ? 1 : 0;
+        var dot = text.IndexOf('.');
+        var intDigits = (dot < 0 ? text.Length : dot) - i;
         if (intDigits <= 0)
             return false;
-        for (int k = i; k < text.Length; ++k)
+        for (var k = i; k < text.Length; ++k)
             if (k != dot && (text[k] < '0' || text[k] > '9'))
                 return false;
-        int frac = dot < 0 ? 0 : text.Length - dot - 1;
+        var frac = dot < 0 ? 0 : text.Length - dot - 1;
         if (decimals >= 0)
             return dot >= 0 && frac == decimals;
-        int sig = 0;
-        bool started = false;
-        for (int k = i; k < text.Length; ++k)
+        var sig = 0;
+        var started = false;
+        for (var k = i; k < text.Length; ++k)
         {
             if (k == dot)
                 continue;
@@ -268,42 +268,42 @@ public static class Fpu
             if (started)
                 ++sig;
         }
-        return sig == 6 || sig == 0;
+        return sig is 6 or 0;
     }
 
     /// <summary>Steps a toward-zero parse away from zero until its magnitude is at least the decimal's. A printed digit string truncates, so a value that parses below the decimal would lose a unit of the last digit on the next print.</summary>
     /// <param name="chopped">The toward-zero parse of <paramref name="text"/>.</param>
     /// <param name="text">The plain decimal text.</param>
-    /// <param name="single">True to step in floats, false to step in doubles.</param>
+    /// <param name="steppingFloats">True to step in floats, false to step in doubles.</param>
     /// <returns>The adjusted value. Steps at most three times. An exact value stays.</returns>
-    public static double AtLeastDecimal(double chopped, string text, bool single)
+    public static double AtLeastDecimal(double chopped, string text, bool steppingFloats)
     {
         if (double.IsNaN(chopped) || double.IsInfinity(chopped) || chopped == 0)
             return chopped;
-        bool neg = text.StartsWith('-');
-        string digits = neg ? text[1..] : text;
-        int dot = digits.IndexOf('.');
-        int k = dot < 0 ? 0 : digits.Length - dot - 1;
+        var neg = text.StartsWith('-');
+        var digits = neg ? text[1..] : text;
+        var dot = digits.IndexOf('.');
+        var k = dot < 0 ? 0 : digits.Length - dot - 1;
         var num = BigInteger.Parse(digits.Replace(".", ""), CultureInfo.InvariantCulture);
-        double c = chopped;
-        for (int step = 0; step < 3 && CompareMagnitude(c, num, k) < 0; ++step)
-            c = single ? (c > 0 ? MathF.BitIncrement((float)c) : MathF.BitDecrement((float)c)) : (c > 0 ? Math.BitIncrement(c) : Math.BitDecrement(c));
+        var c = chopped;
+        for (var step = 0; step < 3 && CompareMagnitude(c, num, k) < 0; ++step)
+            c = steppingFloats ? (c > 0 ? MathF.BitIncrement((float)c) : MathF.BitDecrement((float)c)) : (c > 0 ? Math.BitIncrement(c) : Math.BitDecrement(c));
         return c;
     }
 
     // |f| compared with num / 10^k, exactly.
     private static int CompareMagnitude(double f, BigInteger num, int k)
     {
-        long bits = BitConverter.DoubleToInt64Bits(Math.Abs(f));
-        int exp = (int)((bits >> 52) & 0x7ff);
-        long mant = bits & 0xfffffffffffffL;
+        var bits = BitConverter.DoubleToInt64Bits(Math.Abs(f));
+        var exp = (int)((bits >> 52) & 0x7ff);
+        var mant = bits & 0xfffffffffffffL;
         if (exp == 0)
             exp = 1;
         else
             mant |= 1L << 52;
         exp -= 1075;
-        BigInteger lhs = mant * BigInteger.Pow(10, k);
-        BigInteger rhs = num;
+        var lhs = mant * BigInteger.Pow(10, k);
+        var rhs = num;
         if (exp >= 0)
             lhs <<= exp;
         else

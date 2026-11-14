@@ -15,55 +15,63 @@ public struct SoundProfile
     /// <summary>The flag of a hardware 3D sound.</summary>
     public const uint Hardware3D = 0x20;
     /// <summary>The profile id.</summary>
-    public int Id;
+    public int Id { get; set; }
     /// <summary>The flags.</summary>
-    public uint Flags;
+    [System.Diagnostics.CodeAnalysis.UnscopedRef] public ref uint Flags => ref _flags;
+    private uint _flags;
     /// <summary>The base volume.</summary>
-    public double BaseVolume;
+    public double BaseVolume { get; set; }
     /// <summary>The inside cone angle.</summary>
-    public int ConeInside;
+    public int ConeInside { get; set; }
     /// <summary>The outside cone angle.</summary>
-    public int ConeOutside;
+    public int ConeOutside { get; set; }
     /// <summary>The cone axis x.</summary>
-    public double ConeX;
+    public double ConeX { get; set; }
     /// <summary>The cone axis y.</summary>
-    public double ConeY;
+    public double ConeY { get; set; }
     /// <summary>The cone axis z.</summary>
-    public double ConeZ;
+    public double ConeZ { get; set; }
     /// <summary>The volume outside the outside cone.</summary>
-    public double ConeOutsideVolume;
+    public double ConeOutsideVolume { get; set; }
     /// <summary>The distance within which the sound is at full volume.</summary>
-    public double MinDist;
+    public double MinDist { get; set; }
     /// <summary>The distance beyond which the sound is silent.</summary>
-    public double MaxDist;
+    public double MaxDist { get; set; }
 
     /// <summary>The profile of a sound without an explicit profile.</summary>
     public static SoundProfile Default => new()
     {
-        ConeInside = 90, ConeOutside = 180, ConeX = 0, ConeY = -1, ConeZ = 0, ConeOutsideVolume = 0, MinDist = 30, MaxDist = 300,
+        ConeInside = 90,
+        ConeOutside = 180,
+        ConeX = 0,
+        ConeY = -1,
+        ConeZ = 0,
+        ConeOutsideVolume = 0,
+        MinDist = 30,
+        MaxDist = 300,
     };
 
     /// <summary>True when the profile is a software or hardware 3D profile.</summary>
-    public readonly bool Is3D => (Flags & (Software3D | Hardware3D)) != 0;
+    public readonly bool Is3D => (_flags & (Software3D | Hardware3D)) != 0;
     /// <summary>True when the profile loops or streams.</summary>
-    public readonly bool Loops => (Flags & (Looping | Streaming)) != 0;
+    public readonly bool Loops => (_flags & (Looping | Streaming)) != 0;
 }
 
 /// <summary>The listener: position and the world right axis (first row of the rotation, 2.6).</summary>
 public struct Listener
 {
     /// <summary>The x position.</summary>
-    public double X;
+    public double X { get; set; }
     /// <summary>The y position.</summary>
-    public double Y;
+    public double Y { get; set; }
     /// <summary>The z position.</summary>
-    public double Z;
+    public double Z { get; set; }
     /// <summary>The right axis x.</summary>
-    public double RightX;
+    public double RightX { get; set; }
     /// <summary>The right axis y.</summary>
-    public double RightY;
+    public double RightY { get; set; }
     /// <summary>The right axis z.</summary>
-    public double RightZ;
+    public double RightZ { get; set; }
 
     /// <summary>A listener at the origin that looks along +Y.</summary>
     public static Listener Identity => new() { RightX = 1 };
@@ -73,13 +81,13 @@ public struct Listener
 public struct SoundXf
 {
     /// <summary>The x position.</summary>
-    public double X;
+    public double X { get; set; }
     /// <summary>The y position.</summary>
-    public double Y;
+    public double Y { get; set; }
     /// <summary>The z position.</summary>
-    public double Z;
+    public double Z { get; set; }
     /// <summary>The rotation, or null for the identity.</summary>
-    public double[]? Rot;
+    public double[]? Rot { get; set; }
     /// <summary>Creates a transform without rotation.</summary>
     /// <param name="x">The x position.</param>
     /// <param name="y">The y position.</param>
@@ -110,7 +118,7 @@ public static class SoundGain
     /// <returns>The left and right gain.</returns>
     public static (double L, double R) PanGains(double pan)
     {
-        int p = (int)Math.Clamp(Math.Truncate(10000 * pan), -10000, 10000);
+        var p = (int)Math.Clamp(Math.Truncate(10000 * pan), -10000, 10000);
         return p > 0 ? (Math.Pow(10, -p / 2000.0), 1) : p < 0 ? (1, Math.Pow(10, p / 2000.0)) : (1, 1);
     }
 
@@ -120,7 +128,7 @@ public static class SoundGain
     /// <returns>The left and right amplitude.</returns>
     public static (double L, double R) Gains(double a, double pan)
     {
-        double g = DeviceGain(a);
+        var g = DeviceGain(a);
         var (l, r) = PanGains(pan);
         return (g * l, g * r);
     }
@@ -141,33 +149,33 @@ public static class SoundGain
     public static double Attenuation3D(in SoundProfile p, in SoundXf src, in Listener l, double sfx3DVolume, out double pan)
     {
         double dx = src.X - l.X, dy = src.Y - l.Y, dz = src.Z - l.Z;
-        double d = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+        var d = Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
         if (d * d < 1e-12)
             d = 1e-5;
-        pan = 0.2 * (l.RightX * dx + l.RightY * dy + l.RightZ * dz) / d;
-        double a = Master(sfx3DVolume) + p.BaseVolume;
+        pan = 0.2 * ((l.RightX * dx) + (l.RightY * dy) + (l.RightZ * dz)) / d;
+        var a = Master(sfx3DVolume) + p.BaseVolume;
         if (p.ConeOutsideVolume * p.ConeOutsideVolume >= 1e-12)
         {
             double inside = p.ConeInside / 360.0, outside = p.ConeOutside / 360.0;
             double wx = p.ConeX, wy = p.ConeY, wz = p.ConeZ;
             if (src.Rot is { Length: >= 9 } m)
             {
-                wx = p.ConeX * m[0] + p.ConeY * m[3] + p.ConeZ * m[6];
-                wy = p.ConeX * m[1] + p.ConeY * m[4] + p.ConeZ * m[7];
-                wz = p.ConeX * m[2] + p.ConeY * m[5] + p.ConeZ * m[8];
+                wx = (p.ConeX * m[0]) + (p.ConeY * m[3]) + (p.ConeZ * m[6]);
+                wy = (p.ConeX * m[1]) + (p.ConeY * m[4]) + (p.ConeZ * m[7]);
+                wz = (p.ConeX * m[2]) + (p.ConeY * m[5]) + (p.ConeZ * m[8]);
             }
-            double c = (wx * -dx + wy * -dy + wz * -dz) / d;
-            double s = 1 - (c + 1) * 0.5;
+            var c = ((wx * -dx) + (wy * -dy) + (wz * -dz)) / d;
+            var s = 1 - ((c + 1) * 0.5);
             if (s >= outside)
                 a += p.ConeOutsideVolume / 12;
             else if (s > inside)
-                a += (p.ConeOutsideVolume / 12) * (s - inside) / (outside - inside);
+                a += p.ConeOutsideVolume / 12 * (s - inside) / (outside - inside);
         }
         if (d >= p.MaxDist)
             a = 1;
         else if (d > p.MinDist)
         {
-            double t = Math.Max(0, (d - p.MinDist) / (p.MaxDist - p.MinDist));
+            var t = Math.Max(0, (d - p.MinDist) / (p.MaxDist - p.MinDist));
             a += (1 - a) * t;
         }
         return a;

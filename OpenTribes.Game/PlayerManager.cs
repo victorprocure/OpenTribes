@@ -1,96 +1,97 @@
 // Port of src/game/player_manager.hpp and src/game/player_manager.cpp: the PlayerManager (object 713): client records,
 // team scores and objectives, and the game events they post (docs/player-manager.md).
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>The record of one client (docs/player-manager.md 2.1). Fields marked "kept" survive the reuse of the slot.</summary>
 public sealed class ClientRecord
 {
     /// <summary>True while the slot is in use.</summary>
-    public bool Used;
+    public bool Used { get; set; }
     /// <summary>True for an AI player.</summary>
-    public bool IsAI;
+    public bool IsAI { get; set; }
     /// <summary>The client id.</summary>
-    public int Id;
+    public int Id { get; set; }
     /// <summary>The player name.</summary>
-    public string Name = "";
+    public string Name { get; set; } = "";
     /// <summary>The skin name.</summary>
-    public string Skin = "base";
+    public string Skin { get; set; } = "base";
     /// <summary>The voice set.</summary>
-    public string Voice = "";
+    public string Voice { get; set; } = "";
     /// <summary>True for a male player.</summary>
-    public bool Male = true;
+    public bool Male { get; set; } = true;
     /// <summary>The team id, or -1 for none.</summary>
-    public int Team = -1;
+    public int Team { get; set; } = -1;
     /// <summary>The GUI mode mirror (+0x1c). Written by the GUI mode change only.</summary>
-    public int GuiMirror;
+    public int GuiMirror { get; set; }
     /// <summary>The GUI mode (PlayerPSC +0x3d8).</summary>
-    public int GuiMode;
+    public int GuiMode { get; set; }
     /// <summary>The mark of the last objective update sent to this client.</summary>
-    public uint ObjectiveMark;
+    public uint ObjectiveMark { get; set; }
     /// <summary>The mark of the last command update sent to this client.</summary>
-    public uint CommandMark;
+    public uint CommandMark { get; set; }
     /// <summary>The stamp of the last command.</summary>
-    public uint CommandStamp;
+    public uint CommandStamp { get; set; }
     /// <summary>The command icon, or -1 for none.</summary>
-    public int CommandIcon = -1;
+    public int CommandIcon { get; set; } = -1;
     /// <summary>The command status.</summary>
-    public int CommandStatus;
+    public int CommandStatus { get; set; }
     /// <summary>The id of the client that issued the command (kept).</summary>
-    public int CommandIssuer;
+    public int CommandIssuer { get; set; }
     /// <summary>The target of the command (kept).</summary>
-    public int CommandTarget;
+    public int CommandTarget { get; set; }
     /// <summary>The waypoint x of the command (kept).</summary>
-    public int WaypointX;
+    public int WaypointX { get; set; }
     /// <summary>The waypoint y of the command (kept).</summary>
-    public int WaypointY;
+    public int WaypointY { get; set; }
     /// <summary>The command text (+0x44), interned and kept.</summary>
-    public string? CommandText;
+    public string? CommandText { get; set; }
     /// <summary>The command text last sent to this client (+0xac).</summary>
-    public string? LastCommandText;
+    public string? LastCommandText { get; set; }
     /// <summary>The id of the commander the client follows, or -1.</summary>
-    public int Commander = -1;
+    public int Commander { get; set; } = -1;
     /// <summary>The join order.</summary>
-    public int JoinOrder;
+    public int JoinOrder { get; set; }
     /// <summary>True while the player shows the score menu (+0x6a).</summary>
-    public bool MenuScoreVis;
+    public bool MenuScoreVis { get; set; }
     /// <summary>True once the client finished loading its data (+0x1dc).</summary>
-    public bool DataFinished;
+    public bool DataFinished { get; set; }
     /// <summary>The id of the object the client owns, 0 for none (+0x98).</summary>
-    public int OwnedObject;
+    public int OwnedObject { get; set; }
     /// <summary>The id of the object the client controls, 0 for none (+0x94).</summary>
-    public int ControlObject;
+    public int ControlObject { get; set; }
     /// <summary>The observer camera of the client (+0x9c).</summary>
-    public ObserverCamera? Camera;
+    public ObserverCamera? Camera { get; set; }
     /// <summary>The connection's event manager as a server manager object (Net::EventManager, pool id). Human clients only (0054ea34, 0042b1b8; docs/game-stream.md 1.1).</summary>
-    public SimObject? EventManager;
+    public SimObject? EventManager { get; set; }
     /// <summary>The connection's PlayerPSC as a server manager object (id 715).</summary>
-    public SimObject? PlayerPsc;
+    public SimObject? PlayerPsc { get; set; }
     /// <summary>The connection's ghost manager as a server manager object (Net::GhostManager, id 37).</summary>
-    public SimObject? GhostManager;
+    public SimObject? GhostManager { get; set; }
     /// <summary>The command limit flag (PlayerPSC +0x90).</summary>
-    public bool LimitCommand;
+    public bool LimitCommand { get; set; }
     /// <summary>The score text.</summary>
-    public string ScoreText = "";
+    public string ScoreText { get; set; } = "";
     /// <summary>The score sort value (kept).</summary>
-    public int ScoreSort;
+    public int ScoreSort { get; set; }
     /// <summary>The stamp of the last score change.</summary>
-    public uint ScoreStamp;
+    public ref uint ScoreStamp => ref _scoreStamp;
+    private uint _scoreStamp;
     /// <summary>The mark of the last score update sent to this client.</summary>
-    public uint ScoreMark;
+    public uint ScoreMark { get; set; }
     /// <summary>The connection ping in milliseconds.</summary>
-    public uint Ping;
+    public uint Ping { get; set; }
     /// <summary>The packet loss, 0 to 1.</summary>
-    public float Loss;
+    public float Loss { get; set; }
     /// <summary>The shopping item mask.</summary>
-    public readonly uint[] Shopping = new uint[7];
+    public uint[] Shopping { get; } = new uint[7];
     /// <summary>The buying item mask.</summary>
-    public readonly uint[] Buying = new uint[7];
+    public uint[] Buying { get; } = new uint[7];
     /// <summary>The next record of the human list, newest first.</summary>
-    public ClientRecord? NextHuman;
+    public ClientRecord? NextHuman { get; set; }
     /// <summary>The next record of the player list (humans and AI), newest first (+0x8).</summary>
-    public ClientRecord? NextPlayer;
+    public ClientRecord? NextPlayer { get; set; }
 }
 
 // src/game/player_manager.cpp EventManagerObject: Net::EventManager as a script-visible object (getObjectType); the event
@@ -120,46 +121,46 @@ internal sealed class GhostManagerObject : SimObject
 /// <remarks>Port of class PlayerManager in src/game/player_manager.hpp. See docs/player-manager.md.</remarks>
 public sealed class PlayerManager
 {
-    private readonly GameState mGame;
-    private readonly ClassContext mCameraContext = new(); // observer cameras register as GameBase objects
-    private readonly ClientRecord[] mRecords = new ClientRecord[128];
-    private readonly List<ClientRecord> mFree = new(); // LIFO, back is next
-    private ClientRecord? mHumans;
-    private ClientRecord? mPlayers; // humans and AI, newest first
-    private int mHumanCount, mPlayerCount, mJoinCounter;
-    private uint mScoreSeq, mObjectiveCounter, mCommandCounter;
+    private readonly GameState _game;
+    private readonly ClassContext _cameraContext = new(); // observer cameras register as GameBase objects
+    private readonly ClientRecord[] _records = new ClientRecord[128];
+    private readonly List<ClientRecord> _free = []; // LIFO, back is next
+    private ClientRecord? _humans;
+    private ClientRecord? _players; // humans and AI, newest first
+    private int _humanCount, _playerCount, _joinCounter;
+    private uint _scoreSeq, _objectiveCounter, _commandCounter;
 
     /// <summary>Delivers an event to one connected client. Set by the network layer.</summary>
-    public Action<int, OutEvent> Send = (_, _) => { };
+    public Action<int, OutEvent> Send { get; set; } = (_, _) => { };
     /// <summary>Returns the connection ping (ms) and loss (0 to 1) of a client for the 1.5 s update (docs/player-manager.md 8).</summary>
-    public Func<int, (uint Ping, float Loss)>? NetStats;
+    public Func<int, (uint Ping, float Loss)>? NetStats { get; set; }
     /// <summary>Called when GameBase mask bits changed (NetObject::setMaskBits). Set by the network layer.</summary>
-    public Action<GameBase, uint>? SetMaskBitsHook;
+    public Action<GameBase, uint>? SetMaskBitsHook { get; set; }
 
     /// <summary>Creates the manager for a game.</summary>
     /// <param name="game">The game state.</param>
     public PlayerManager(GameState game)
     {
-        mGame = game;
-        mCameraContext.Game = game;
-        for (int i = 0; i < 128; ++i)
-            mRecords[i] = new ClientRecord { Id = 2048 + i };
-        for (int i = 127; i >= 1; --i)
-            mFree.Add(mRecords[i]);
+        _game = game;
+        _cameraContext.Game = game;
+        for (var i = 0; i < 128; ++i)
+            _records[i] = new ClientRecord { Id = 2048 + i };
+        for (var i = 127; i >= 1; --i)
+            _free.Add(_records[i]);
     }
 
     /// <summary>Returns the number of human clients.</summary>
     /// <returns>The count.</returns>
-    public int HumanCount() => mHumanCount;
+    public int HumanCount() => _humanCount;
     /// <summary>Returns the number of players, humans and AI (+0x5c of the manager).</summary>
     /// <returns>The count.</returns>
-    public int PlayerCount() => mPlayerCount;
+    public int PlayerCount() => _playerCount;
     /// <summary>Returns the id the next add takes, the head of the free list.</summary>
     /// <returns>The id, or 0 without a free record.</returns>
-    public int NextFreeId() => mFree.Count == 0 ? 0 : mFree[^1].Id;
+    public int NextFreeId() => _free.Count == 0 ? 0 : _free[^1].Id;
     /// <summary>Returns the command counter (+0x50 of the manager), advanced by the command map commands.</summary>
     /// <returns>A reference to the counter.</returns>
-    public ref uint CommandCounter() => ref mCommandCounter;
+    public ref uint CommandCounter() => ref _commandCounter;
     /// <summary>Posts an event to a connected client through the network layer.</summary>
     /// <param name="id">The client id.</param>
     /// <param name="e">The event.</param>
@@ -239,10 +240,10 @@ public sealed class PlayerManager
     // src/game/player_manager.cpp validSkin.
     private static bool ValidSkin(string s)
     {
-        if (s.Length == 0 || s.Length > 19)
+        if (s.Length is 0 or > 19)
             return false;
-        foreach (char c in s)
-            if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')))
+        foreach (var c in s)
+            if (c is not ((>= '0' and <= '9') or (>= 'a' and <= 'z') or (>= 'A' and <= 'Z')))
                 return false;
         return true;
     }
@@ -253,9 +254,9 @@ public sealed class PlayerManager
     /// <remarks>Follows 0040de80.</remarks>
     public ClientRecord? Find(int id)
     {
-        if (id < 2048 || id >= 2048 + 128 || !mRecords[id - 2048].Used)
+        if (id < 2048 || id >= 2048 + 128 || !_records[id - 2048].Used)
             return null;
-        return mRecords[id - 2048];
+        return _records[id - 2048];
     }
 
     /// <summary>Finds a human client record.</summary>
@@ -264,7 +265,7 @@ public sealed class PlayerManager
     /// <remarks>Follows 0040de38.</remarks>
     public ClientRecord? FindHuman(int id)
     {
-        ClientRecord? r = Find(id);
+        var r = Find(id);
         return r != null && !r.IsAI ? r : null;
     }
 
@@ -273,7 +274,7 @@ public sealed class PlayerManager
     public List<int> Humans()
     {
         var output = new List<int>();
-        for (ClientRecord? r = mHumans; r != null; r = r.NextHuman)
+        for (var r = _humans; r != null; r = r.NextHuman)
             output.Add(r.Id);
         return output;
     }
@@ -287,7 +288,7 @@ public sealed class PlayerManager
     public List<int> PlayerIds()
     {
         var output = new List<int>();
-        for (ClientRecord? r = mPlayers; r != null; r = r.NextPlayer)
+        for (var r = _players; r != null; r = r.NextPlayer)
             output.Add(r.Id);
         return output;
     }
@@ -301,12 +302,12 @@ public sealed class PlayerManager
     /// <returns>The record, or null when none is free.</returns>
     public ClientRecord? AddClient(int id, string name, string voice, bool male, bool ai = false)
     {
-        int it = mFree.FindIndex(r => r.Id == id);
+        var it = _free.FindIndex(r => r.Id == id);
         if (it < 0)
             return null; // no free record: rejected (13.3)
-        mGame.Console?.Print(1, "MSG: \"" + Builtins.ExportEscape("Server: Player \"" + name + "\" added - id = " + Numbers.FormatInt(id)) + "\"");
-        ClientRecord r = mFree[it];
-        mFree.RemoveAt(it);
+        _game.Console?.Print(1, "MSG: \"" + Builtins.ExportEscape("Server: Player \"" + name + "\" added - id = " + Numbers.FormatInt(id)) + "\"");
+        var r = _free[it];
+        _free.RemoveAt(it);
         r.Used = true;
         r.IsAI = ai;
         r.Name = name;
@@ -328,70 +329,70 @@ public sealed class PlayerManager
         r.Loss = 0;
         Array.Clear(r.Shopping);
         Array.Clear(r.Buying);
-        r.JoinOrder = mJoinCounter++;
+        r.JoinOrder = _joinCounter++;
 
         if (!ai)
         {
-            ++mHumanCount;
-            if (mGame.Sim?.Server() is SimManager m)
+            ++_humanCount;
+            if (_game.Sim?.Server() is SimManager m)
             {
                 var services = new ObserverCamera.CameraServices
                 {
-                    Evaluate = line => mGame.Console?.Evaluate(line),
-                    MissionArea = area => MissionArea(area),
-                    Container = mGame.World,
+                    Evaluate = line => _game.Console?.Evaluate(line),
+                    MissionArea = MissionArea,
+                    Container = _game.World,
                 };
                 // The connection's members (0x0042b1b8, docs/game-stream.md 1.1): the EventManager registers through
                 // the root and takes a pool id before the camera does (the reference shows EventManager n, camera
                 // n + 1); the PlayerPSC and the GhostManager register with their fixed ids and are named in the group.
                 // All three are members of the connection object (the client id), when there is one.
-                SimGroup? group = m.FindById(id)?.AsGroup();
+                var group = m.FindById(id)?.AsGroup();
                 r.EventManager = new EventManagerObject();
                 m.AddToRoot(r.EventManager);
                 group?.AddObject(r.EventManager);
                 r.PlayerPsc = new PlayerPscObject();
                 r.GhostManager = new GhostManagerObject();
-                foreach ((SimObject obj, string objName) in new[] { (r.PlayerPsc, "PlayerPSC"), (r.GhostManager, "GhostManager") })
+                foreach ((var obj, var objName) in new[] { (r.PlayerPsc, "PlayerPSC"), (r.GhostManager, "GhostManager") })
                 {
                     m.RegisterObject(obj);
-                    SimGroup into = group ?? m;
+                    var into = group ?? m;
                     into.AddObject(obj);
                     into.AssignName(obj, StringTable.Global().Intern(objName));
                 }
-                r.Camera = new ObserverCamera(mCameraContext, id, services);
+                r.Camera = new ObserverCamera(_cameraContext, id, services);
                 m.AddToRoot(r.Camera);
             }
         }
         r.LimitCommand = false;
-        List<int> older = Humans();
+        var older = Humans();
         if (!ai)
         {
-            r.NextHuman = mHumans;
-            mHumans = r;
-            for (int t = -1; t < mGame.TeamCount && t + 1 < mGame.Teams.Count; ++t)
-                Post(r.Id, GameEvents.MakeTeamAdd(t, mGame.Teams[t + 1].Name, mGame.Teams[t + 1].Skin));
+            r.NextHuman = _humans;
+            _humans = r;
+            for (var t = -1; t < _game.TeamCount && t + 1 < _game.Teams.Count; ++t)
+                Post(r.Id, GameEvents.MakeTeamAdd(t, _game.Teams[t + 1].Name, _game.Teams[t + 1].Skin));
         }
         var aiOlder = new List<int>();
-        for (ClientRecord? p = mPlayers; p != null; p = p.NextPlayer)
+        for (var p = _players; p != null; p = p.NextPlayer)
             if (p.IsAI)
                 aiOlder.Add(p.Id);
-        r.NextPlayer = mPlayers;
-        mPlayers = r;
-        ++mPlayerCount;
+        r.NextPlayer = _players;
+        _players = r;
+        ++_playerCount;
         if (ai)
         {
-            foreach (int h in older)
+            foreach (var h in older)
                 Post(h, PlayerAdd(r)); // docs/player-manager.md 4.1 step 5: an AI record goes to every human
         }
         else
         {
-            foreach (int h in older)
+            foreach (var h in older)
             {
                 Post(h, PlayerAdd(r));
                 Post(r.Id, PlayerAdd(Find(h)!));
             }
             Post(r.Id, PlayerAdd(r));
-            foreach (int a in aiOlder)
+            foreach (var a in aiOlder)
                 Post(r.Id, PlayerAdd(Find(a)!));
         }
         return r;
@@ -401,28 +402,28 @@ public sealed class PlayerManager
     /// <param name="id">The client id.</param>
     public void RemoveClient(int id)
     {
-        ClientRecord? r = Find(id);
+        var r = Find(id);
         if (r == null)
             return;
-        bool ai = r.IsAI;
-        if (mGame.Console != null && !ai)
+        var ai = r.IsAI;
+        if (_game.Console != null && !ai)
         {
-            mGame.Console.CallFunction("Server::onClientDisconnect", new[] { Numbers.FormatInt(id) });
-            if (mGame.Sim?.Server() is SimManager m && r.OwnedObject != 0 && m.FindById(r.OwnedObject) is SimObject owned)
+            _game.Console.CallFunction("Server::onClientDisconnect", [Numbers.FormatInt(id)]);
+            if (_game.Sim?.Server() is SimManager m && r.OwnedObject != 0 && m.FindById(r.OwnedObject) is SimObject owned)
                 m.DeleteObject(owned);
-            mGame.Console.Print(1, "MSG: \"" + Builtins.ExportEscape("Server: Player \"" + r.Name + "\" dropped - id = " + Numbers.FormatInt(id)) + "\"");
+            _game.Console.Print(1, "MSG: \"" + Builtins.ExportEscape("Server: Player \"" + r.Name + "\" dropped - id = " + Numbers.FormatInt(id)) + "\"");
         }
-        if (r.Camera != null && mGame.Sim?.Server() is SimManager ms)
+        if (r.Camera != null && _game.Sim?.Server() is SimManager ms)
         {
-            ObserverCamera cam = r.Camera;
+            var cam = r.Camera;
             ObjectRemoved(cam); // also when no unregister observer is wired
             ms.DeleteObject(cam);
         }
         r.Camera = null;
         // The connection's members go newest first, as the group's removal unregisters them (RD2).
-        if (mGame.Sim?.Server() is SimManager me)
+        if (_game.Sim?.Server() is SimManager me)
         {
-            foreach (SimObject? member in new[] { r.GhostManager, r.PlayerPsc, r.EventManager })
+            foreach (var member in new[] { r.GhostManager, r.PlayerPsc, r.EventManager })
                 if (member != null)
                     me.DeleteObject(member);
         }
@@ -432,7 +433,7 @@ public sealed class PlayerManager
         if (!ai)
         {
             ClientRecord? prev = null;
-            ClientRecord? cur = mHumans;
+            var cur = _humans;
             while (cur != null && cur != r)
             {
                 prev = cur;
@@ -441,16 +442,16 @@ public sealed class PlayerManager
             if (cur != null)
             {
                 if (prev == null)
-                    mHumans = r.NextHuman;
+                    _humans = r.NextHuman;
                 else
                     prev.NextHuman = r.NextHuman;
-                --mHumanCount;
+                --_humanCount;
             }
             r.NextHuman = null;
         }
         {
             ClientRecord? prev = null;
-            ClientRecord? cur = mPlayers;
+            var cur = _players;
             while (cur != null && cur != r)
             {
                 prev = cur;
@@ -459,18 +460,18 @@ public sealed class PlayerManager
             if (cur != null)
             {
                 if (prev == null)
-                    mPlayers = r.NextPlayer;
+                    _players = r.NextPlayer;
                 else
                     prev.NextPlayer = r.NextPlayer;
             }
             r.NextPlayer = null;
         }
-        mFree.Add(r);
-        --mPlayerCount;
-        for (ClientRecord? h = mHumans; h != null; h = h.NextHuman)
+        _free.Add(r);
+        --_playerCount;
+        for (var h = _humans; h != null; h = h.NextHuman)
             if (h.Commander == id)
                 h.Commander = r.Commander;
-        for (ClientRecord? h = mHumans; h != null; h = h.NextHuman)
+        for (var h = _humans; h != null; h = h.NextHuman)
             Post(h.Id, MakePlayerRemove(id));
     }
 
@@ -479,22 +480,22 @@ public sealed class PlayerManager
     /// <param name="team">The team id.</param>
     public void SetTeam(int id, int team)
     {
-        ClientRecord? r = Find(id);
-        if (r == null || team < -1 || team >= mGame.TeamCount || team == r.Team)
+        var r = Find(id);
+        if (r == null || team < -1 || team >= _game.TeamCount || team == r.Team)
             return;
         r.Team = team;
-        if (team + 1 < mGame.Teams.Count)
-            r.Skin = mGame.Teams[team + 1].Skin;
+        if (team + 1 < _game.Teams.Count)
+            r.Skin = _game.Teams[team + 1].Skin;
         r.ObjectiveMark = r.CommandMark = 0;
         if (!r.IsAI)
             GuiChange(id, r.GuiMirror);
-        for (ClientRecord? h = mHumans; h != null; h = h.NextHuman)
+        for (var h = _humans; h != null; h = h.NextHuman)
         {
             Post(h.Id, MakeTeamChange(id, team));
             if (h.Commander == id)
                 h.Commander = r.Commander;
         }
-        if (r.OwnedObject != 0 && mGame.Sim?.Server()?.FindById(r.OwnedObject) is GameBase gb)
+        if (r.OwnedObject != 0 && _game.Sim?.Server()?.FindById(r.OwnedObject) is GameBase gb)
             gb.SetTeam(team);
         r.Commander = -1;
     }
@@ -504,26 +505,26 @@ public sealed class PlayerManager
     /// <param name="mode">The new mode.</param>
     public void GuiChange(int id, int mode)
     {
-        ClientRecord? r = FindHuman(id);
+        var r = FindHuman(id);
         if (r == null || !r.DataFinished)
             return;
-        int old = r.GuiMirror;
+        var old = r.GuiMirror;
         if (mode == 2)
         {
-            for (ClientRecord? t = mHumans; t != null; t = t.NextHuman)
+            for (var t = _humans; t != null; t = t.NextHuman)
                 if (t != r && t.Team == r.Team && (r.CommandMark < t.CommandStamp || t.CommandTarget != -1))
                     Post(id, MakeCommand(t));
-            r.CommandMark = mCommandCounter;
+            r.CommandMark = _commandCounter;
         }
         if (old != 3 && old != 5 && (mode == 3 || mode == 5))
         {
-            if (r.Team < -1 || r.Team >= mGame.TeamCount || r.Team + 1 >= mGame.Teams.Count)
+            if (r.Team < -1 || r.Team >= _game.TeamCount || r.Team + 1 >= _game.Teams.Count)
                 return;
-            TeamRecord team = mGame.Teams[r.Team + 1];
-            for (int k = 0; k < 32; ++k)
+            var team = _game.Teams[r.Team + 1];
+            for (var k = 0; k < 32; ++k)
                 if (team.ObjectiveStamp[k] > r.ObjectiveMark)
                     Post(id, MakeObjective(k, team.Objectives[k]));
-            r.ObjectiveMark = mObjectiveCounter;
+            r.ObjectiveMark = _objectiveCounter;
         }
         if (mode == 3 && !r.MenuScoreVis)
         {
@@ -541,13 +542,13 @@ public sealed class PlayerManager
     // src/game/player_manager.cpp PlayerManager::scoreChanged.
     private void ScoreChanged(ref uint stamp, bool isTeam, int who, int sort, string text)
     {
-        ++mScoreSeq;
-        stamp = mScoreSeq;
-        for (ClientRecord? h = mHumans; h != null; h = h.NextHuman)
+        ++_scoreSeq;
+        stamp = _scoreSeq;
+        for (var h = _humans; h != null; h = h.NextHuman)
             if (h.MenuScoreVis && h.GuiMirror != 3)
             {
                 Post(h.Id, GameEvents.MakeDeltaScore(isTeam, who, sort, text));
-                h.ScoreMark = mScoreSeq;
+                h.ScoreMark = _scoreSeq;
             }
     }
 
@@ -557,8 +558,8 @@ public sealed class PlayerManager
     /// <param name="sort">The sort value.</param>
     public void SetScore(int id, string text, int sort)
     {
-        ClientRecord? r = FindHuman(id);
-        string t = Cut(text, 255);
+        var r = FindHuman(id);
+        var t = Cut(text, 255);
         if (r == null || (r.ScoreSort == sort && r.ScoreText == t))
             return;
         r.ScoreText = t;
@@ -572,10 +573,10 @@ public sealed class PlayerManager
     /// <param name="sort">The sort value.</param>
     public void SetTeamScore(int team, string text, int sort)
     {
-        if (team < -1 || team > mGame.TeamCount || team + 1 >= mGame.Teams.Count)
+        if (team < -1 || team > _game.TeamCount || team + 1 >= _game.Teams.Count)
             return;
-        TeamRecord t = mGame.Teams[team + 1];
-        string s = Cut(text, 255);
+        var t = _game.Teams[team + 1];
+        var s = Cut(text, 255);
         if (t.SortValue == sort && t.Score == s)
             return;
         t.Score = s;
@@ -586,16 +587,16 @@ public sealed class PlayerManager
     // src/game/player_manager.cpp PlayerManager::flushScores.
     private void FlushScores(ClientRecord c)
     {
-        for (ClientRecord? h = mHumans; h != null; h = h.NextHuman)
+        for (var h = _humans; h != null; h = h.NextHuman)
             if (h.ScoreStamp > c.ScoreMark)
                 Post(c.Id, GameEvents.MakeDeltaScore(false, h.Id, h.ScoreSort, h.ScoreText));
-        for (int t = 0; t < mGame.TeamCount && t + 1 < mGame.Teams.Count; ++t)
+        for (var t = 0; t < _game.TeamCount && t + 1 < _game.Teams.Count; ++t)
         {
-            TeamRecord team = mGame.Teams[t + 1];
+            var team = _game.Teams[t + 1];
             if (team.ScoreStamp > c.ScoreMark)
                 Post(c.Id, GameEvents.MakeDeltaScore(true, t, team.SortValue, team.Score));
         }
-        c.ScoreMark = mScoreSeq;
+        c.ScoreMark = _scoreSeq;
     }
 
     /// <summary>Sets whether a client shows the score menu.</summary>
@@ -603,7 +604,7 @@ public sealed class PlayerManager
     /// <param name="visible">True to show it.</param>
     public void SetMenuScoreVis(int id, bool visible)
     {
-        ClientRecord? r = FindHuman(id);
+        var r = FindHuman(id);
         if (r == null || !r.DataFinished)
             return;
         r.MenuScoreVis = visible;
@@ -616,12 +617,12 @@ public sealed class PlayerManager
     /// <param name="text">The heading text.</param>
     public void SetHeading(bool team, string text)
     {
-        string t = Cut(text, 255);
+        var t = Cut(text, 255);
         if (team)
-            mGame.TeamScoreHeading = t;
+            _game.TeamScoreHeading = t;
         else
-            mGame.ClientScoreHeading = t;
-        for (ClientRecord? h = mHumans; h != null; h = h.NextHuman)
+            _game.ClientScoreHeading = t;
+        for (var h = _humans; h != null; h = h.NextHuman)
             Post(h.Id, GameEvents.MakeDeltaScore(team, team ? -1 : 2048, 0, t));
     }
 
@@ -631,19 +632,19 @@ public sealed class PlayerManager
     /// <param name="text">The objective text.</param>
     public void SetObjective(int team, int line, string text)
     {
-        if (team < -1 || team >= mGame.TeamCount || line < 0 || line > 31 || team + 1 >= mGame.Teams.Count)
+        if (team < -1 || team >= _game.TeamCount || line < 0 || line > 31 || team + 1 >= _game.Teams.Count)
             return;
-        TeamRecord t = mGame.Teams[team + 1];
-        string s = Cut(text, 511);
+        var t = _game.Teams[team + 1];
+        var s = Cut(text, 511);
         if (t.Objectives[line] == s)
             return;
-        t.ObjectiveStamp[line] = ++mObjectiveCounter;
+        t.ObjectiveStamp[line] = ++_objectiveCounter;
         t.Objectives[line] = s;
-        for (ClientRecord? h = mHumans; h != null; h = h.NextHuman)
+        for (var h = _humans; h != null; h = h.NextHuman)
             if (h.Team == team && h.GuiMirror == 5)
             {
                 Post(h.Id, MakeObjective(line, s));
-                h.ObjectiveMark = mObjectiveCounter;
+                h.ObjectiveMark = _objectiveCounter;
             }
     }
 
@@ -651,21 +652,21 @@ public sealed class PlayerManager
     /// <param name="team">The team id.</param>
     public void ClearObjectives(int team)
     {
-        if (team < -1 || team >= mGame.TeamCount || team + 1 >= mGame.Teams.Count)
+        if (team < -1 || team >= _game.TeamCount || team + 1 >= _game.Teams.Count)
             return;
-        TeamRecord t = mGame.Teams[team + 1];
-        ++mObjectiveCounter; // once per call; every cleared line gets this stamp (0x0040c60c)
-        for (int k = 0; k < 32; ++k)
+        var t = _game.Teams[team + 1];
+        ++_objectiveCounter; // once per call; every cleared line gets this stamp (0x0040c60c)
+        for (var k = 0; k < 32; ++k)
         {
             if (t.Objectives[k].Length == 0)
                 continue;
-            t.ObjectiveStamp[k] = mObjectiveCounter;
+            t.ObjectiveStamp[k] = _objectiveCounter;
             t.Objectives[k] = "";
-            for (ClientRecord? h = mHumans; h != null; h = h.NextHuman)
+            for (var h = _humans; h != null; h = h.NextHuman)
                 if (h.Team == team && h.GuiMirror == 5)
                 {
                     Post(h.Id, MakeObjective(k, ""));
-                    h.ObjectiveMark = mObjectiveCounter;
+                    h.ObjectiveMark = _objectiveCounter;
                 }
         }
     }
@@ -676,11 +677,11 @@ public sealed class PlayerManager
     /// <remarks>Skins are StringTable entries, which compare without case (0x0040be10, 0x00584760 with caseSens 0).</remarks>
     public void SetSkin(int id, string skin)
     {
-        ClientRecord? r = FindHuman(id);
+        var r = FindHuman(id);
         if (r == null || !ValidSkin(skin) || GameUtil.EqualsNoCase(r.Skin, skin))
             return;
         r.Skin = skin;
-        for (ClientRecord? h = mHumans; h != null; h = h.NextHuman)
+        for (var h = _humans; h != null; h = h.NextHuman)
             Post(h.Id, MakeSkin(id, skin));
     }
 
@@ -699,15 +700,15 @@ public sealed class PlayerManager
     /// <param name="team">The team id.</param>
     public void TeamAdded(int team)
     {
-        TeamRecord t = mGame.Teams[team + 1];
-        for (ClientRecord? h = mHumans; h != null; h = h.NextHuman)
+        var t = _game.Teams[team + 1];
+        for (var h = _humans; h != null; h = h.NextHuman)
             Post(h.Id, GameEvents.MakeTeamAdd(team, t.Name, t.Skin));
     }
 
     /// <summary>Resets the records and sends the MissionResetEvent.</summary>
     public void Reset()
     {
-        foreach (ClientRecord r in mRecords)
+        foreach (var r in _records)
         {
             if (!r.Used)
                 continue;
@@ -721,7 +722,7 @@ public sealed class PlayerManager
             r.CommandStatus = 0;
             r.ObjectiveMark = 0;
         }
-        mCommandCounter = 0;
+        _commandCounter = 0;
     }
 
     /// <summary>Starts the ping timer.</summary>
@@ -729,7 +730,7 @@ public sealed class PlayerManager
     /// <remarks>The 0x461 timer event is posted to object 713 at sim time + 1.5 when the server is created. Each run does the ping and loss update and posts the next one (docs/player-manager.md 8).</remarks>
     public void StartPingTimer(SimManager server)
     {
-        SimObject? dest = server.FindById(713);
+        var dest = server.FindById(713);
         server.PostEvent(dest ?? server, AddF(server.Time(), 1.5f), () =>
         {
             UpdatePing();
@@ -740,7 +741,7 @@ public sealed class PlayerManager
     /// <summary>Updates the ping and loss of every client and sends them.</summary>
     public void UpdatePing()
     {
-        for (ClientRecord? h = mHumans; h != null; h = h.NextHuman)
+        for (var h = _humans; h != null; h = h.NextHuman)
         {
             uint ping = 0;
             float loss = 0;
@@ -749,13 +750,13 @@ public sealed class PlayerManager
             h.Ping = Math.Min(ping, 999u);
             h.Loss = loss;
         }
-        for (ClientRecord? h = mHumans; h != null; h = h.NextHuman)
+        for (var h = _humans; h != null; h = h.NextHuman)
         {
             if (!h.MenuScoreVis)
                 continue;
             var w = new EventWriter();
-            w.PutInt((uint)mHumanCount, 7);
-            for (ClientRecord? p = mHumans; p != null; p = p.NextHuman)
+            w.PutInt((uint)_humanCount, 7);
+            for (var p = _humans; p != null; p = p.NextHuman)
             {
                 w.PutInt((uint)(p.Id - 2048), 7);
                 w.PutInt(p.Ping >> 2, 8);
@@ -771,15 +772,15 @@ public sealed class PlayerManager
     {
         static int IdArg(string[] a, int i) => i < a.Length ? Numbers.BorlandAtoi(a[i]) : 0;
 
-        interp.AddCommand("getNumClients", (_, _) => Numbers.FormatInt(mHumanCount));
+        interp.AddCommand("getNumClients", (_, _) => Numbers.FormatInt(_humanCount));
         interp.AddCommand("getClientByIndex", (_, a) =>
         {
             if (a.Length != 2)
                 return "0";
-            int i = Numbers.BorlandAtoi(a[1]);
-            if (i < 0 || i >= mHumanCount)
+            var i = Numbers.BorlandAtoi(a[1]);
+            if (i < 0 || i >= _humanCount)
                 return "0";
-            ClientRecord c = mHumans!;
+            var c = _humans!;
             while (i-- > 0)
                 c = c.NextHuman!;
             return Numbers.FormatInt(c.Id);
@@ -788,8 +789,8 @@ public sealed class PlayerManager
         {
             if (a.Length != 1)
                 inr.Print(1, "invalid call to " + a[0] + "()");
-            else if (mHumans != null)
-                return Numbers.FormatInt(mHumans.Id);
+            else if (_humans != null)
+                return Numbers.FormatInt(_humans.Id);
             return "-1";
         });
         interp.AddCommand("Client::getNext", (inr, a) =>
@@ -799,7 +800,7 @@ public sealed class PlayerManager
                 inr.Print(1, "invalid call to " + a[0] + "(client)");
                 return "-1";
             }
-            ClientRecord? c = FindHuman(IdArg(a, 1));
+            var c = FindHuman(IdArg(a, 1));
             return c?.NextHuman != null ? Numbers.FormatInt(c.NextHuman.Id) : "-1";
         });
         interp.AddCommand("Client::getName", (inr, a) =>
@@ -818,10 +819,10 @@ public sealed class PlayerManager
                 inr.Print(1, "wrong argcount to getPlayerName(playerId);");
                 return "-1";
             }
-            ClientRecord? c = Find(IdArg(a, 1));
+            var c = Find(IdArg(a, 1));
             return c != null ? Numbers.FormatInt(c.Team) : "-1";
         });
-        foreach (string name in new[] { "Client::getSkinBase", "Client::getVoiceBase", "Client::getGender" })
+        foreach (var name in new[] { "Client::getSkinBase", "Client::getVoiceBase", "Client::getGender" })
             interp.AddCommand(name, (inr, a) =>
             {
                 if (a.Length != 2)
@@ -829,7 +830,7 @@ public sealed class PlayerManager
                     inr.Print(1, "invalid call to " + a[0] + "(client)");
                     return "";
                 }
-                ClientRecord? c = Find(IdArg(a, 1));
+                var c = Find(IdArg(a, 1));
                 if (c == null)
                     return "";
                 if (GameUtil.EqualsNoCase(a[0], "Client::getSkinBase"))
@@ -845,7 +846,7 @@ public sealed class PlayerManager
                 inr.Print(1, "wrong argcount to " + a[0] + "(playerId);");
                 return "-1";
             }
-            ClientRecord? c = FindHuman(IdArg(a, 1));
+            var c = FindHuman(IdArg(a, 1));
             return c != null ? Numbers.FormatInt(c.GuiMode) : "-1";
         });
         interp.AddCommand("Client::setGuiMode", (inr, a) =>
@@ -855,10 +856,10 @@ public sealed class PlayerManager
                 inr.Print(1, "wrong argcount to " + a[0] + "(playerId,guiId);");
                 return "False";
             }
-            ClientRecord? c = FindHuman(IdArg(a, 1));
+            var c = FindHuman(IdArg(a, 1));
             if (c == null || !c.DataFinished)
                 return "False";
-            int mode = Numbers.BorlandAtoi(a[2]);
+            var mode = Numbers.BorlandAtoi(a[2]);
             if (mode >= 0 && mode <= 6 && mode != c.GuiMode)
             {
                 c.GuiMode = mode;
@@ -896,7 +897,7 @@ public sealed class PlayerManager
             SetTeamScore(Numbers.BorlandAtoi(a[1]), a[2], Numbers.BorlandAtoi(a[3]));
             return "True";
         });
-        foreach (string name in new[] { "setTeamScoreHeading", "setClientScoreHeading" })
+        foreach (var name in new[] { "setTeamScoreHeading", "setClientScoreHeading" })
             interp.AddCommand(name, (inr, a) =>
             {
                 if (a.Length != 2)
@@ -941,16 +942,16 @@ public sealed class PlayerManager
                 inr.Print(1, "wrong argcount to setInitialTeam(playerId, teamId);");
                 return "False";
             }
-            int team = Numbers.BorlandAtoi(a[2]);
-            ClientRecord? c = Find(IdArg(a, 1));
-            if (c == null || team < 0 || team >= mGame.TeamCount)
+            var team = Numbers.BorlandAtoi(a[2]);
+            var c = Find(IdArg(a, 1));
+            if (c == null || team < 0 || team >= _game.TeamCount)
                 return "False";
             c.Team = team;
             return "True";
         });
         interp.AddCommand("Client::sendMessage", (_, a) =>
         {
-            if (a.Length != 4 && a.Length != 5)
+            if (a.Length is not 4 and not 5)
                 return "false";
             SendMessage(IdArg(a, 1), Numbers.BorlandAtoi(a[2]), a[3], a.Length == 5 ? Numbers.BorlandAtoi(a[4]) : 0);
             return "True";
@@ -962,7 +963,7 @@ public sealed class PlayerManager
                 inr.Print(1, "invalid call to " + a[0] + "(client)");
                 return "";
             }
-            ClientRecord? c = Find(IdArg(a, 1));
+            var c = Find(IdArg(a, 1));
             if (c == null)
                 return "";
             c.DataFinished = true;
@@ -970,16 +971,16 @@ public sealed class PlayerManager
         });
         interp.AddCommand("Client::getObserverCamera", (_, a) =>
         {
-            ClientRecord? c = a.Length == 2 ? FindHuman(IdArg(a, 1)) : null;
+            var c = a.Length == 2 ? FindHuman(IdArg(a, 1)) : null;
             return c?.Camera != null ? Numbers.FormatInt(c.Camera.Id()) : "-1";
         });
         interp.AddCommand("Observer::setFlyMode", (_, a) =>
         {
-            ClientRecord? c = a.Length == 6 ? FindHuman(IdArg(a, 1)) : null;
-            ObserverCamera? cam = c?.Camera;
+            var c = a.Length == 6 ? FindHuman(IdArg(a, 1)) : null;
+            var cam = c?.Camera;
             if (cam == null)
                 return "false";
-            float[] pos = { 0, 0, 0 }, rot = { 0, 0, 0 };
+            float[] pos = [0, 0, 0], rot = [0, 0, 0];
             CScan.Floats(a[2], pos);
             CScan.Floats(a[3], rot);
             cam.SetFlyMode(Numbers.ParseBool(a[4]), Numbers.ParseBool(a[5]), rot, pos);
@@ -988,24 +989,24 @@ public sealed class PlayerManager
         // Observer::setOrbitObject(client, object, dist, min, max [, rot]) 0043a2fc and Observer::setOrbitPoint(client,
         // pos, dist, min, max [, rot]) 0043a404. More than 7 arguments are accepted; the rotation is read only with
         // exactly 7.
-        foreach (string name in new[] { "Observer::setOrbitObject", "Observer::setOrbitPoint" })
+        foreach (var name in new[] { "Observer::setOrbitObject", "Observer::setOrbitPoint" })
             interp.AddCommand(name, (_, a) =>
             {
                 if (a.Length < 6)
                     return "false";
-                ClientRecord? c = FindHuman(IdArg(a, 1));
+                var c = FindHuman(IdArg(a, 1));
                 if (c == null)
                     return "false";
-                bool point = GameUtil.EqualsNoCase(a[0], "Observer::setOrbitPoint");
-                GameBase? target = point ? null : FindServerObject(a[2]);
+                var point = GameUtil.EqualsNoCase(a[0], "Observer::setOrbitPoint");
+                var target = point ? null : FindServerObject(a[2]);
                 if (c.Camera == null || (!point && target == null))
                     return "false";
-                float[] pos = { 0, 0, 0 }, rot = { 0, 0, 0 };
+                float[] pos = [0, 0, 0], rot = [0, 0, 0];
                 if (point)
                     CScan.Floats(a[2], pos);
-                float cur = Store(Numbers.BorlandAtof(a[3]));
-                float min = Store(Numbers.BorlandAtof(a[4]));
-                float max = Store(Numbers.BorlandAtof(a[5]));
+                var cur = Store(Numbers.BorlandAtof(a[3]));
+                var min = Store(Numbers.BorlandAtof(a[4]));
+                var max = Store(Numbers.BorlandAtof(a[5]));
                 if (a.Length == 7)
                     CScan.Floats(a[6], rot);
                 c.Camera.SetOrbit(target, pos, cur, min, max, rot);
@@ -1013,10 +1014,10 @@ public sealed class PlayerManager
             });
         interp.AddCommand("Observer::setDamageObject", (_, a) =>
         {
-            ClientRecord? c = a.Length == 3 ? FindHuman(IdArg(a, 1)) : null;
+            var c = a.Length == 3 ? FindHuman(IdArg(a, 1)) : null;
             if (c == null)
                 return "false";
-            GameBase? target = FindServerObject(a[2]);
+            var target = FindServerObject(a[2]);
             if (c.Camera == null || target == null)
                 return "false";
             c.Camera.SetDamageObject(target);
@@ -1027,14 +1028,14 @@ public sealed class PlayerManager
         interp.AddCommand("Client::toggleCMDObserver", (_, _) => "False");
         interp.AddCommand("Client::limitCommandBandwidth", (_, a) =>
         {
-            ClientRecord? c = a.Length == 3 ? FindHuman(IdArg(a, 1)) : null;
+            var c = a.Length == 3 ? FindHuman(IdArg(a, 1)) : null;
             if (c == null)
                 return "false";
             c.LimitCommand = Numbers.ParseBool(a[2]);
             return "true";
         });
         // GameBase::getOwnerClient / Player::getClient 0041d548, GameBase::getControlClient 0041d5b4.
-        foreach (string name in new[] { "GameBase::getOwnerClient", "Player::getClient", "GameBase::getControlClient" })
+        foreach (var name in new[] { "GameBase::getOwnerClient", "Player::getClient", "GameBase::getControlClient" })
             interp.AddCommand(name, (inr, a) =>
             {
                 if (a.Length != 2)
@@ -1042,14 +1043,14 @@ public sealed class PlayerManager
                     inr.Print(1, "invalid call to " + a[0] + "(object)");
                     return "-1";
                 }
-                GameBase? o = FindServerObject(a[1]);
+                var o = FindServerObject(a[1]);
                 if (o == null)
                     return "-1";
-                bool control = GameUtil.EqualsNoCase(a[0], "GameBase::getControlClient");
-                int client = control ? o.ControlClient : o.OwnerClient;
+                var control = GameUtil.EqualsNoCase(a[0], "GameBase::getControlClient");
+                var client = control ? o.ControlClient : o.OwnerClient;
                 return client != 0 ? Numbers.FormatInt(client) : "-1";
             });
-        foreach (string name in new[] { "Client::getOwnedObject", "Client::getControlObject" })
+        foreach (var name in new[] { "Client::getOwnedObject", "Client::getControlObject" })
             interp.AddCommand(name, (inr, a) =>
             {
                 if (a.Length != 2)
@@ -1057,12 +1058,12 @@ public sealed class PlayerManager
                     inr.Print(1, "invalid call to " + a[0] + "(client)");
                     return "-1";
                 }
-                bool owned = GameUtil.EqualsNoCase(a[0], "Client::getOwnedObject");
-                ClientRecord? c = owned ? Find(IdArg(a, 1)) : FindHuman(IdArg(a, 1));
-                int o = c != null ? (owned ? c.OwnedObject : c.ControlObject) : 0;
+                var owned = GameUtil.EqualsNoCase(a[0], "Client::getOwnedObject");
+                var c = owned ? Find(IdArg(a, 1)) : FindHuman(IdArg(a, 1));
+                var o = c != null ? (owned ? c.OwnedObject : c.ControlObject) : 0;
                 return o != 0 ? Numbers.FormatInt(o) : "-1";
             });
-        foreach (string name in new[] { "Client::setOwnedObject", "Client::setControlObject" })
+        foreach (var name in new[] { "Client::setOwnedObject", "Client::setControlObject" })
             interp.AddCommand(name, (inr, a) =>
             {
                 if (a.Length != 3)
@@ -1070,17 +1071,17 @@ public sealed class PlayerManager
                     inr.Print(1, "invalid call to " + a[0] + "(client, object)");
                     return "false";
                 }
-                bool owned = GameUtil.EqualsNoCase(a[0], "Client::setOwnedObject");
-                ClientRecord? c = owned ? Find(IdArg(a, 1)) : FindHuman(IdArg(a, 1));
+                var owned = GameUtil.EqualsNoCase(a[0], "Client::setOwnedObject");
+                var c = owned ? Find(IdArg(a, 1)) : FindHuman(IdArg(a, 1));
                 if (c == null)
                     return "false";
                 // 0041d3b4, 0041d4b8: a server GameBase takes the client; anything else releases the client's current
                 // object.
-                GameBase? o = FindServerObject(a[2]);
+                var o = FindServerObject(a[2]);
                 if (o == null)
                 {
-                    int cur = owned ? c.OwnedObject : c.ControlObject;
-                    o = cur != 0 ? mGame.Sim?.Server()?.FindById(cur) as GameBase : null;
+                    var cur = owned ? c.OwnedObject : c.ControlObject;
+                    o = cur != 0 ? _game.Sim?.Server()?.FindById(cur) as GameBase : null;
                     if (o != null)
                     {
                         if (owned)
@@ -1109,13 +1110,13 @@ public sealed class PlayerManager
     /// <remarks>Follows 00422d18.</remarks>
     public GameBase? FindServerObject(string arg)
     {
-        SimManager? m = mGame.Sim?.Server();
+        var m = _game.Sim?.Server();
         if (m == null)
             return null;
         if (m.Find(arg) is GameBase gb)
             return gb;
-        int id = Numbers.BorlandAtoi(arg);
-        ClientRecord? c = id >= 0x801 && id <= 0x880 ? Find(id) : null;
+        var id = Numbers.BorlandAtoi(arg);
+        var c = id is >= 0x801 and <= 0x880 ? Find(id) : null;
         return c != null && c.OwnedObject != 0 ? m.FindById(c.OwnedObject) as GameBase : null;
     }
 
@@ -1124,8 +1125,8 @@ public sealed class PlayerManager
     /// <returns>The object, or null.</returns>
     public GameBase? ControlObjectOf(int client)
     {
-        ClientRecord? r = FindHuman(client);
-        SimManager? m = mGame.Sim?.Server();
+        var r = FindHuman(client);
+        var m = _game.Sim?.Server();
         return r != null && r.ControlObject != 0 && m != null ? m.FindById(r.ControlObject) as GameBase : null;
     }
 
@@ -1139,14 +1140,13 @@ public sealed class PlayerManager
             obj.LastOwnerClient = client;
         if (client == obj.OwnerClient)
             return;
-        SimManager? m = mGame.Sim?.Server();
+        var m = _game.Sim?.Server();
         if (Find(obj.OwnerClient) is ClientRecord old && old.OwnedObject == obj.Id())
             old.OwnedObject = 0;
-        ClientRecord? r = Find(client);
+        var r = Find(client);
         if (r != null && r.OwnedObject != 0 && r.OwnedObject != obj.Id() && m?.FindById(r.OwnedObject) is GameBase prev)
             SetOwnerClient(prev, 0);
-        if (r != null)
-            r.OwnedObject = obj.Id();
+        r?.OwnedObject = obj.Id();
         obj.OwnerClient = client;
         SetMaskBitsHook?.Invoke(obj, 4);
     }
@@ -1159,14 +1159,13 @@ public sealed class PlayerManager
     {
         if (client == obj.ControlClient)
             return;
-        SimManager? m = mGame.Sim?.Server();
+        var m = _game.Sim?.Server();
         if (FindHuman(obj.ControlClient) is ClientRecord old && old.ControlObject == obj.Id())
             old.ControlObject = 0;
-        ClientRecord? r = FindHuman(client);
+        var r = FindHuman(client);
         if (r != null && r.ControlObject != 0 && r.ControlObject != obj.Id() && m?.FindById(r.ControlObject) is GameBase prev)
             SetControlClient(prev, 0);
-        if (r != null)
-            r.ControlObject = obj.Id();
+        r?.ControlObject = obj.Id();
         obj.ControlClient = client;
         SetMaskBitsHook?.Invoke(obj, 4);
     }
@@ -1178,7 +1177,7 @@ public sealed class PlayerManager
     {
         if (obj == null)
             return;
-        foreach (ClientRecord r in mRecords)
+        foreach (var r in _records)
         {
             if (!r.Used)
                 continue;
@@ -1189,9 +1188,9 @@ public sealed class PlayerManager
             if (r.Camera != null && r.Camera != obj)
                 r.Camera.ObjectDeleted(obj);
         }
-        for (int i = 0; i < mGame.Targets.Count; ++i)
-            if (mGame.Targets[i] == obj)
-                mGame.Targets[i] = null;
+        for (var i = 0; i < _game.Targets.Count; ++i)
+            if (_game.Targets[i] == obj)
+                _game.Targets[i] = null;
     }
 
     // ---- sensor visibility and the command map (docs/game-stream.md 6.3) ----
@@ -1201,9 +1200,9 @@ public sealed class PlayerManager
     /// <param name="team">The team id.</param>
     /// <returns>True when bit t of the visibility word (+0x200) is set (detected by the sensor network of team t), or bit t + 8 (always visible to team t, Marker_setTeam).</returns>
     /// <remarks>Follows 0x004495b4.</remarks>
-    public bool VisibleToTeam(GameBase obj, int team)
+    public static bool VisibleToTeam(GameBase obj, int team)
     {
-        uint t = (uint)team & 0xff;
+        var t = (uint)team & 0xff;
         return (obj.SensorWord & ((1u << (int)((t + 8) & 31)) | (1u << (int)(t & 31)))) != 0;
     }
 
@@ -1213,16 +1212,16 @@ public sealed class PlayerManager
     public void VisibleMask(int team, uint[] output)
     {
         Array.Clear(output, 0, 8);
-        SimManager? m = mGame.Sim?.Server();
-        foreach (ClientRecord r in mRecords)
+        var m = _game.Sim?.Server();
+        foreach (var r in _records)
         {
             if (!r.Used || r.OwnedObject == 0 || m == null)
                 continue;
             if (m.FindById(r.OwnedObject) is GameBase gb && VisibleToTeam(gb, team))
                 output[(r.Id - 2048) >> 5] |= 1u << ((r.Id - 2048) & 31);
         }
-        for (int i = 0; i < mGame.Targets.Count && i < 128; ++i)
-            if (mGame.Targets[i] is GameBase t && VisibleToTeam(t, team))
+        for (var i = 0; i < _game.Targets.Count && i < 128; ++i)
+            if (_game.Targets[i] is GameBase t && VisibleToTeam(t, team))
                 output[4 + (i >> 5)] |= 1u << (i & 31);
     }
 
@@ -1232,10 +1231,10 @@ public sealed class PlayerManager
     public bool MissionArea(float[] output)
     {
         output[0] = output[1] = output[2] = output[3] = 0;
-        SimObject? o = mGame.Sim?.Server()?.FindById(716);
+        var o = _game.Sim?.Server()?.FindById(716);
         if (o is not PersistObject po || !GameUtil.EqualsNoCase(o.ClassName(), "MissionCenterPos"))
             return false;
-        PersistFields f = po.Fields();
+        var f = po.Fields();
         output[0] = f.Real("x", 1230.0f);
         output[1] = f.Real("y", 1230.0f);
         output[2] = f.Real("w", 1400.0f);
@@ -1244,7 +1243,7 @@ public sealed class PlayerManager
     }
 
     // src/game/player_manager.cpp ftol of the waypoint code.
-    private static uint WaypointFtol(double v) => v > -2147483649.0 && v < 2147483648.0 ? unchecked((uint)(int)v) : 0x80000000u;
+    private static uint WaypointFtol(double v) => v is > (-2147483649.0) and < 2147483648.0 ? unchecked((uint)(int)v) : 0x80000000u;
 
     /// <summary>Updates the waypoint of a targeted command: the target's position in 1/1023 of the mission area while the target is visible to the client's team.</summary>
     /// <param name="r">The client record.</param>
@@ -1257,26 +1256,26 @@ public sealed class PlayerManager
         x = y = 0;
         if (r.CommandIcon == -1 || r.CommandTarget == -1)
             return false;
-        SimManager? m = mGame.Sim?.Server();
+        var m = _game.Sim?.Server();
         GameBase? obj;
         if (r.CommandTarget < 0x80)
         {
-            ClientRecord? t = Find(r.CommandTarget + 2048);
+            var t = Find(r.CommandTarget + 2048);
             obj = t != null && t.OwnedObject != 0 && m != null ? m.FindById(t.OwnedObject) as GameBase : null;
         }
         else
         {
-            int i = r.CommandTarget - 128;
-            obj = i < mGame.Targets.Count && i < 128 ? mGame.Targets[i] : null;
+            var i = r.CommandTarget - 128;
+            obj = i < _game.Targets.Count && i < 128 ? _game.Targets[i] : null;
         }
         if (obj == null || !VisibleToTeam(obj, r.Team))
             return false;
-        float[] area = new float[4];
+        var area = new float[4];
         MissionArea(area);
-        uint[] xy = new uint[2];
-        for (int i = 0; i < 2; ++i)
+        var xy = new uint[2];
+        for (var i = 0; i < 2; ++i)
         {
-            double v = Div(Mul(Sub(obj.Transform.P[i], area[i]), 1023.0f), area[2 + i]);
+            var v = Div(Mul(Sub(obj.Transform.P[i], area[i]), 1023.0f), area[2 + i]);
             xy[i] = WaypointFtol(v);
         }
         if (((xy[0] | xy[1]) & 0xfffffc00u) != 0 || ((uint)r.WaypointX == xy[0] && (uint)r.WaypointY == xy[1]))
@@ -1295,11 +1294,11 @@ public sealed class PlayerManager
     /// <returns>False when the slot is absent.</returns>
     public bool CommandSlot(ClientRecord viewer, uint slot, CommandMapSlot output)
     {
-        SimManager? m = mGame.Sim?.Server();
+        var m = _game.Sim?.Server();
         GameBase? obj;
         if (slot < 128)
         {
-            ClientRecord? r = Find((int)slot + 2048);
+            var r = Find((int)slot + 2048);
             obj = r != null && r.OwnedObject != 0 && m != null ? m.FindById(r.OwnedObject) as GameBase : null;
             if (obj == null || (!VisibleToTeam(obj, viewer.Team) && r != viewer))
                 return false;
@@ -1307,18 +1306,18 @@ public sealed class PlayerManager
         }
         else
         {
-            int i = (int)slot - 128;
-            obj = i < mGame.Targets.Count ? mGame.Targets[i] : null;
+            var i = (int)slot - 128;
+            obj = i < _game.Targets.Count ? _game.Targets[i] : null;
             if (obj == null || !VisibleToTeam(obj, viewer.Team))
                 return false;
         }
-        float[] area = new float[4];
+        var area = new float[4];
         MissionArea(area);
-        uint[] xy = new uint[2];
-        for (int i = 0; i < 2; ++i)
+        var xy = new uint[2];
+        for (var i = 0; i < 2; ++i)
         {
             // ((pos - origin) + extent * 0.5) * 1023 / extent, truncated (0040507c).
-            double v = Add(Sub(obj.Transform.P[i], area[i]), Mul(area[2 + i], 0.5f));
+            var v = Add(Sub(obj.Transform.P[i], area[i]), Mul(area[2 + i], 0.5f));
             v = Div(Mul(v, 1023.0f), area[2 + i]);
             xy[i] = WaypointFtol(v);
         }
@@ -1340,22 +1339,22 @@ public sealed class PlayerManager
             output.Active = obj.Active;
             // Turret 00452ec0: no control client, Enabled and active.
             output.Controllable = obj.ShapeClass() == GameBase.ShapeKind.Turret && obj.ControlClient == 0 &&
-                                  obj.DamageState == GameBase.kEnabled && obj.IsActiveFlag();
+                                  obj.DamageState == GameBase.Enabled && obj.IsActiveFlag();
         }
         else if (obj.IsShapeBase())
         {
             // ShapeBase 0044b518 (Player): damage level, f32 ratio against double 0.7 and 0.3.
-            float ratio = DivF(obj.Damage, obj.MaxDamage);
+            var ratio = DivF(obj.Damage, obj.MaxDamage);
             output.Status = ratio > 0.7 ? 2u : ratio > 0.3 ? 1u : 0u;
             output.Active = true;
         }
-        int group = obj.DataBlockGroup();
+        var group = obj.DataBlockGroup();
         output.DbGroup = (uint)group;
         output.DbIndex = output.DbIndexBits = 0;
-        if (group >= 0 && group <= 30 && mGame.Sim != null)
+        if (group >= 0 && group <= 30 && _game.Sim != null)
         {
-            DataBlockManager db = mGame.Sim.DataBlocks();
-            uint n = (uint)db.GroupSize(group) + 1;
+            var db = _game.Sim.DataBlocks();
+            var n = (uint)db.GroupSize(group) + 1;
             while (n != 0)
             {
                 ++output.DbIndexBits;

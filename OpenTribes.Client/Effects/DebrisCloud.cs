@@ -1,8 +1,8 @@
+namespace OpenTribes.Client.Effects;
+
 using OpenTribes.Client.Scene;
 using OpenTribes.Client.Shapes;
 using OpenTribes.World;
-
-namespace OpenTribes.Client.Effects;
 
 /// <summary>A DebrisData row as the cloud sees it.</summary>
 /// <param name="Index">The index in the group (the order of the data block manager).</param>
@@ -27,7 +27,7 @@ public static class DebrisCloud
     {
         var rows = new List<DebrisRow>();
         double total = 0;
-        foreach (DebrisRow r in all)
+        foreach (var r in all)
         {
             if (r.Mass > budget)
                 break;
@@ -51,11 +51,11 @@ public static class DebrisCloud
     public static List<DebrisRow> Pick(List<DebrisRow> rows, double total, double budget, Random rng, int maxPieces = 256)
     {
         var picked = new List<DebrisRow>();
-        int count = rows.Count;
+        var count = rows.Count;
         while (count != 0 && picked.Count < maxPieces)
         {
-            double r = rng.NextDouble() * total;
-            int i = count - 1;
+            var r = rng.NextDouble() * total;
+            var i = count - 1;
             while (i > 0 && rows[i].Weight < r)
             {
                 r -= rows[i].Weight;
@@ -81,15 +81,15 @@ public static class DebrisCloud
     /// <remarks>Follows 00473c20.</remarks>
     public static (double[] X, double[] Y, double[] Z, double Angle) Basis(double dx, double dy, double dz, double angle)
     {
-        double len2 = dx * dx + dy * dy + dz * dz;
+        var len2 = (dx * dx) + (dy * dy) + (dz * dz);
         if (len2 < 1e-12)
             return (new double[] { 1, 0, 0 }, new double[] { 0, 1, 0 }, new double[] { 0, 0, 1 }, Math.PI);
-        double l = Math.Sqrt(len2);
-        double[] z = { dx / l, dy / l, dz / l };
-        double[] x = { z[1], -z[0], 0 };
-        double xl = Math.Sqrt(x[0] * x[0] + x[1] * x[1]);
-        x = xl < 1e-6 ? new double[] { 1, 0, 0 } : new[] { x[0] / xl, x[1] / xl, 0 };
-        double[] y = { z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0] };
+        var l = Math.Sqrt(len2);
+        double[] z = [dx / l, dy / l, dz / l];
+        double[] x = [z[1], -z[0], 0];
+        var xl = Math.Sqrt((x[0] * x[0]) + (x[1] * x[1]));
+        x = xl < 1e-6 ? [1, 0, 0] : [x[0] / xl, x[1] / xl, 0];
+        double[] y = [(z[1] * x[2]) - (z[2] * x[1]), (z[2] * x[0]) - (z[0] * x[2]), (z[0] * x[1]) - (z[1] * x[0])];
         return (x, y, z, angle);
     }
 
@@ -114,24 +114,28 @@ public static class DebrisCloud
     public static void Launch(DebrisBody body, double px, double py, double pz, double vx, double vy, double vz, double ix, double iy, double iz, double angle,
                               (double[] X, double[] Y, double[] Z, double Angle) basis, double strength, double radius, double mass, Random rng)
     {
-        double a = rng.NextDouble() * Math.PI * 2;
-        double polar = rng.NextDouble() * (2 * angle) - angle;
+        var a = rng.NextDouble() * Math.PI * 2;
+        var polar = (rng.NextDouble() * (2 * angle)) - angle;
         double sp = Math.Sin(polar), cx = Math.Cos(a) * sp, cy = Math.Sin(a) * sp, cz = Math.Cos(polar);
-        double[] d = new double[3];
-        for (int k = 0; k < 3; ++k)
-            d[k] = basis.Z[k] * cz + basis.Y[k] * cy + basis.X[k] * cx;
-        body.X = px + radius * d[0]; body.Y = py + radius * d[1]; body.Z = pz + radius * d[2];
+        var d = new double[3];
+        for (var k = 0; k < 3; ++k)
+            d[k] = (basis.Z[k] * cz) + (basis.Y[k] * cy) + (basis.X[k] * cx);
+        body.X = px + (radius * d[0]);
+        body.Y = py + (radius * d[1]);
+        body.Z = pz + (radius * d[2]);
         body.Mass = mass;
-        double inv = mass > 0 ? 1 / mass : 0;
-        body.Vx = vx + (d[0] * strength + ix) * inv;
-        body.Vy = vy + (d[1] * strength + iy) * inv;
-        body.Vz = vz + (d[2] * strength + iz) * inv;
-        double s = Math.Min(strength * 0.015, 6);
-        body.Wx = rng.NextDouble() * s - s * 0.5;
-        body.Wy = rng.NextDouble() * s - s * 0.5;
-        body.Wz = rng.NextDouble() * s - s * 0.5;
+        var inv = mass > 0 ? 1 / mass : 0;
+        body.Vx = vx + (((d[0] * strength) + ix) * inv);
+        body.Vy = vy + (((d[1] * strength) + iy) * inv);
+        body.Vz = vz + (((d[2] * strength) + iz) * inv);
+        var s = Math.Min(strength * 0.015, 6);
+        body.Wx = (rng.NextDouble() * s) - (s * 0.5);
+        body.Wy = (rng.NextDouble() * s) - (s * 0.5);
+        body.Wz = (rng.NextDouble() * s) - (s * 0.5);
         // the stock piece starts at a random entry of a table of 16 orientations; the table is filled at run time and not decoded, so the start spin is random
-        body.Ax = rng.NextDouble() * Math.PI * 2; body.Ay = rng.NextDouble() * Math.PI * 2; body.Az = rng.NextDouble() * Math.PI * 2;
+        body.Ax = rng.NextDouble() * Math.PI * 2;
+        body.Ay = rng.NextDouble() * Math.PI * 2;
+        body.Az = rng.NextDouble() * Math.PI * 2;
     }
 }
 
@@ -140,28 +144,28 @@ public sealed class DebrisCloudEffect : IEffect
 {
     private sealed class Piece
     {
-        public DebrisBody Body = new();
-        public RenderInstance Inst = null!;
-        public DebrisParams Params;
-        public double Remaining;     // the piece budget +0x344: the cloud's budget argument
+        public DebrisBody Body { get; set; } = new();
+        public RenderInstance Inst { get; set; } = null!;
+        public DebrisParams Params { get; set; }
+        public double Remaining { get; set; }     // the piece budget +0x344: the cloud's budget argument
     }
 
-    private readonly List<Piece> mPieces = new();
-    private readonly Terrain? mTerrain;
-    private readonly Random mRng;
-    private readonly DebrisRay? mRay;
-    private readonly Action<int, double, double, double>? mExplode;
-    private readonly Action<DebrisCloudSpec>? mCloud;
-    private double mAcc;
+    private readonly List<Piece> _pieces = [];
+    private readonly Terrain? _terrain;
+    private readonly Random _rng;
+    private readonly DebrisRay? _ray;
+    private readonly Action<int, double, double, double>? _explode;
+    private readonly Action<DebrisCloudSpec>? _cloud;
+    private double _acc;
 
     /// <inheritdoc/>
-    public bool Alive => mPieces.Exists(p => !p.Body.Done);
+    public bool Alive => _pieces.Exists(p => !p.Body.Done);
     /// <inheritdoc/>
     public PointLight? Light => null;
     /// <summary>The number of pieces.</summary>
-    public int PieceCount => mPieces.Count;
+    public int PieceCount => _pieces.Count;
     /// <summary>The bodies of the pieces.</summary>
-    public IEnumerable<DebrisBody> Bodies => mPieces.Select(p => p.Body);
+    public IEnumerable<DebrisBody> Bodies => _pieces.Select(p => p.Body);
 
     /// <summary>Creates the effect and spawns the pieces.</summary>
     /// <param name="rows">All DebrisData rows in index order.</param>
@@ -183,47 +187,47 @@ public sealed class DebrisCloudEffect : IEffect
                              double dx = 0, double dy = 0, double dz = 0, double angle = Math.PI, double ix = 0, double iy = 0, double iz = 0,
                              DebrisRay? ray = null, Action<int, double, double, double>? explode = null, Action<DebrisCloudSpec>? cloud = null)
     {
-        mTerrain = terrain;
-        mRng = rng;
-        mRay = ray;
-        mExplode = explode;
-        mCloud = cloud;
+        _terrain = terrain;
+        _rng = rng;
+        _ray = ray;
+        _explode = explode;
+        _cloud = cloud;
         var (found, total) = DebrisCloud.Find(rows, (uint)spec.Mask, spec.Budget);
         var basis = DebrisCloud.Basis(dx, dy, dz, angle);
-        foreach (DebrisRow row in DebrisCloud.Pick(found, total, spec.Budget, rng))
+        foreach (var row in DebrisCloud.Pick(found, total, spec.Budget, rng))
         {
-            RenderInstance? inst = shape(row.Shape);
+            var inst = shape(row.Shape);
             if (inst == null)
                 continue;
             var body = new DebrisBody { Radius = Math.Max(0.1, inst.Shape.Radius) };
             DebrisCloud.Launch(body, spec.X, spec.Y, spec.Z, spec.Vx, spec.Vy, spec.Vz, ix, iy, iz, basis.Angle, basis, spec.Strength, spec.Radius, row.Params.Mass, rng);
-            body.Life = row.Params.MinTimeout + (row.Params.MaxTimeout - row.Params.MinTimeout) * rng.NextDouble();
+            body.Life = row.Params.MinTimeout + ((row.Params.MaxTimeout - row.Params.MinTimeout) * rng.NextDouble());
             body.Damage = row.Params.Damage;
-            mPieces.Add(new Piece { Body = body, Inst = inst, Params = row.Params, Remaining = spec.Remaining });
+            _pieces.Add(new Piece { Body = body, Inst = inst, Params = row.Params, Remaining = spec.Remaining });
         }
     }
 
     /// <inheritdoc/>
     public void Tick(double dt)
     {
-        mAcc += dt;
-        while (mAcc >= DebrisBody.TimeSlice)
+        _acc += dt;
+        while (_acc >= DebrisBody.TimeSlice)
         {
-            mAcc -= DebrisBody.TimeSlice;
-            foreach (Piece p in mPieces)
+            _acc -= DebrisBody.TimeSlice;
+            foreach (var p in _pieces)
             {
-                DebrisBody b = p.Body;
+                var b = p.Body;
                 if (b.Done)
                     continue;
-                RenderShape sh = p.Inst.Shape;
-                bool explode = b.WantsExplosion(p.Params, mRng) || b.Integrate(p.Params, mTerrain, mRay, mRng, sh.Cx, sh.Cy, sh.Cz);
+                var sh = p.Inst.Shape;
+                var explode = b.WantsExplosion(p.Params, _rng) || b.Integrate(p.Params, _terrain, _ray, _rng, sh.Cx, sh.Cy, sh.Cz);
                 if (!explode)
                     continue;
                 b.Done = true;
                 if (b.SecondaryCloud(p.Params, p.Remaining - b.Age) is { } spec)
-                    mCloud?.Invoke(spec);
+                    _cloud?.Invoke(spec);
                 if (p.Params.Explosion >= 0)
-                    mExplode?.Invoke(p.Params.Explosion, b.X, b.Y, b.Z);
+                    _explode?.Invoke(p.Params.Explosion, b.X, b.Y, b.Z);
             }
         }
     }
@@ -231,13 +235,13 @@ public sealed class DebrisCloudEffect : IEffect
     /// <inheritdoc/>
     public void Build(FrameContext ctx)
     {
-        foreach (Piece p in mPieces)
+        foreach (var p in _pieces)
         {
-            DebrisBody b = p.Body;
+            var b = p.Body;
             if (b.Done)
                 continue;
-            Xf xf = Xf.Euler(b.Ax, b.Ay, b.Az).Then(Xf.Translate(b.X, b.Y, b.Z));
-            RenderImage? img = ctx.Renderer.Build(p.Inst, ctx.Camera, ctx.Draw(xf, p.Inst.Shape.Name + " debris"));
+            var xf = Xf.Euler(b.Ax, b.Ay, b.Az).Then(Xf.Translate(b.X, b.Y, b.Z));
+            var img = ctx.Renderer.Build(p.Inst, ctx.Camera, ctx.Draw(xf, p.Inst.Shape.Name + " debris"));
             if (img != null)
                 ctx.Lists.Add(img);
         }

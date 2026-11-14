@@ -1,11 +1,10 @@
+namespace OpenTribes.Client.Shapes;
+
 using System.Globalization;
 using OpenTribes.Client.Scene;
 using OpenTribes.Client.World;
-using OpenTribes.Core;
 using OpenTribes.Platform.Gfx;
 using OpenTribes.Platform.Gl;
-
-namespace OpenTribes.Client.Shapes;
 
 /// <summary>The shape viewer: one shape on a gray background, framed by its radius, for looking at the shape renderer without a mission.</summary>
 /// <remarks>Started with <c>tribes --shape NAME [--palette PPL] [--seq NAME] [--at P] [--camera YAW,PITCH] --screenshot OUT.png</c>.</remarks>
@@ -31,20 +30,20 @@ public static class ShapeView
             Console.Error.WriteLine("tribes: --shape needs --screenshot");
             return 2;
         }
-        ResourceManager res = GfxAssets.Mount(root, out _);
-        PaletteBank? bank = GfxAssets.LoadPalette(res, palette ?? "lush.day.ppl") ?? PaletteTables.Grayscale();
-        using GlWindow? win = GlWindow.TryCreate("Tribes", width, height, true, videoDriver, out string error);
+        var res = GfxAssets.Mount(root, out _);
+        var bank = GfxAssets.LoadPalette(res, palette ?? "lush.day.ppl") ?? PaletteTables.Grayscale();
+        using var win = GlWindow.TryCreate("Tribes", width, height, true, videoDriver, out var error);
         if (win == null)
         {
             Console.Error.WriteLine("tribes: cannot open a window: " + error);
             return 1;
         }
         using var dev = new GlGfxDevice(win);
-        win.SetSwapInterval(0);
+        GlWindow.SetSwapInterval(0);
         dev.SetPalette(bank);
         var world = new WorldAssets(res, bank);
         using var assets = new ShapeAssets(dev, world);
-        RenderShape? shape = assets.Shape(shapeName);
+        var shape = assets.Shape(shapeName);
         if (shape == null)
         {
             Console.Error.WriteLine("tribes: shape not found: " + shapeName);
@@ -53,7 +52,7 @@ public static class ShapeView
         var inst = new RenderInstance(shape);
         if (seq != null)
         {
-            RenderThread? t = inst.AddThread(seq, pos, 0);
+            var t = inst.AddThread(seq, pos, 0);
             if (t == null)
             {
                 Console.Error.WriteLine("tribes: no sequence " + seq);
@@ -64,7 +63,7 @@ public static class ShapeView
         double yaw = 30, pitch = -15;
         if (camera != null)
         {
-            string[] p = camera.Split(',');
+            var p = camera.Split(',');
             yaw = double.Parse(p[0], CultureInfo.InvariantCulture);
             pitch = double.Parse(p[1], CultureInfo.InvariantCulture);
         }
@@ -72,7 +71,7 @@ public static class ShapeView
         if (Environment.GetEnvironmentVariable("OT_SHAPE_DEBUG") != null)
         {
             inst.Animate(0);
-            for (int i = 0; i < Math.Min(shape.Nodes.Length, 12); ++i)
+            for (var i = 0; i < Math.Min(shape.Nodes.Length, 12); ++i)
                 Console.Error.WriteLine($"node {i} {shape.Names[shape.Nodes[i].Name]} world p=({inst.NodeWorld[i].Px:F2},{inst.NodeWorld[i].Py:F2},{inst.NodeWorld[i].Pz:F2}) m0={inst.NodeWorld[i].M0:F2}");
             foreach (var (o, k) in shape.Objects.Select((o, k) => (o, k)).Take(8))
                 Console.Error.WriteLine($"object {k} node {o.Node} visible {inst.Objects[k].Visible} mesh {o.Mesh} faces {(o.Mesh >= 0 ? shape.Meshes[o.Mesh].Faces.Length : -1)}");
@@ -81,18 +80,18 @@ public static class ShapeView
         double cy = yaw * Math.PI / 180, cp = pitch * Math.PI / 180;
         double fx = -Math.Sin(cy) * Math.Cos(cp), fy = Math.Cos(cy) * Math.Cos(cp), fz = Math.Sin(cp);
         double tx = shape.Cx, ty = shape.Cy, tz = shape.Cz;
-        var cam = new Camera3D(tx - fx * dist, ty - fy * dist, tz - fz * dist, yaw, pitch, 60, dev.Width, dev.Height, 0.1, 1000);
+        var cam = new Camera3D(tx - (fx * dist), ty - (fy * dist), tz - (fz * dist), yaw, pitch, 60, dev.Width, dev.Height, 0.1, 1000);
         var ctx = new FrameContext { Camera = cam, Assets = assets, Renderer = renderer, Light = LightSet.Default() };
-        ShapeDraw d = ctx.Draw(Xf.Identity, shapeName);
+        var d = ctx.Draw(Xf.Identity, shapeName);
         d.Skin = skin;
         d.ForceDetail = 0;
-        RenderImage? img = renderer.Build(inst, cam, d);
+        var img = renderer.Build(inst, cam, d);
         if (img != null)
             ctx.Lists.Add(img);
         dev.BeginFrame();
         dev.ClearRgb(110, 120, 130);
         dev.BeginScene3D(cam, 0.7f, 0.7f, 0.7f);
-        int draws = ctx.Lists.Draw(dev);
+        var draws = ctx.Lists.Draw(dev);
         dev.EndScene3D();
         dev.EndFrame();
         MissionRender.WritePng(output, dev.ReadPixels(), dev.Width, dev.Height);

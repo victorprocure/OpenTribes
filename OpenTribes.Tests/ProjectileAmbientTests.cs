@@ -1,7 +1,6 @@
-using OpenTribes.Client.Scene;
-using Xunit;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Client.Scene;
 
 // Grenade_clientUpdate never advances the ambient thread of the shell shape (no call to ShapeThread_advanceTime 005c01b0).
 public class ProjectileAmbientTests

@@ -1,6 +1,6 @@
-using System.Text;
-
 namespace OpenTribes.Core;
+
+using System.Text;
 
 /// <summary>Conversions between byte strings and raw bytes or host file names.</summary>
 /// <remarks>The C++ code keeps names and script text as byte strings. The port holds them in <see cref="string"/> with one char per byte (0-255), so comparisons, case folding and wire bytes stay identical. Host file names are UTF-8 on disk.</remarks>

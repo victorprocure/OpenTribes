@@ -1,8 +1,8 @@
 // Turret_getCameraTransform 004564fc: no shape instance (+0x328 == 0), no camera transform. The control ghost of a turret can be
 // positioned by the stream before its datablock and shape are loaded (issue 38: a close-up of the turret body as the view).
-using OpenTribes.Client.Scene;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Client.Scene;
 
 public sealed class TurretCameraShapeTests
 {

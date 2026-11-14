@@ -43,7 +43,7 @@ public static class StockSort
             int eq = lo + 1, i = eq;
             while (true)
             {
-                int r = cmp(a[i], a[lo]);
+                var r = cmp(a[i], a[lo]);
                 if (r <= 0)
                 {
                     if (r == 0)

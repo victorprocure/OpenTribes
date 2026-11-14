@@ -1,64 +1,64 @@
-using OpenTribes.Platform.Gfx;
+namespace OpenTribes.Client.Scene;
+
 using OpenTribes.Client.Effects;
 using OpenTribes.Client.Shapes;
 using OpenTribes.Game;
+using OpenTribes.Platform.Gfx;
 using OpenTribes.World;
-
-namespace OpenTribes.Client.Scene;
 
 /// <summary>The visible state of a demo or a live connection: the visuals of the ghosts, the transient effects, the smoke pool and the decal ring.</summary>
 /// <remarks>docs/shapes-render.md 2.1, 4 and 5. It is fed by the decoded packets of OpenTribes.Game.Client and steps in 32 ms frames like the client loop.</remarks>
 public sealed class SceneModel
 {
     /// <summary>The client world the packets feed.</summary>
-    public readonly ClientWorld World;
+    public ClientWorld World { get; }
     /// <summary>The datablock reader.</summary>
-    public readonly Db Db;
+    public Db Db { get; }
     /// <summary>The shape loader.</summary>
-    public readonly ShapeAssets Assets;
+    public ShapeAssets Assets { get; }
     /// <summary>The shape image builder.</summary>
-    public readonly ShapeRenderer Renderer;
+    public ShapeRenderer Renderer { get; }
     /// <summary>The terrain for ground queries, or null.</summary>
-    public readonly Terrain? Terrain;
+    public Terrain? Terrain { get; }
     /// <summary>The visual of each ghost by ghost index.</summary>
-    public readonly Dictionary<int, Visual> Visuals = new();
+    public Dictionary<int, Visual> Visuals { get; } = [];
     /// <summary>The transient effects.</summary>
-    public readonly List<IEffect> Effects = new();
+    public List<IEffect> Effects { get; } = [];
     /// <summary>The smoke pool.</summary>
-    public SmokePool Smoke;
+    public SmokePool Smoke { get; set; }
     /// <summary>The decal ring.</summary>
-    public DecalRing Decals;
+    public DecalRing Decals { get; set; }
     /// <summary>The rain or snow effect.</summary>
-    public readonly WeatherEffect Weather = new();
+    public WeatherEffect Weather { get; } = new();
     /// <summary>True when the mission has weather.</summary>
-    public bool HasWeather;
+    public bool HasWeather { get; set; }
     /// <summary>The <c>$pref::weatherPrecipitation</c> switch, default 1 (shapes-render.md 4.8).</summary>
-    public bool WeatherPrecipitation = true;
+    public bool WeatherPrecipitation { get; set; } = true;
     /// <summary>The random source of the effects.</summary>
-    public Random Rng = new(0x8377);
+    public Random Rng { get; set; } = new(0x8377);
     /// <summary>The scene time in seconds.</summary>
-    public double Time;
+    public double Time { get; set; }
     /// <summary>The sound starts, or null without audio.</summary>
-    public Audio.SceneAudio? Audio;
+    public Audio.SceneAudio? Audio { get; set; }
     /// <summary>The <c>$pref::animateWithTransitions</c> switch, default off (3.3).</summary>
-    public bool AnimateWithTransitions;
+    public bool AnimateWithTransitions { get; set; }
     /// <summary>The <c>$pref::playerShapeDetail</c> value.</summary>
-    public double PlayerShapeDetail = 1;
+    public double PlayerShapeDetail { get; set; } = 1;
     /// <summary>The scene light.</summary>
-    public LightSet BaseLight = LightSet.Default();
+    public LightSet BaseLight { get; set; } = LightSet.Default();
     /// <summary>The shape light probe. Null means shapes keep the scene light as it is. The host that has the interiors and the terrain renderer sets it.</summary>
-    public LightProbe? Probe;
+    public LightProbe? Probe { get; set; }
     /// <summary>The number of shape triggers fired.</summary>
-    public int TriggerCount;
+    public int TriggerCount { get; set; }
     /// <summary>The number of contact triggers fired.</summary>
-    public int ContactTriggers;
+    public int ContactTriggers { get; set; }
     /// <summary>The number of explosions spawned.</summary>
-    public int ExplosionsSpawned;
+    public int ExplosionsSpawned { get; set; }
     /// <summary>The number of footprints added.</summary>
-    public int FootprintsAdded;
+    public int FootprintsAdded { get; set; }
     /// <summary>The number of bullet holes added.</summary>
-    public int BulletHolesAdded;
-    private bool mDecalsLoaded;
+    public int BulletHolesAdded { get; set; }
+    private bool _decalsLoaded;
 
     /// <summary>Creates the model.</summary>
     /// <param name="world">The client world.</param>
@@ -90,53 +90,55 @@ public sealed class SceneModel
     /// <summary>Gets the skin name of a team.</summary>
     /// <param name="team">The team index.</param>
     /// <returns>The skin, or empty for an unknown team.</returns>
-    public string TeamSkin(int team) => World.Players.Teams.TryGetValue(team, out ClientTeam? t) ? t.Skin : "";
+    public string TeamSkin(int team) => World.Players.Teams.TryGetValue(team, out var t) ? t.Skin : "";
 
     /// <summary>Applies a decoded packet: events, then the ghost updates.</summary>
     /// <param name="pkt">The packet.</param>
     public void OnPacket(DecodedPacket pkt)
     {
         Audio?.OnPacket(pkt);
-        if (!mDecalsLoaded && World.DataBlocks.Blocks.ContainsKey((2, 0)))
+        if (!_decalsLoaded && World.DataBlocks.Blocks.ContainsKey((2, 0)))
         {
-            mDecalsLoaded = true;
-            ClientDataBlock? ds = Db.Block(2, 0);
+            _decalsLoaded = true;
+            var ds = Db.Block(2, 0);
             Assets.SetDamageDecals(Enumerable.Range(0, 10).Select(i => Db.Str(ds, $"bmpName[{i}]")).Where(s => s.Length > 0)
                 .Select(s => s.Contains('.') ? s : s + ".bmp"));
         }
         if (pkt.Ghosts == null)
             return;
-        foreach (DecodedGhost u in pkt.Ghosts.Updates)
+        foreach (var u in pkt.Ghosts.Updates)
         {
             if (u.Op == "delete")
             {
                 Audio?.OnDelete(u.Index);
-                if (Visuals.Remove(u.Index, out Visual? gone))
+                if (Visuals.Remove(u.Index, out var gone))
                     gone.OnDelete();
                 continue;
             }
-            ClientGhost? g = World.Ghosts.Get(u.Index);
+            var g = World.Ghosts.Get(u.Index);
             if (g == null)
                 continue;
             if (g.Class == "Snowfall")
             {
                 HasWeather = true;
-                if (g.State.TryGetValue("intensity", out object? it)) Weather.Intensity = Math.Clamp(Db.ToDouble(it), 0, 1);
-                if (g.State.TryGetValue("wind", out object? w)) { double[] wv = Db.Vec(w); Weather.WindX = wv[0]; Weather.WindY = wv[1]; }
-                Weather.Suspended = g.State.TryGetValue("flagf0", out object? s) && Db.ToDouble(s) != 0;
-                Weather.Rain = g.State.TryGetValue("flagf1", out object? r) && Db.ToDouble(r) != 0;
+                if (g.State.TryGetValue("intensity", out var it))
+                    Weather.Intensity = Math.Clamp(Db.ToDouble(it), 0, 1);
+                if (g.State.TryGetValue("wind", out var w))
+                { var wv = Db.Vec(w); Weather.WindX = wv[0]; Weather.WindY = wv[1]; }
+                Weather.Suspended = g.State.TryGetValue("flagf0", out var s) && Db.ToDouble(s) != 0;
+                Weather.Rain = g.State.TryGetValue("flagf1", out var r) && Db.ToDouble(r) != 0;
                 continue;
             }
-            if (!Visuals.TryGetValue(u.Index, out Visual? v) || v.Ghost != g)
+            if (!Visuals.TryGetValue(u.Index, out var v) || v.Ghost != g)
             {
-                Visual? nv = Create(g.Class);
+                var nv = Create(g.Class);
                 if (nv == null)
                     continue;
                 nv.Init(this, g);
                 Visuals[u.Index] = v = nv;
             }
             v.OnUpdate(u, u.Op == "new");
-            Audio?.OnGhost(v, u, u.Op == "new");
+            Audio?.OnGhost(v, u);
         }
     }
 
@@ -145,23 +147,23 @@ public sealed class SceneModel
     public void Tick(double dt)
     {
         Time += dt;
-        foreach (Visual v in Visuals.Values)
+        foreach (var v in Visuals.Values)
             v.Tick(dt);
-        for (int i = Effects.Count - 1; i >= 0; --i)
+        for (var i = Effects.Count - 1; i >= 0; --i)
         {
             Effects[i].Tick(dt);
             if (!Effects[i].Alive)
                 Effects.RemoveAt(i);
         }
         Smoke.Tick(dt);
-        Audio?.Frame(dt);
+        Audio?.Frame();
     }
 
     /// <summary>Finds the nearest interior surface along a ray, with its normal (<c>InteriorRenderer.Probe</c>). The live game sets it.</summary>
-    public DebrisRay? DebrisWorld;
+    public DebrisRay? DebrisWorld { get; set; }
 
     /// <summary>Casts the container ray of the prediction world for Player +0xfd0 (Player_updateWeaponPullback 004198d4). Takes the ghost index of the player, which the cast leaves out, the start and the end, and returns the hit point or null. The live game sets it.</summary>
-    public Func<int, (double, double, double), (double, double, double), (double, double, double)?>? PullbackRay;
+    public Func<int, (double, double, double), (double, double, double), (double, double, double)?>? PullbackRay { get; set; }
 
     /// <summary>Creates the DebrisEffect of a dying shape (PartDebrisCloud 00476434).</summary>
     /// <param name="inst">The shape instance of the dying shape.</param>
@@ -206,14 +208,14 @@ public sealed class SceneModel
     /// <param name="az">The surface axis z.</param>
     public void SpawnExplosion(int index, double x, double y, double z, double ax, double ay, double az)
     {
-        ClientDataBlock? db = Db.Block(20, index);
+        var db = Db.Block(20, index);
         if (db == null)
             return;
         Audio?.OnExplosion(db, x, y, z);
-        string name = Db.Str(db, "shapeName");
+        var name = Db.Str(db, "shapeName");
         if (name.EndsWith(".dts", StringComparison.OrdinalIgnoreCase))
             name = name[..^4];
-        RenderShape? sh = Assets.Shape(name);
+        var sh = Assets.Shape(name);
         if (sh == null)
             return;
         Effects.Add(new ExplosionEffect(sh, db, x, y, z, ax, ay, az, Rng));
@@ -232,17 +234,17 @@ public sealed class SceneModel
         var n = new Vec3(0, 0, 1);
         if (!Terrain.Height((float)fx, (float)fy, ref h, ref n) || Math.Abs(fz - h) > 1.5)
             return;
-        string hex = Db.Str(null, "") + (Db.Get(Db.Block(3, p.Ghost.State.TryGetValue("datablock", out object? d) ? (int)Db.ToDouble(d) : -1), "footPrints") as string ?? "");
+        var hex = Db.Str(null, "") + (Db.Get(Db.Block(3, p.Ghost.State.TryGetValue("datablock", out var d) ? (int)Db.ToDouble(d) : -1), "footPrints") as string ?? "");
         int left = 0, right = 1;
         if (hex.Length >= 16)
         {
             left = BitConverter.ToInt32(Convert.FromHexString(hex[..8]));
-            right = BitConverter.ToInt32(Convert.FromHexString(hex.Substring(8, 8)));
+            right = BitConverter.ToInt32(Convert.FromHexString(hex.AsSpan(8, 8)));
         }
-        int bmp = side > 0 ? right : left;
+        var bmp = side > 0 ? right : left;
         if (bmp < 0 || bmp >= DecalRing.Table.Length)
             return;
-        double yaw = p.YawAngle;
+        var yaw = p.YawAngle;
         Decals.Add(DecalRing.Quad(bmp, fx, fy, h, n.X, n.Y, n.Z, -Math.Sin(yaw), Math.Cos(yaw), 0));
         ++FootprintsAdded;
     }
@@ -259,23 +261,23 @@ public sealed class SceneModel
     {
         if (Probe?.Interior is not { } probe)
             return;
-        double nl = Math.Sqrt(nx * nx + ny * ny + nz * nz);
+        var nl = Math.Sqrt((nx * nx) + (ny * ny) + (nz * nz));
         if (nl < 1e-6)
             return;
         (nx, ny, nz) = (nx / nl, ny / nl, nz / nl);
         // The impact point is on the surface: look for that interior surface just in front of it.
-        var (hit, t, _) = probe(x + nx * 0.25, y + ny * 0.25, z + nz * 0.25, -nx, -ny, -nz, 0.5);
+        var (hit, t, _) = probe(x + (nx * 0.25), y + (ny * 0.25), z + (nz * 0.25), -nx, -ny, -nz, 0.5);
         if (!hit)
             return;
-        double px = x + nx * 0.25 - nx * t, py = y + ny * 0.25 - ny * t, pz = z + nz * 0.25 - nz * t;
-        double a = Rng.NextDouble() * Math.PI * 2;
+        double px = x + (nx * 0.25) - (nx * t), py = y + (ny * 0.25) - (ny * t), pz = z + (nz * 0.25) - (nz * t);
+        var a = Rng.NextDouble() * Math.PI * 2;
         // forward = cos a * u + sin a * v, u and v an orthonormal pair in the surface plane
-        (double rx, double ry, double rz) = Math.Abs(nz) > 0.99 ? (1.0, 0.0, 0.0) : (0.0, 0.0, 1.0);
-        double ux = ry * nz - rz * ny, uy = rz * nx - rx * nz, uz = rx * ny - ry * nx, ul = Math.Sqrt(ux * ux + uy * uy + uz * uz);
+        (var rx, var ry, var rz) = Math.Abs(nz) > 0.99 ? (1.0, 0.0, 0.0) : (0.0, 0.0, 1.0);
+        double ux = (ry * nz) - (rz * ny), uy = (rz * nx) - (rx * nz), uz = (rx * ny) - (ry * nx), ul = Math.Sqrt((ux * ux) + (uy * uy) + (uz * uz));
         (ux, uy, uz) = (ux / ul, uy / ul, uz / ul);
-        double vx = ny * uz - nz * uy, vy = nz * ux - nx * uz, vz = nx * uy - ny * ux;
+        double vx = (ny * uz) - (nz * uy), vy = (nz * ux) - (nx * uz), vz = (nx * uy) - (ny * ux);
         double ca = Math.Cos(a), sa = Math.Sin(a);
-        Decals.Add(DecalRing.Quad(6, px, py, pz, nx, ny, nz, ca * ux + sa * vx, ca * uy + sa * vy, ca * uz + sa * vz));
+        Decals.Add(DecalRing.Quad(6, px, py, pz, nx, ny, nz, (ca * ux) + (sa * vx), (ca * uy) + (sa * vy), (ca * uz) + (sa * vz)));
         ++BulletHolesAdded;
     }
 
@@ -285,29 +287,44 @@ public sealed class SceneModel
     {
         var set = new LightSet
         {
-            AmbR = BaseLight.AmbR, AmbG = BaseLight.AmbG, AmbB = BaseLight.AmbB, SunX = BaseLight.SunX, SunY = BaseLight.SunY, SunZ = BaseLight.SunZ,
-            SunR = BaseLight.SunR, SunG = BaseLight.SunG, SunB = BaseLight.SunB,
+            AmbR = BaseLight.AmbR,
+            AmbG = BaseLight.AmbG,
+            AmbB = BaseLight.AmbB,
+            SunX = BaseLight.SunX,
+            SunY = BaseLight.SunY,
+            SunZ = BaseLight.SunZ,
+            SunR = BaseLight.SunR,
+            SunG = BaseLight.SunG,
+            SunB = BaseLight.SunB,
         };
-        foreach (IEffect e in Effects)
+        foreach (var e in Effects)
             if (e.Light is PointLight l)
                 set.Add(l);
-        foreach (Visual v in Visuals.Values)
+        foreach (var v in Visuals.Values)
         {
             switch (v)
             {
-                case ProjectileVisual pv when pv.Light is PointLight pl: set.Add(pl); break;
-                case BeamVisual bv when bv.Light is PointLight bl: set.Add(bl); break;
-                case PlayerVisual plv: plv.CollectLights(set); break;
+                case ProjectileVisual pv when pv.Light is PointLight pl:
+                    set.Add(pl);
+                    break;
+                case BeamVisual bv when bv.Light is PointLight bl:
+                    set.Add(bl);
+                    break;
+                case PlayerVisual plv:
+                    plv.CollectLights(set);
+                    break;
                 case ShapeVisual sv when sv.Class is "Item" or "Mine" && sv.Position is var (x, y, z):
-                    ClientDataBlock? db = Db.Block(sv.Class == "Item" ? 5 : 23, (long)Db.ToDouble(sv.Ghost.State.GetValueOrDefault("datablock"), -1));
-                    int type = (int)Db.Num(db, "lightType");
+                    var db = Db.Block(sv.Class == "Item" ? 5 : 23, (long)Db.ToDouble(sv.Ghost.State.GetValueOrDefault("datablock"), -1));
+                    var type = (int)Db.Num(db, "lightType");
                     // Item::updateLight (00451bb0): type 2 pulses as 0.15 + 0.85 * (0.5 + 0.5 sin(pi * (now - added) / lightTime)),
                     // the phase counted from the ghost's creation; the light sits at the item's position.
-                    double lightTime = Db.Num(db, "lightTime", 1.5);
-                    double k = type == 1 ? 1 : type == 2 ? 0.15 + 0.85 * (0.5 + 0.5 * Math.Sin(Math.PI * sv.LightAge / lightTime)) : 0;
+                    var lightTime = Db.Num(db, "lightTime", 1.5);
+                    var k = type == 1 ? 1 : type == 2 ? 0.15 + (0.85 * (0.5 + (0.5 * Math.Sin(Math.PI * sv.LightAge / lightTime)))) : 0;
                     k *= sv.LightFade;
                     if (k > 0)
                         set.Add(new PointLight(x, y, z, (float)(Db.Num(db, "lightColor.x") * k), (float)(Db.Num(db, "lightColor.y") * k), (float)(Db.Num(db, "lightColor.z") * k), Db.Num(db, "lightRadius", 3)));
+                    break;
+                default:
                     break;
             }
         }
@@ -323,20 +340,20 @@ public sealed class SceneModel
         ctx.Time = Time;
         ctx.Light = CollectLights();
         ctx.Lists.Clear();
-        foreach (Visual v in Visuals.Values)
+        foreach (var v in Visuals.Values)
             (v as PlayerVisual)?.PrepareFrame(ctx);
         using (FramePerf.Scope("build-shapes"))
-            foreach (Visual v in Visuals.Values)
+            foreach (var v in Visuals.Values)
             {
                 ctx.Lists.CurrentContainer = ctx.ContainerOf != null && v.WorldBox is { } wb ? ctx.ContainerOf(wb) : -1;
-                if (ctx.Lists.CurrentContainer == OpenTribes.Client.World.InteriorRenderer.Culled)
+                if (ctx.Lists.CurrentContainer == Client.World.InteriorRenderer.Culled)
                     continue;
                 v.Build(ctx);
             }
         ctx.Lists.CurrentContainer = -1;
         using (FramePerf.Scope("build-effects"))
         {
-            foreach (IEffect e in Effects)
+            foreach (var e in Effects)
                 e.Build(ctx);
             Smoke.Build(ctx);
             Decals.Build(ctx);

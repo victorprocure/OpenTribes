@@ -16,26 +16,26 @@ public static class GfxText
 
     private static int Draw(IGfxDevice dev, PftFont font, int x, int y, string text, int scaleX, int scaleY)
     {
-        bool scaled = scaleX != 65536 || scaleY != 65536;
+        var scaled = scaleX != 65536 || scaleY != 65536;
         int pen = x, bottom = y;
-        foreach (char ch in text)
+        foreach (var ch in text)
         {
-            int advance = font.CharWidth(ch);
-            if (font.TryGetGlyph(ch, out GlyphEntry g) && font.Sheets.Get(g.Sheet) is PbmpBitmap sheet)
+            var advance = font.CharWidth(ch);
+            if (font.TryGetGlyph(ch, out var g) && font.Sheets.Get(g.Sheet) is PbmpBitmap sheet)
             {
-                GfxRect r = g.SheetRect;
-                int yOff = font.Baseline + g.Baseline - (r.Bottom - r.Top);
+                var r = g.SheetRect;
+                var yOff = font.Baseline + g.Baseline - (r.Bottom - r.Top);
                 if (!scaled)
                 {
-                    int gy = y + yOff + 1;
+                    var gy = y + yOff + 1;
                     dev.BlitRegion(sheet, r, pen, gy);
                     bottom = Math.Max(bottom, gy + r.Height - 1);
                 }
                 else
                 {
-                    int gy = y + (int)(((long)yOff * scaleY) >> 16) + 1;
-                    int w = Math.Max(1, (int)(((long)r.Width * scaleX) >> 16));
-                    int h = Math.Max(1, (int)(((long)r.Height * scaleY) >> 16));
+                    var gy = y + (int)(((long)yOff * scaleY) >> 16) + 1;
+                    var w = Math.Max(1, (int)(((long)r.Width * scaleX) >> 16));
+                    var h = Math.Max(1, (int)(((long)r.Height * scaleY) >> 16));
                     dev.BlitRegionStretch(sheet, r, pen, gy, w, h);
                     bottom = Math.Max(bottom, gy + h - 1);
                 }
@@ -54,17 +54,17 @@ public static class GfxText
     /// <remarks>The justification bits are 1 left, 2 right, 4 center, 8 vertical center, 0x20 bottom and 0x10 top. 0x40 fits the text to the rectangle by scaling, restored afterwards. There is no word wrap.</remarks>
     public static int DrawInRect(IGfxDevice dev, PftFont font, GfxRect rect, string text)
     {
-        uint j = font.Justification;
-        int extent = font.MeasureTextWidth(text);
-        int x = rect.Left;
+        var j = font.Justification;
+        var extent = font.MeasureTextWidth(text);
+        var x = rect.Left;
         if ((j & PftFont.JustRight) != 0)
             x = rect.Right - extent + 1;
         else if ((j & PftFont.JustCenter) != 0)
-            x = rect.Left + (rect.Width - extent) / 2;
+            x = rect.Left + ((rect.Width - extent) / 2);
 
-        int y = rect.Top;
+        var y = rect.Top;
         if ((j & PftFont.JustVCenter) != 0)
-            y = rect.Top + (rect.Height - font.Baseline) / 2;
+            y = rect.Top + ((rect.Height - font.Baseline) / 2);
         else if ((j & PftFont.JustBottom) != 0)
             y = rect.Bottom - font.Baseline + 1;
 

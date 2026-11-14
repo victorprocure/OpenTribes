@@ -1,17 +1,16 @@
 // Tests of the client input path (ROADMAP M9 C8, docs/client-scripts.md 3.4 to 3.9, docs/client-app.md 3.4): scan code
 // table, modifier tracking, held keys, binding match, value shaping, push and pop. Synthetic maps only (R5).
-using OpenTribes.Core;
-using OpenTribes.Script;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Script;
 
 public sealed class ClientInputTests
 {
     private sealed class Sink : IActionConsumer
     {
-        public readonly List<(int Action, int Kind, float Value)> Got = new();
+        public List<(int Action, int Kind, float Value)> Got { get; } = [];
         public bool Removing { get; set; }
-        public bool Result = true;
+        public bool Result { get; set; } = true;
         public bool OnAction(int action, int kind, float value)
         {
             Got.Add((action, kind, value));
@@ -22,7 +21,7 @@ public sealed class ClientInputTests
     private static (Interpreter I, ClientState S) Setup()
     {
         var i = new Interpreter();
-        ClientState s = Builtins.RegisterBuiltins(i, null, ".");
+        var s = Builtins.RegisterBuiltins(i, null, ".");
         i.SetOutput(_ => { });
         // tags used by the binds: IDACTION_x = 220000 + n
         i.Evaluate("$A = 1;");
@@ -58,20 +57,18 @@ public sealed class ClientInputTests
     [InlineData(98, 0x52)]   // keypad 0
     [InlineData(88, 0x9c)]   // keypad enter
     [InlineData(72, 0)]      // pause: no code
-    public void ScanCodesFollowTheKeyTable(int sdl, int code)
-    {
+    public void ScanCodesFollowTheKeyTable(int sdl, int code) =>
         // client-app.md 3.4 table; Q1 of client-scripts.md 7.
         Assert.Equal(code, ScanCodeMap.FromSdl(sdl));
-    }
 
     [Fact]
     public void EveryMappedCodeIsInTheKeyTable()
     {
         // client-scripts.md 3.4: the table has an entry for every code a mapped key produces.
         var codes = new HashSet<int>(ClientKeyTable.Keys.Select(k => (int)k.Code));
-        for (int sdl = 0; sdl < 512; ++sdl)
+        for (var sdl = 0; sdl < 512; ++sdl)
         {
-            int c = ScanCodeMap.FromSdl(sdl);
+            var c = ScanCodeMap.FromSdl(sdl);
             if (c != 0)
                 Assert.Contains(c, codes);
         }
@@ -81,7 +78,7 @@ public sealed class ClientInputTests
     public void LettersMapToDistinctCodes()
     {
         var seen = new HashSet<int>();
-        for (int sdl = 4; sdl <= 29; ++sdl)
+        for (var sdl = 4; sdl <= 29; ++sdl)
             Assert.True(seen.Add(ScanCodeMap.FromSdl(sdl)));
     }
 
@@ -110,11 +107,9 @@ public sealed class ClientInputTests
     [InlineData(3, 2, true)]
     [InlineData(3, 3, true)]
     [InlineData(3, 0, false)]
-    public void ModifierGroupTable(int binding, int ev, bool match)
-    {
+    public void ModifierGroupTable(int binding, int ev, bool match) =>
         // 3.6a: the 4 by 4 table of 0063352c.
         Assert.Equal(match, InputDispatcher.GroupMatches(binding, ev));
-    }
 
     [Fact]
     public void BindingWithoutModifierDoesNotMatchShiftedEventUntilSecondPass()
@@ -190,8 +185,8 @@ public sealed class ClientInputTests
         var sink = new Sink();
         var d = new InputDispatcher(s);
         d.Push(s.FindMap("t.sae")!, sink);
-        int offered = 0;
-        bool swallow = false;
+        var offered = 0;
+        var swallow = false;
         d.OfferToGui = (ev, v, ch) => { ++offered; return swallow; };
         d.Process(Key(0x11, true), 1);
         Assert.Equal(1, offered);

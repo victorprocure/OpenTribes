@@ -1,8 +1,8 @@
 // Port of src/game/player_commands.cpp: script commands of the spawn-to-play loop (docs/player-control.md 6,
 // docs/player-sim.md 1.1, 1.5, 5.6, 6.2-6.5, 7.6, docs/player-manager.md 12.4): spawnPlayer, the Player:: commands.
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>The script commands of the spawn-to-play loop: spawnPlayer and the Player commands.</summary>
 /// <remarks>See docs/player-control.md 6, docs/player-sim.md 1.1, 1.5, 5.6, 6.2 to 6.5, 7.6 and docs/player-manager.md 12.4.</remarks>
@@ -15,12 +15,12 @@ public static class PlayerCommands
     // client id naming the client's owned object.
     private static Player? FindPlayer(GameState game, string arg)
     {
-        SimManager? m = ServerOf(game);
+        var m = ServerOf(game);
         if (m == null)
             return null;
         if (Player.From(m.Find(arg)) is Player p)
             return p;
-        ClientRecord? r = game.Players.Find(Numbers.BorlandAtoi(arg));
+        var r = game.Players.Find(Numbers.BorlandAtoi(arg));
         return r != null && r.OwnedObject != 0 ? Player.From(m.FindById(r.OwnedObject)) : null;
     }
 
@@ -30,16 +30,16 @@ public static class PlayerCommands
     {
         if (game.Sim == null)
             return -1;
-        int i = 0;
+        var i = 0;
         while (i < arg.Length && (arg[i] == ' ' || arg[i] == '\t' || arg[i] == '\n' || arg[i] == '\r'))
             ++i;
-        DataBlockManager db = game.Sim.DataBlocks();
+        var db = game.Sim.DataBlocks();
         if (i < arg.Length && arg[i] >= '0' && arg[i] <= '9')
         {
-            int n = Numbers.BorlandAtoi(arg[i..]);
+            var n = Numbers.BorlandAtoi(arg[i..]);
             return n >= 0 && n < db.GroupSize(5) ? n : -1;
         }
-        DataBlockManager.Block? b = db.Find(arg[i..]);
+        var b = db.Find(arg[i..]);
         return b != null && b.Group == 5 ? b.Index : -1;
     }
 
@@ -66,14 +66,14 @@ public static class PlayerCommands
     // src/game/player_commands.cpp itemName.
     private static string? ItemName(GameState game, int type)
     {
-        DataBlockManager.Block? b = game.Sim != null && type >= 0 ? game.Sim.DataBlocks().At(5, type) : null;
+        var b = game.Sim != null && type >= 0 ? game.Sim.DataBlocks().At(5, type) : null;
         return b?.Name;
     }
 
     // src/game/player_commands.cpp scan3: sscanf "%f %f %f" into a zeroed vector.
     private static float[] Scan3(string s)
     {
-        float[] v = { 0, 0, 0 };
+        float[] v = [0, 0, 0];
         CScan.Floats(s, v);
         return v;
     }
@@ -91,7 +91,7 @@ public static class PlayerCommands
         // spawnPlayer(armor, pos, rot) 0x0043a1d0.
         interp.AddCommand("spawnPlayer", (_, a) =>
         {
-            SimManager? m = ServerOf(g);
+            var m = ServerOf(g);
             if (m == null || a.Length != 4)
                 return "-1";
             float[] pos = Scan3(a[2]), rot = Scan3(a[3]);
@@ -146,7 +146,7 @@ public static class PlayerCommands
 
         // Simple readers: name, usage suffix, wrong-argc result, not-found result.
         Reader[] kReaders =
-        {
+        [
             new("Player::isDead", "isDead(player)", "False", "False", p => p.Dead ? "True" : "False"),
             new("Player::isJetting", null, "False", "False", p => p.Jetting ? "True" : "False"),
             new("Player::isCrouching", null, "-1", "-1", p => p.Crouching ? "True" : "False"),
@@ -154,8 +154,8 @@ public static class PlayerCommands
             new("Player::isExposed", "isExposed(player)", "False", "False", p =>
             {
                 // 0x00421180: no mount object, or the mount object's vtable +0x164 (Vehicle: visibleDriver).
-                GameBase? m = p.MountObject();
-                Vehicle? v = Vehicle.From(m);
+                var m = p.MountObject();
+                var v = Vehicle.From(m);
                 return m == null || v == null || v.Data.VisibleDriver ? "True" : "False";
             }),
             new("Player::lastJetTime", null, "0", "0", p => Numbers.FormatInt(unchecked((int)p.LastJetTime))),
@@ -164,16 +164,16 @@ public static class PlayerCommands
             new("Player::getSensorSupression", "getSensorSupression(player)", "0", "0", p => Numbers.FormatFloat(p.SensorSuppression)),
             new("Player::getMountObject", "Player::getMountObject(Player)", "False", "-1",
                 p => Numbers.FormatInt(p.MountId != 0 ? p.MountId : -1)),
-        };
-        foreach (Reader rd in kReaders)
+        ];
+        foreach (var rd in kReaders)
             interp.AddCommand(rd.Name, (inr, a) =>
             {
                 if (a.Length != 2)
                 {
-                    inr.Print(1, "wrong argcount to " + (rd.Usage ?? a[0] + "(player)"));
+                    inr.Print(1, "wrong argcount to " + (rd.Usage ?? (a[0] + "(player)")));
                     return rd.BadArgc;
                 }
-                Player? p = FindPlayer(g, a[1]);
+                var p = FindPlayer(g, a[1]);
                 return p != null ? rd.Read(p) : rd.NotFound;
             });
 
@@ -211,7 +211,7 @@ public static class PlayerCommands
             }
             if (FindPlayer(g, a[1]) is Player p)
             {
-                float v = Store(Numbers.BorlandAtof(a[2]));
+                var v = Store(Numbers.BorlandAtof(a[2]));
                 p.Flash = v < 0.0f ? 0.0f : v > 1.0f ? 1.0f : v;
                 return "True";
             }
@@ -227,7 +227,7 @@ public static class PlayerCommands
             if (FindPlayer(g, a[1]) is Player p)
             {
                 // 0x0040fc88: unlink (also a player that is not linked), link after the head when r > 0, store r.
-                float v = Store(Numbers.BorlandAtof(a[2]));
+                var v = Store(Numbers.BorlandAtof(a[2]));
                 g.SensorJam(p, false);
                 if (0.0f < v)
                     g.SensorJam(p, true);
@@ -238,7 +238,7 @@ public static class PlayerCommands
         });
         interp.AddCommand("Player::setDetectParameters", (_, a) =>
         {
-            Player? p = a.Length == 4 ? FindPlayer(g, a[1]) : null;
+            var p = a.Length == 4 ? FindPlayer(g, a[1]) : null;
             if (p != null)
             {
                 p.DetectHazeFactor = Store(Numbers.BorlandAtof(a[2]));
@@ -258,8 +258,8 @@ public static class PlayerCommands
             {
                 // 0x00504b5c: v = f32(vec * invMass + v), at-rest bit cleared.
                 using var chop = X87.Chop();
-                float[] vec = Scan3(a[2]);
-                for (int i = 0; i < 3; ++i)
+                var vec = Scan3(a[2]);
+                for (var i = 0; i < 3; ++i)
                     p.Velocity[i] = X87.F32(Add(Mul(vec[i], p.InvMass), p.Velocity[i]));
                 p.AtRest = false;
             }
@@ -280,27 +280,27 @@ public static class PlayerCommands
 
         // ---- inventory (7.1, 7.6) ----
         CountCmd[] kCounts =
-        {
+        [
             new("Player::getItemCount", "getItemCount(player,type)", 0),
             new("Player::setItemCount", "setItemCount(player,type,count)", 1),
             new("Player::incItemCount", "incItemCount(player,type,<count>)", 2),
             new("Player::decItemCount", "decItemCount(player,type,<count>)", 3),
-        };
-        foreach (CountCmd c in kCounts)
+        ];
+        foreach (var c in kCounts)
             interp.AddCommand(c.Name, (inr, a) =>
             {
-                bool ok = c.Mode == 0 ? a.Length == 3 : c.Mode == 1 ? a.Length == 4 : a.Length == 3 || a.Length == 4;
+                var ok = c.Mode == 0 ? a.Length == 3 : c.Mode == 1 ? a.Length == 4 : a.Length is 3 or 4;
                 if (!ok)
                 {
                     inr.Print(1, "wrong argcount to " + c.Usage);
                     return "0";
                 }
-                if (!PlayerAndItem(inr, g, a, out Player? p, out int item))
+                if (!PlayerAndItem(inr, g, a, out var p, out var item))
                     return "0";
-                int n = a.Length == 4 ? Numbers.BorlandAtoi(a[3]) : 1;
-                int cur = p!.ItemCountOf(item);
+                var n = a.Length == 4 ? Numbers.BorlandAtoi(a[3]) : 1;
+                var cur = p!.ItemCountOf(item);
                 // Counts are 32-bit sums that wrap like the original's add.
-                int next = c.Mode == 0 ? cur : c.Mode == 1 ? n : c.Mode == 2 ? unchecked(cur + n) : unchecked(cur - n);
+                var next = c.Mode == 0 ? cur : c.Mode == 1 ? n : c.Mode == 2 ? unchecked(cur + n) : unchecked(cur - n);
                 return Numbers.FormatInt(c.Mode == 0 ? cur : p.SetItemCount(item, next));
             });
         interp.AddCommand("Player::getItemClassCount", (inr, a) =>
@@ -310,28 +310,28 @@ public static class PlayerCommands
                 inr.Print(1, "wrong argcount to getItemClassCount(player,className)");
                 return "0";
             }
-            Player? p = FindPlayer(g, a[1]);
+            var p = FindPlayer(g, a[1]);
             if (p == null || g.Sim == null)
                 return "0";
-            DataBlockManager db = g.Sim.DataBlocks();
-            int n = 0;
-            for (int t = 0; t < Player.kItemTypes && t < db.GroupSize(5); ++t)
-                if (p.Counts[t] != 0 && db.GetField(db.At(5, t)!, "className", "", out string cls) &&
+            var db = g.Sim.DataBlocks();
+            var n = 0;
+            for (var t = 0; t < Player.ItemTypes && t < db.GroupSize(5); ++t)
+                if (p.Counts[t] != 0 && db.GetField(db.At(5, t)!, "className", "", out var cls) &&
                     GameUtil.EqualsNoCase(cls, a[2]))
                     ++n;
             return Numbers.FormatInt(n);
         });
         interp.AddCommand("Player::mountItem", (inr, a) =>
         {
-            if (a.Length != 4 && a.Length != 5)
+            if (a.Length is not 4 and not 5)
             {
                 inr.Print(1, "wrong argcount to mountItem(player,type,imageSlot,<team>)");
                 return "False";
             }
-            if (!PlayerAndItem(inr, g, a, out Player? p, out int item))
+            if (!PlayerAndItem(inr, g, a, out var p, out var item))
                 return "False";
-            int slot = Numbers.BorlandAtoi(a[3]);
-            if (slot < 0 || slot >= Player.kImageSlots)
+            var slot = Numbers.BorlandAtoi(a[3]);
+            if (slot is < 0 or >= Player.ImageSlots)
             {
                 inr.Print(1, "mountItem: invalid imageSlot");
                 return "False";
@@ -340,33 +340,33 @@ public static class PlayerCommands
         });
         // Slot commands: name, usage, wrong-argc / not-found / bad-slot result.
         SlotCmd[] kSlots =
-        {
+        [
             new("Player::unmountItem", "unmountItem", "False", 0),
             new("Player::getMountedItem", null, "-1", 1),
             new("Player::getNextMountedItem", null, "-1", 2),
             new("Player::getItemState", "getItemState", "False", 3),
             new("Player::isTriggered", "isTriggered", "False", 4),
-        };
-        foreach (SlotCmd c in kSlots)
+        ];
+        foreach (var c in kSlots)
             interp.AddCommand(c.Name, (inr, a) =>
             {
-                string r = c.Fail;
-                string label = c.Usage ?? a[0];
+                var r = c.Fail;
+                var label = c.Usage ?? a[0];
                 if (a.Length != 3)
                 {
                     inr.Print(1, "wrong argcount to " + label + "(player,imageSlot)");
                     return r;
                 }
-                Player? p = FindPlayer(g, a[1]);
+                var p = FindPlayer(g, a[1]);
                 if (p == null)
                     return r;
-                int slot = Numbers.BorlandAtoi(a[2]);
-                if (slot < 0 || slot >= Player.kImageSlots)
+                var slot = Numbers.BorlandAtoi(a[2]);
+                if (slot is < 0 or >= Player.ImageSlots)
                 {
                     inr.Print(1, label + ": invalid imageSlot");
                     return r;
                 }
-                Player.ImageSlot s = p.Images[slot];
+                var s = p.Images[slot];
                 switch (c.Kind)
                 {
                     case 0:
@@ -392,16 +392,16 @@ public static class PlayerCommands
             });
         interp.AddCommand("Player::trigger", (inr, a) =>
         {
-            if (a.Length != 3 && a.Length != 4)
+            if (a.Length is not 3 and not 4)
             {
                 inr.Print(1, "wrong argcount to trigger(player,imageSlot,<bool>)");
                 return "False";
             }
-            Player? p = FindPlayer(g, a[1]);
+            var p = FindPlayer(g, a[1]);
             if (p == null)
                 return "False";
-            int slot = Numbers.BorlandAtoi(a[2]);
-            if (slot < 0 || slot >= Player.kImageSlots)
+            var slot = Numbers.BorlandAtoi(a[2]);
+            if (slot is < 0 or >= Player.ImageSlots)
             {
                 inr.Print(1, "trigger: invalid imageSlot");
                 return "False";
@@ -410,12 +410,12 @@ public static class PlayerCommands
             return "True";
         });
         UseCmd[] kUses =
-        {
+        [
             new("Player::useItem", "useItem(player,type)", "onUse"),
             new("Player::dropItem", "dropItem(player,type)", "onDrop"),
             new("Player::deployItem", "deployItem(player,type)", "onDeploy"),
-        };
-        foreach (UseCmd c in kUses)
+        ];
+        foreach (var c in kUses)
             interp.AddCommand(c.Name, (inr, a) =>
             {
                 if (a.Length != 3)
@@ -423,7 +423,7 @@ public static class PlayerCommands
                     inr.Print(1, "wrong argcount to " + c.Usage);
                     return "False";
                 }
-                if (!PlayerAndItem(inr, g, a, out Player? p, out int item))
+                if (!PlayerAndItem(inr, g, a, out var p, out var item))
                     return "False";
                 if (p!.ItemCountOf(item) != 0)
                     p.ItemCallback(item, c.Event, c.Event[2] == 'D' && c.Event[3] == 'e' ? "0.000000,0.000000,0.000000" : null);

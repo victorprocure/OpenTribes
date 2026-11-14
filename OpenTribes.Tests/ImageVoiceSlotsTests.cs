@@ -1,7 +1,7 @@
 // Image sound voice bookkeeping of a player ghost (docs/audio.md 3.2), no device and no data (R5, R9).
-using OpenTribes.Client.Audio;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Client.Audio;
 
 public class ImageVoiceSlotsTests
 {

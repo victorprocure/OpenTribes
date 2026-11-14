@@ -1,7 +1,7 @@
+namespace OpenTribes.Gui;
+
 using System.Globalization;
 using OpenTribes.Platform.Gfx;
-
-namespace OpenTribes.Gui;
 
 /// <summary>The part the Objects and Controllables lists of the command screen share (command.gui, docs/gui.md 3.3 "The command screen panels").</summary>
 /// <remarks>
@@ -14,9 +14,9 @@ public abstract class GuiCommandObjectList : GuiList
     /// <summary>The cell width in pixels.</summary>
     protected const int CellWidth = 640;
     private const uint TagWaypointArrow = 160558;
-    private IReadOnlyList<CommandListRow> mRows = Array.Empty<CommandListRow>();
+
     /// <summary>Gets the rows, rebuilt before each render.</summary>
-    public IReadOnlyList<CommandListRow> Rows => mRows;
+    public IReadOnlyList<CommandListRow> Rows { get; private set; } = [];
 
     /// <summary>Returns the rows of the list from the HUD source.</summary>
     /// <param name="hud">The HUD source.</param>
@@ -26,7 +26,7 @@ public abstract class GuiCommandObjectList : GuiList
     /// <param name="slot">The slot.</param>
     /// <returns>The font.</returns>
     /// <remarks>Follows 004a9a08 (always white) and 004aa814 (white for a controllable slot, grey else).</remarks>
-    protected abstract PftFont? NameFont(in OpenTribes.Game.ClientCommandSlot slot);
+    protected abstract PftFont? NameFont(in Game.ClientCommandSlot slot);
     /// <summary>Applies the selection a row makes on the command map (004a973c, 004aa644).</summary>
     /// <param name="map">The command map.</param>
     /// <param name="slot">The slot of the row.</param>
@@ -57,24 +57,24 @@ public abstract class GuiCommandObjectList : GuiList
     /// <remarks>Follows 004a98b8 and 004aa6b8: the count is zero without a local client.</remarks>
     public override void PreRender()
     {
-        mRows = Host?.Hud is IHudSource hud ? Source(hud) : Array.Empty<CommandListRow>();
+        Rows = Host?.Hud is IHudSource hud ? Source(hud) : [];
         Entries.Clear();
-        foreach (CommandListRow r in mRows)
+        foreach (var r in Rows)
             Entries.Add((r.Name, r.Slot));
         base.PreRender();
     }
 
     /// <inheritdoc/>
     /// <remarks>Follows 004a973c and 004aa644: a row below the count with the map present. The map's selection first loses the players and the other kinds.</remarks>
-    protected override bool Accepts(int row) => row < 0 || (row < mRows.Count && Map != null);
+    protected override bool Accepts(int row) => row < 0 || (row < Rows.Count && Map != null);
 
     /// <inheritdoc/>
     protected override void Selecting(int row)
     {
-        if (row < 0 || row >= mRows.Count || Map is not GuiCommandMap map)
+        if (row < 0 || row >= Rows.Count || Map is not GuiCommandMap map)
             return;
         map.SelectClient(-1, false);
-        SelectSlot(map, mRows[row].Slot);
+        SelectSlot(map, Rows[row].Slot);
     }
 
     /// <summary>Returns the cell under the mouse as the stock divides it.</summary>
@@ -92,14 +92,14 @@ public abstract class GuiCommandObjectList : GuiList
     /// <remarks>Follows 004a97b0 and 004aa4b4. The label of the row goes to $CommandTargetName (not $CommandTarget: only the team list sets that), the order goes to the slot and the cursor returns to select. A click outside the rows does nothing.</remarks>
     protected bool OrderClick(GuiEvent e)
     {
-        GuiCommandMap? map = Map;
+        var map = Map;
         if (!Active || map is not { OrderMode: 1 })
             return false;
         var (col, row) = CellAt(e);
-        if (col >= 0 && col < 1 && row >= 0 && row < mRows.Count)
+        if (col >= 0 && col < 1 && row >= 0 && row < Rows.Count)
         {
-            Host?.SetVar("$CommandTargetName", mRows[row].Name);
-            map.IssueTargetOrder(mRows[row].Slot);
+            Host?.SetVar("$CommandTargetName", Rows[row].Name);
+            map.IssueTargetOrder(Rows[row].Slot);
             map.SetOrderMode(0);
         }
         return true;
@@ -117,32 +117,32 @@ public abstract class GuiCommandObjectList : GuiList
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y;
-        GuiCommandMap? map = Map;
+        var map = Map;
         var slots = Host?.Hud?.CommandSlotTable;
         if (Host == null || map == null || slots == null)
             return;
         PbmpBitmap? low = Host.BitmapByName("CMD_DamageLow.bmp"), med = Host.BitmapByName("CMD_DamageMed.bmp"), high = Host.BitmapByName("CMD_DamageHigh.bmp");
         PbmpBitmap? active = Host.BitmapByName("CMD_ItemActive.bmp"), inactive = Host.BitmapByName("CMD_ItemInactive.bmp");
-        int rowH = RowHeight;
-        for (int i = 0; i < mRows.Count; ++i)
+        var rowH = RowHeight;
+        for (var i = 0; i < Rows.Count; ++i)
         {
-            CommandListRow r = mRows[i];
+            var r = Rows[i];
             if (r.Slot < 0 || r.Slot >= slots.Length)
                 continue;
             var slot = slots[r.Slot];
-            int py = gy + i * rowH;
+            var py = gy + (i * rowH);
             if (map.Selected[r.Slot])
             {
-                int left = (high?.Width ?? 0) + (active?.Width ?? 0) + 3;
+                var left = (high?.Width ?? 0) + (active?.Width ?? 0) + 3;
                 p.Fill(gx + left, py, CellWidth - left, rowH, 0xfc);
             }
-            PbmpBitmap? dmg = slot.Status == 2 ? high : slot.Status == 1 ? med : low;
+            var dmg = slot.Status == 2 ? high : slot.Status == 1 ? med : low;
             if (dmg == null)
                 continue;
-            int x = gx + 2;
+            var x = gx + 2;
             p.Bitmap(dmg, x, py + 1);
             x += dmg.Width + 1;
-            PbmpBitmap? flag = slot.Active ? active : inactive;
+            var flag = slot.Active ? active : inactive;
             if (flag != null)
                 p.Bitmap(flag, x, py + 1);
             x += (flag?.Width ?? 0) + 2;
@@ -158,7 +158,7 @@ public sealed class GuiCommandItems : GuiCommandObjectList
     /// <inheritdoc/>
     protected override IReadOnlyList<CommandListRow> Source(IHudSource hud) => hud.CommandObjects;
     /// <inheritdoc/>
-    protected override PftFont? NameFont(in OpenTribes.Game.ClientCommandSlot slot) => Host?.FontByName("if_w_10b.pft");
+    protected override PftFont? NameFont(in Game.ClientCommandSlot slot) => Host?.FontByName("if_w_10b.pft");
     /// <inheritdoc/>
     protected override void SelectSlot(GuiCommandMap map, int slot)
     {
@@ -171,14 +171,14 @@ public sealed class GuiCommandItems : GuiCommandObjectList
 /// <remarks>A click selects that turret (004d27d0) after dropping the players and statics. A second click on the same row (click count above 1) while a turret is selected mounts it: `remoteEval(2048, CmdrMountObject, &lt;target&gt;);` (004aa4b4).</remarks>
 public sealed class GuiCommandTurrets : GuiCommandObjectList
 {
-    private int mPrevRow = -1;
+    private int _prevRow = -1;
 
     /// <inheritdoc/>
     protected override IReadOnlyList<CommandListRow> Source(IHudSource hud) => hud.CommandControllables;
 
     /// <inheritdoc/>
     /// <remarks>Follows 004aa814: the white font for a controllable slot (+0x361), the grey one (if_gr_10b, tag 150154) else.</remarks>
-    protected override PftFont? NameFont(in OpenTribes.Game.ClientCommandSlot slot) =>
+    protected override PftFont? NameFont(in Game.ClientCommandSlot slot) =>
         Host?.FontByName(slot.Controllable ? "if_w_10b.pft" : "if_gr_10b.pft");
 
     /// <inheritdoc/>
@@ -193,11 +193,11 @@ public sealed class GuiCommandTurrets : GuiCommandObjectList
     {
         if (OrderClick(e))
             return true;
-        bool handled = base.MsDown(e);
+        var handled = base.MsDown(e);
         // 004aa5d0: after the base press, a click count above 1 on the row the previous press left selected, with a turret selected on the map, mounts it.
-        if (e.ClickCount > 1 && Selected == mPrevRow && Map?.SelectedTurretTarget() is int target and >= 0)
+        if (e.ClickCount > 1 && Selected == _prevRow && Map?.SelectedTurretTarget() is int target and >= 0)
             Host?.Eval("remoteEval(2048, CmdrMountObject, " + target.ToString(CultureInfo.InvariantCulture) + ");");
-        mPrevRow = Selected;
+        _prevRow = Selected;
         return handled;
     }
 }

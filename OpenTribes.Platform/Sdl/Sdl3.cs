@@ -1,7 +1,7 @@
+namespace OpenTribes.Platform.Sdl;
+
 using System.Reflection;
 using System.Runtime.InteropServices;
-
-namespace OpenTribes.Platform.Sdl;
 
 /// <summary>Our own minimal SDL3 bindings (D30): the subset the client needs for init, a window with an OpenGL context, event polling, timing and the GL proc address.</summary>
 /// <remarks>Values were checked against the SDL 3.4.18 headers.</remarks>
@@ -33,22 +33,19 @@ public static partial class Sdl3
     /// <summary>The SDL keycode of the escape key.</summary>
     public const uint KeyEscape = 27;
 
-    static Sdl3()
-    {
-        NativeLibrary.SetDllImportResolver(typeof(Sdl3).Assembly, Resolve);
-    }
+    static Sdl3() => NativeLibrary.SetDllImportResolver(typeof(Sdl3).Assembly, Resolve);
 
     private static IntPtr Resolve(string name, Assembly assembly, DllImportSearchPath? path)
     {
         if (name != Lib)
             return IntPtr.Zero;
-        string[] candidates = PlatformPaths.SdlLibraryNames(PlatformPaths.CurrentOs);
+        var candidates = PlatformPaths.SdlLibraryNames(PlatformPaths.CurrentOs);
         // The copy next to the executable wins over a system copy.
-        foreach (string c in candidates)
-            if (NativeLibrary.TryLoad(Path.Combine(AppContext.BaseDirectory, c), out IntPtr hb))
+        foreach (var c in candidates)
+            if (NativeLibrary.TryLoad(Path.Combine(AppContext.BaseDirectory, c), out var hb))
                 return hb;
-        foreach (string c in candidates)
-            if (NativeLibrary.TryLoad(c, assembly, path, out IntPtr h))
+        foreach (var c in candidates)
+            if (NativeLibrary.TryLoad(c, assembly, path, out var h))
                 return h;
         return IntPtr.Zero;
     }
@@ -83,7 +80,7 @@ public static partial class Sdl3
 
     /// <summary>Shuts SDL down (SDL_Quit).</summary>
     [LibraryImport(Lib, EntryPoint = "SDL_Quit")]
-    public static partial void Quit();
+    internal static partial void Quit();
 
     [LibraryImport(Lib, EntryPoint = "SDL_GetCurrentVideoDriver")]
     private static partial IntPtr GetCurrentVideoDriverPtr();
@@ -104,7 +101,7 @@ public static partial class Sdl3
     /// <summary>Destroys a window (SDL_DestroyWindow).</summary>
     /// <param name="window">The window.</param>
     [LibraryImport(Lib, EntryPoint = "SDL_DestroyWindow")]
-    public static partial void DestroyWindow(IntPtr window);
+    internal static partial void DestroyWindow(IntPtr window);
 
     /// <summary>Shows a window (SDL_ShowWindow).</summary>
     /// <param name="window">The window.</param>
@@ -134,7 +131,7 @@ public static partial class Sdl3
     /// <param name="window">The window.</param>
     /// <returns>The context, or zero on failure.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GL_CreateContext")]
-    public static partial IntPtr GlCreateContext(IntPtr window);
+    internal static partial IntPtr GlCreateContext(IntPtr window);
 
     /// <summary>Destroys an OpenGL context (SDL_GL_DestroyContext).</summary>
     /// <param name="context">The context.</param>
@@ -184,7 +181,7 @@ public static partial class Sdl3
     public static unsafe bool PollEvent(out SdlEvent ev)
     {
         SdlEvent e;
-        bool got = PollEvent(&e);
+        var got = PollEvent(&e);
         ev = e;
         return got;
     }
@@ -192,17 +189,17 @@ public static partial class Sdl3
     /// <summary>Gets the time since SDL started in nanoseconds (SDL_GetTicksNS).</summary>
     /// <returns>The time.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GetTicksNS")]
-    public static partial ulong GetTicksNS();
+    internal static partial ulong GetTicksNS();
 
     /// <summary>Gets the high resolution counter (SDL_GetPerformanceCounter).</summary>
     /// <returns>The counter.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GetPerformanceCounter")]
-    public static partial ulong GetPerformanceCounter();
+    internal static partial ulong GetPerformanceCounter();
 
     /// <summary>Gets the frequency of the high resolution counter (SDL_GetPerformanceFrequency).</summary>
     /// <returns>The frequency in counts per second.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GetPerformanceFrequency")]
-    public static partial ulong GetPerformanceFrequency();
+    internal static partial ulong GetPerformanceFrequency();
 
     /// <summary>Turns relative mouse mode on or off (SDL_SetWindowRelativeMouseMode).</summary>
     /// <param name="window">The window.</param>
@@ -265,13 +262,13 @@ public static partial class Sdl3
     /// <returns>The mode that was set, or null when the display has no such mode or the driver refuses the change. The window is then left windowed.</returns>
     public static unsafe (int W, int H)? EnterExclusiveFullscreen(IntPtr window, int w, int h)
     {
-        byte* mode = stackalloc byte[128];
+        var mode = stackalloc byte[128];
         if (!GetClosestFullscreenDisplayMode(GetDisplayForWindow(window), w, h, 0f, false, mode))
             return null;
         if (!SetWindowFullscreenMode(window, mode) || !SetWindowFullscreen(window, true))
             return null;
         SyncWindow(window);
-        int* m = (int*)mode;
+        var m = (int*)mode;
         return (m[2], m[3]);
     }
 
@@ -291,7 +288,7 @@ public static partial class Sdl3
     /// <returns>True on success.</returns>
     public static bool LeaveFullscreen(IntPtr window)
     {
-        bool ok = SetWindowFullscreen(window, false);
+        var ok = SetWindowFullscreen(window, false);
         SyncWindow(window);
         return ok;
     }
@@ -308,7 +305,7 @@ public static partial class Sdl3
     /// <param name="window">The window.</param>
     /// <returns>The flags.</returns>
     [LibraryImport(Lib, EntryPoint = "SDL_GetWindowFlags")]
-    public static partial ulong GetWindowFlags(IntPtr window);
+    internal static partial ulong GetWindowFlags(IntPtr window);
 
     /// <summary>The SDL_WINDOW_FULLSCREEN flag.</summary>
     public const ulong WindowFullscreen = 0x1;
@@ -316,7 +313,7 @@ public static partial class Sdl3
     /// <summary>Waits for a number of milliseconds (SDL_Delay).</summary>
     /// <param name="ms">The time to wait.</param>
     [LibraryImport(Lib, EntryPoint = "SDL_Delay")]
-    public static partial void Delay(uint ms);
+    internal static partial void Delay(uint ms);
 
     [LibraryImport(Lib, EntryPoint = "SDL_GetDisplayForWindow")]
     private static partial uint GetDisplayForWindow(IntPtr window);
@@ -334,12 +331,12 @@ public static partial class Sdl3
     public static unsafe List<(int W, int H)> FullscreenModes(IntPtr window)
     {
         var modes = new List<(int, int)>();
-        IntPtr* list = GetFullscreenDisplayModes(GetDisplayForWindow(window), out int count);
+        var list = GetFullscreenDisplayModes(GetDisplayForWindow(window), out var count);
         if (list == null)
             return modes;
-        for (int i = 0; i < count; ++i)
+        for (var i = 0; i < count; ++i)
         {
-            int* m = (int*)list[i];
+            var m = (int*)list[i];
             if (m[2] > 0 && m[3] > 0 && !modes.Contains((m[2], m[3])))
                 modes.Add((m[2], m[3]));
         }
@@ -349,46 +346,58 @@ public static partial class Sdl3
     }
 }
 
-/// <summary>The SDL_Event union, 128 bytes. Only the fields the client reads are exposed.</summary>
-[StructLayout(LayoutKind.Explicit, Size = 128)]
-public struct SdlEvent
+/// <summary>The SDL_Event union, 128 bytes. Only the fields the client reads are exposed, read from the native record at their offsets.</summary>
+public readonly struct SdlEvent
 {
+    private readonly SdlEventBytes _raw;
+
     /// <summary>The event type.</summary>
-    [FieldOffset(0)] public uint Type;
+    public uint Type => Read<uint>(0);
     /// <summary>The window id, for window and keyboard events.</summary>
-    [FieldOffset(16)] public uint WindowId;
+    public uint WindowId => Read<uint>(16);
     /// <summary>The new width, for window events.</summary>
-    [FieldOffset(20)] public int Data1;
+    public int Data1 => Read<int>(20);
     /// <summary>The new height, for window events.</summary>
-    [FieldOffset(24)] public int Data2;
+    public int Data2 => Read<int>(24);
     /// <summary>The scancode, for keyboard events.</summary>
-    [FieldOffset(24)] public uint Scancode;
+    public uint Scancode => Read<uint>(24);
     /// <summary>The SDL_Keycode, for keyboard events.</summary>
-    [FieldOffset(28)] public uint Key;
+    public uint Key => Read<uint>(28);
     /// <summary>Whether the key is down, for keyboard events.</summary>
-    [FieldOffset(36)] public byte Down;
+    public byte Down => Read<byte>(36);
     /// <summary>Whether the key is a repeat, for keyboard events.</summary>
-    [FieldOffset(37)] public byte Repeat;
+    public byte Repeat => Read<byte>(37);
     /// <summary>The SDL_Keymod, for keyboard events.</summary>
-    [FieldOffset(32)] public ushort Mod;
+    public ushort Mod => Read<ushort>(32);
     /// <summary>The x movement, for mouse motion.</summary>
-    [FieldOffset(36)] public float XRel;
+    public float XRel => Read<float>(36);
     /// <summary>The y movement, for mouse motion.</summary>
-    [FieldOffset(40)] public float YRel;
+    public float YRel => Read<float>(40);
     /// <summary>The button, for mouse button events: 1 left, 2 middle, 3 right.</summary>
-    [FieldOffset(24)] public byte Button;
+    public byte Button => Read<byte>(24);
     /// <summary>Whether the button is down, for mouse button events.</summary>
-    [FieldOffset(25)] public byte ButtonDown;
+    public byte ButtonDown => Read<byte>(25);
     /// <summary>The vertical wheel movement, for mouse wheel events.</summary>
-    [FieldOffset(28)] public float WheelY;
+    public float WheelY => Read<float>(28);
     /// <summary>The instance id, for joystick events.</summary>
-    [FieldOffset(16)] public uint JoyWhich;
+    public uint JoyWhich => Read<uint>(16);
     /// <summary>The axis, hat or button index, for joystick events.</summary>
-    [FieldOffset(20)] public byte JoyIndex;
+    public byte JoyIndex => Read<byte>(20);
     /// <summary>The SDL_HAT_* bits, for joystick hat events.</summary>
-    [FieldOffset(21)] public byte JoyHat;
+    public byte JoyHat => Read<byte>(21);
     /// <summary>Whether the button is down, for joystick button events.</summary>
-    [FieldOffset(21)] public byte JoyDown;
+    public byte JoyDown => Read<byte>(21);
     /// <summary>The axis value, -32768 to 32767, for joystick axis events.</summary>
-    [FieldOffset(24)] public short JoyAxisValue;
+    public short JoyAxisValue => Read<short>(24);
+
+    private T Read<T>(int offset)
+        where T : unmanaged => System.Runtime.InteropServices.MemoryMarshal.Read<T>(((ReadOnlySpan<byte>)_raw)[offset..]);
 }
+
+/// <summary>The 128 bytes of an SDL_Event.</summary>
+[System.Runtime.CompilerServices.InlineArray(128)]
+internal struct SdlEventBytes
+{
+    private byte _element;
+}
+

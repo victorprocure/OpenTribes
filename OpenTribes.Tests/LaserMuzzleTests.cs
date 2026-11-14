@@ -1,8 +1,6 @@
-using OpenTribes.Client.Scene;
-using OpenTribes.Client.Shapes;
-using Xunit;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Client.Scene;
 
 public class LaserMuzzleTests
 {
@@ -11,7 +9,7 @@ public class LaserMuzzleTests
     [Fact]
     public void FirstPersonBodyPutsTheEyeOnTheCamera()
     {
-        Xf body = PlayerVisual.EyeAlignedBody(-196.25, -193.698, 196.725, Math.PI, 0.0, 0.3, 1.6);
+        var body = PlayerVisual.EyeAlignedBody(-196.25, -193.698, 196.725, Math.PI, 0.0, 0.3, 1.6);
         var (x, y, z) = body.Apply(0.0, 0.3, 1.6);
         Assert.Equal(-196.25, x, 6);
         Assert.Equal(-193.698, y, 6);

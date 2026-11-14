@@ -1,34 +1,34 @@
 // Port of tests/vc_packet.hpp: builds and parses VC packets (docs/net-protocol.md 3.2) independently
 // of Connection, so tests check the wire format against the spec.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Core;
 using OpenTribes.Net;
 
-namespace OpenTribes.Tests;
-
 internal sealed class VcPacket
 {
-    public uint IdBit;
-    public uint Seq;      // 9 bits
-    public uint AckAck;   // 5 bits
-    public List<(uint count, uint start)> Ranges = new();
-    public uint Type;     // 5 bits including flags 0x08 / 0x10
-    public bool HasId;
-    public uint Id;
-    public byte[] Payload = Array.Empty<byte>();
-    public int HeaderBytes;
+    public uint IdBit { get; set; }
+    public uint Seq { get; set; }      // 9 bits
+    public uint AckAck { get; set; }   // 5 bits
+    public List<(uint count, uint start)> Ranges { get; set; } = [];
+    public uint Type { get; set; }     // 5 bits including flags 0x08 / 0x10
+    public bool HasId { get; set; }
+    public uint Id { get; set; }
+    public byte[] Payload { get; set; } = [];
+    public int HeaderBytes { get; set; }
 
     // tests/vc_packet.hpp carriesId.
     public static bool CarriesId(uint type)
     {
-        uint b = type & ~0x08u;
-        return b >= 2 && b <= 5;
+        var b = type & ~0x08u;
+        return b is >= 2 and <= 5;
     }
 
     // tests/vc_packet.hpp build.
     public static byte[] Build(VcPacket p)
     {
-        byte[] buf = new byte[1500];
-        var bs = new BitStream(buf, buf.Length);
+        var buf = new byte[1500];
+        var bs = new BitBuffer(buf, buf.Length);
         bs.WriteFlag(true);
         bs.WriteInt(p.IdBit, 1);
         bs.WriteInt(p.Seq, 9);
@@ -44,14 +44,14 @@ internal sealed class VcPacket
             bs.WriteInt(p.Id, 32);
         var output = new List<byte>(buf.AsSpan(0, bs.BytePosition()).ToArray());
         output.AddRange(p.Payload);
-        return output.ToArray();
+        return [.. output];
     }
 
     // tests/vc_packet.hpp parse.
     public static VcPacket Parse(byte[] data)
     {
-        byte[] copy = (byte[])data.Clone();
-        var bs = new BitStream(copy, copy.Length);
+        var copy = (byte[])data.Clone();
+        var bs = new BitBuffer(copy, copy.Length);
         var p = new VcPacket();
         bs.ReadFlag();
         p.IdBit = bs.ReadInt(1);
@@ -60,7 +60,7 @@ internal sealed class VcPacket
         uint count;
         while ((count = bs.ReadInt(3)) != 0)
         {
-            uint start = bs.ReadInt(5);
+            var start = bs.ReadInt(5);
             p.Ranges.Add((count, start));
         }
         p.Type = bs.ReadInt(5);
@@ -77,7 +77,7 @@ internal sealed class VcPacket
     // tests/vc_packet.hpp bytes.
     public static byte[] Bytes(string s, bool withNul = false)
     {
-        byte[] v = ByteString.ToBytes(s);
-        return withNul ? v.Append((byte)0).ToArray() : v;
+        var v = ByteString.ToBytes(s);
+        return withNul ? [.. v, 0] : v;
     }
 }

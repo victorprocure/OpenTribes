@@ -1,29 +1,29 @@
+namespace OpenTribes.Client.Scene;
+
 using System.Globalization;
 using OpenTribes.Client.Shapes;
 using OpenTribes.Game;
 using OpenTribes.Platform.Gfx;
 
-namespace OpenTribes.Client.Scene;
-
 /// <summary>Read access to the client datablocks: group and index to named fields (client-net.md 2.6).</summary>
 public sealed class Db
 {
-    private readonly ClientDataBlocks mBlocks;
+    private readonly ClientDataBlocks _blocks;
     /// <summary>Creates the reader.</summary>
     /// <param name="blocks">The datablocks of the client.</param>
-    public Db(ClientDataBlocks blocks) => mBlocks = blocks;
+    public Db(ClientDataBlocks blocks) => _blocks = blocks;
 
     /// <summary>Gets a datablock.</summary>
     /// <param name="group">The datablock group.</param>
     /// <param name="index">The index in the group.</param>
     /// <returns>The block, or null when it does not exist.</returns>
-    public ClientDataBlock? Block(int group, long index) => mBlocks.Blocks.TryGetValue((group, (int)index), out ClientDataBlock? b) ? b : null;
+    public ClientDataBlock? Block(int group, long index) => _blocks.Blocks.TryGetValue((group, (int)index), out var b) ? b : null;
 
     /// <summary>Lists the blocks of one group in index order (the order of the data block manager).</summary>
     /// <param name="group">The datablock group.</param>
     /// <returns>The index and block of each entry.</returns>
     public IEnumerable<(int Index, ClientDataBlock Block)> Group(int group) =>
-        mBlocks.Blocks.Where(kv => kv.Key.Item1 == group).OrderBy(kv => kv.Key.Item2).Select(kv => (kv.Key.Item2, kv.Value));
+        _blocks.Blocks.Where(kv => kv.Key.Group == group).OrderBy(kv => kv.Key.Index).Select(kv => (kv.Key.Index, kv.Value));
 
     /// <summary>Gets the value of a field.</summary>
     /// <param name="b">The block, or null.</param>
@@ -33,7 +33,7 @@ public sealed class Db
     {
         if (b == null)
             return null;
-        foreach (DecodedField f in b.Fields)
+        foreach (var f in b.Fields)
             if (f.Name == name)
                 return f.Value;
         return null;
@@ -67,7 +67,7 @@ public sealed class Db
         int i => i,
         float f => f,
         uint u => u,
-        string s when double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out double r) => r,
+        string s when double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var r) => r,
         _ => def,
     };
 
@@ -93,8 +93,8 @@ public readonly record struct ThreadSlot(int Slot, int Sequence, int State, bool
         var l = new List<ThreadSlot>();
         if (threads is not System.Collections.IEnumerable e)
             return l;
-        foreach (object? o in e)
-            if (o is string s && TryParse(s, out ThreadSlot t))
+        foreach (var o in e)
+            if (o is string s && TryParse(s, out var t))
                 l.Add(t);
         return l;
     }
@@ -106,17 +106,17 @@ public readonly record struct ThreadSlot(int Slot, int Sequence, int State, bool
     public static bool TryParse(string s, out ThreadSlot t)
     {
         t = default;
-        int colon = s.IndexOf(':');
+        var colon = s.IndexOf(':');
         if (colon < 0)
             return false;
-        int slot = int.Parse(s[..colon], CultureInfo.InvariantCulture);
+        var slot = int.Parse(s[..colon], CultureInfo.InvariantCulture);
         int Field(string key)
         {
-            int p = s.IndexOf(key + "=", StringComparison.Ordinal);
+            var p = s.IndexOf(key + "=", StringComparison.Ordinal);
             if (p < 0)
                 return 0;
             p += key.Length + 1;
-            int e = p;
+            var e = p;
             while (e < s.Length && (char.IsDigit(s[e]) || s[e] == '-'))
                 ++e;
             return int.Parse(s.AsSpan(p, e - p), CultureInfo.InvariantCulture);
@@ -144,7 +144,7 @@ public readonly record struct ImageSlot(int Slot, int Image, int State, int Phas
         var l = new List<ImageSlot>();
         if (images is not System.Collections.IEnumerable e)
             return l;
-        foreach (object? o in e)
+        foreach (var o in e)
         {
             if (o is not string s)
                 continue;
@@ -153,14 +153,14 @@ public readonly record struct ImageSlot(int Slot, int Image, int State, int Phas
                 continue;
             int Num(int p)
             {
-                int e2 = p;
+                var e2 = p;
                 while (e2 < s.Length && (char.IsDigit(s[e2]) || s[e2] == '-'))
                     ++e2;
                 return int.Parse(s.AsSpan(p, e2 - p), CultureInfo.InvariantCulture);
             }
             // After the two flags comes the fire count int(3) (client-net.md 3.4); absent in the text, -1.
-            string[] parts = s.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            int phase = parts.Length >= 4 && int.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out int ph) ? ph : -1;
+            var parts = s.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var phase = parts.Length >= 4 && int.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var ph) ? ph : -1;
             bool trig = parts.Length >= 3 && parts[2].Length >= 2 && parts[2][0] == '1', ammo = parts.Length >= 3 && parts[2].Length >= 2 && parts[2][1] == '1';
             l.Add(new ImageSlot(int.Parse(s[..colon], CultureInfo.InvariantCulture), Num(ip + 4), Num(sp + 6), phase, trig, ammo, s.EndsWith("f=1", StringComparison.Ordinal)));
         }
@@ -172,27 +172,28 @@ public readonly record struct ImageSlot(int Slot, int Image, int State, int Phas
 public sealed class FrameContext
 {
     /// <summary>The camera.</summary>
-    public Camera3D Camera;
+    public ref Camera3D Camera => ref _camera;
+    private Camera3D _camera;
     /// <summary>The shape image builder.</summary>
-    public ShapeRenderer Renderer = null!;
+    public ShapeRenderer Renderer { get; set; } = null!;
     /// <summary>The shape loader.</summary>
-    public ShapeAssets Assets = null!;
+    public ShapeAssets Assets { get; set; } = null!;
     /// <summary>The scene light.</summary>
-    public LightSet Light = LightSet.Default();
+    public LightSet Light { get; set; } = LightSet.Default();
     /// <summary>The render lists the images go to.</summary>
-    public RenderLists Lists = new();
+    public RenderLists Lists { get; set; } = new();
     /// <summary>Finds the container interior (instance index) that holds a point, -1 for none (<c>InteriorRenderer.ContainerOf</c>).</summary>
-    public Func<double[], int>? ContainerOf;
+    public Func<double[], int>? ContainerOf { get; set; }
     /// <summary>The demo time in seconds.</summary>
-    public double Time;
+    public double Time { get; set; }
     /// <summary>The distance where the haze starts.</summary>
-    public double HazeStart = 1e9;
+    public double HazeStart { get; set; } = 1e9;
     /// <summary>The visible distance.</summary>
-    public double Visible = 1e9;
+    public double Visible { get; set; } = 1e9;
     /// <summary>True when the view is the first person view of the control object.</summary>
-    public bool FirstPersonOfControl;
+    public bool FirstPersonOfControl { get; set; }
     /// <summary>The ghost index of the control object, -1 for none.</summary>
-    public int ControlGhost = -1;
+    public int ControlGhost { get; set; } = -1;
 
     /// <summary>Creates the draw parameters of a shape with the light and haze of the frame.</summary>
     /// <param name="toWorld">The transform of the shape to the world.</param>
@@ -200,7 +201,11 @@ public sealed class FrameContext
     /// <returns>The parameters.</returns>
     public ShapeDraw Draw(Xf toWorld, string label = "") => new()
     {
-        ToWorld = toWorld, Light = Light, HazeStart = HazeStart, Visible = Visible, Label = label,
+        ToWorld = toWorld,
+        Light = Light,
+        HazeStart = HazeStart,
+        Visible = Visible,
+        Label = label,
     };
 }
 
@@ -208,15 +213,15 @@ public sealed class FrameContext
 public interface IEffect
 {
     /// <summary>True while the effect lives.</summary>
-    bool Alive { get; }
+    public bool Alive { get; }
     /// <summary>Advances the effect.</summary>
     /// <param name="dt">The time step in seconds.</param>
-    void Tick(double dt);
+    public void Tick(double dt);
     /// <summary>Adds the images of the effect to the frame.</summary>
     /// <param name="ctx">The frame context.</param>
-    void Build(FrameContext ctx);
+    public void Build(FrameContext ctx);
     /// <summary>The point light the effect gives the shapes near it (4.9), or null.</summary>
-    PointLight? Light { get; }
+    public PointLight? Light { get; }
 }
 
 /// <summary>Transform helpers for the images of the scene.</summary>
@@ -235,16 +240,20 @@ public static class Mathx
     /// <returns>The transform.</returns>
     public static Xf Basis(double px, double py, double pz, double fx, double fy, double fz, double ux = 0, double uy = 0, double uz = 1)
     {
-        double rx = fy * uz - fz * uy, ry = fz * ux - fx * uz, rz = fx * uy - fy * ux;
-        double rl = Math.Sqrt(rx * rx + ry * ry + rz * rz);
+        double rx = (fy * uz) - (fz * uy), ry = (fz * ux) - (fx * uz), rz = (fx * uy) - (fy * ux);
+        var rl = Math.Sqrt((rx * rx) + (ry * ry) + (rz * rz));
         if (rl < 1e-6)
         {
             (ux, uy, uz) = (1, 0, 0);
-            rx = fy * uz - fz * uy; ry = fz * ux - fx * uz; rz = fx * uy - fy * ux;
-            rl = Math.Sqrt(rx * rx + ry * ry + rz * rz);
+            rx = (fy * uz) - (fz * uy);
+            ry = (fz * ux) - (fx * uz);
+            rz = (fx * uy) - (fy * ux);
+            rl = Math.Sqrt((rx * rx) + (ry * ry) + (rz * rz));
         }
-        rx /= rl; ry /= rl; rz /= rl;
-        double zx = ry * fz - rz * fy, zy = rz * fx - rx * fz, zz = rx * fy - ry * fx;
+        rx /= rl;
+        ry /= rl;
+        rz /= rl;
+        double zx = (ry * fz) - (rz * fy), zy = (rz * fx) - (rx * fz), zz = (rx * fy) - (ry * fx);
         return new Xf { M0 = rx, M1 = ry, M2 = rz, M3 = fx, M4 = fy, M5 = fz, M6 = zx, M7 = zy, M8 = zz, Px = px, Py = py, Pz = pz };
     }
 
@@ -260,10 +269,12 @@ public static class Mathx
     {
         if (Math.Abs(fz) < 0.95)
             return Basis(px, py, pz, fx, fy, fz);
-        double zx = 0 * fz - 0 * fy, zy = 0 * fx - 1 * fz, zz = 1 * fy - 0 * fx;     // (1, 0, 0) x f
-        double zl = Math.Sqrt(zx * zx + zy * zy + zz * zz);
-        zx /= zl; zy /= zl; zz /= zl;
-        double rx = fy * zz - fz * zy, ry = fz * zx - fx * zz, rz = fx * zy - fy * zx; // f x z
+        double zx = (0 * fz) - (0 * fy), zy = (0 * fx) - (1 * fz), zz = (1 * fy) - (0 * fx);     // (1, 0, 0) x f
+        var zl = Math.Sqrt((zx * zx) + (zy * zy) + (zz * zz));
+        zx /= zl;
+        zy /= zl;
+        zz /= zl;
+        double rx = (fy * zz) - (fz * zy), ry = (fz * zx) - (fx * zz), rz = (fx * zy) - (fy * zx); // f x z
         return new Xf { M0 = rx, M1 = ry, M2 = rz, M3 = fx, M4 = fy, M5 = fz, M6 = zx, M7 = zy, M8 = zz, Px = px, Py = py, Pz = pz };
     }
 

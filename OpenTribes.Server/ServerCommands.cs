@@ -1,20 +1,20 @@
+namespace OpenTribes.Server;
+
 using OpenTribes.Core;
 using OpenTribes.Script;
-
-namespace OpenTribes.Server;
 
 /// <summary>What the server commands need from the host.</summary>
 /// <remarks>Port of src/server/server_commands.hpp.</remarks>
 public sealed class ServerCommandContext
 {
     /// <summary>The server network.</summary>
-    public NetServer? Net;
+    public NetServer? Net { get; set; }
     /// <summary>The game directory, a host path, for <c>BanList::export</c>.</summary>
-    public string RootDir = "";                 // game directory for BanList::export (host path)
+    public string RootDir { get; set; } = "";                 // game directory for BanList::export (host path)
     /// <summary>Tells whether an object exists and is a ChatMenu.</summary>
-    public Func<string, bool>? IsChatMenu;
+    public Func<string, bool>? IsChatMenu { get; set; }
     /// <summary>Leaves the main loop, for <c>quit()</c>.</summary>
-    public Action? Quit;
+    public Action? Quit { get; set; }
 }
 
 /// <summary>The console commands of server operations: ban list, kick, the master command surface, quit, and the client and GUI commands that exist on a dedicated server and only print their own errors there (docs/server-ops.md 4-7).</summary>
@@ -26,7 +26,7 @@ public static class ServerCommands
     /// <remarks>The ban list commands (00401808 to 004018a0) return lowercase <c>true</c> and <c>false</c>. <c>net::kick</c> is plugin 0051f86c id 5 and calls 0042babc. <c>quit</c> is 005f3504, PostQuitMessage.</remarks>
     public static void RegisterServerCommands(Interpreter interp, ServerCommandContext ctx)
     {
-        NetServer net = ctx.Net!;
+        var net = ctx.Net!;
 
         interp.AddCommand("BanList::add", (i, a) =>
         {
@@ -49,20 +49,20 @@ public static class ServerCommands
             net.Bans().Remove(a[1]);
             return "true";
         });
-        string root = ctx.RootDir;
+        var root = ctx.RootDir;
         interp.AddCommand("BanList::export", (i, a) =>
         {
             if (a.Length != 2)
                 return "false";
             // The original opens the file with no directory rule and dies when it cannot be
             // created (D11). Here: paths inside the game directory only (D13), failures ignored.
-            string path = Builtins.ResolveGamePath(root, a[1]);
+            var path = Builtins.ResolveGamePath(root, a[1]);
             if (path.Length == 0)
                 return "true";
             try
             {
                 using var f = new FileStream(path, FileMode.Create, FileAccess.Write);
-                foreach (string line in net.Bans().ExportLines())
+                foreach (var line in net.Bans().ExportLines())
                 {
                     f.Write(ByteString.ToBytes(line));
                     f.Write("\r\n"u8);
@@ -77,7 +77,7 @@ public static class ServerCommands
 
         interp.AddCommand("net::kick", (i, a) =>
         {
-            if (a.Length != 2 && a.Length != 3)
+            if (a.Length is not 2 and not 3)
             {
                 i.Print(1, "kick(playerId, <reason>);");
                 return null;
@@ -88,7 +88,7 @@ public static class ServerCommands
 
         interp.AddCommand("listPlayers", (i, a) =>
         {
-            foreach (string line in net.PlayerList())
+            foreach (var line in net.PlayerList())
                 i.Print(1, line);
             return null;
         });
@@ -123,7 +123,7 @@ public static class ServerCommands
             return null;
         });
 
-        Action? quit = ctx.Quit;
+        var quit = ctx.Quit;
         interp.AddCommand("quit", (i, a) =>
         {
             quit?.Invoke();

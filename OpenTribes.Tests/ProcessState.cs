@@ -15,12 +15,12 @@ public sealed class ProcessStateAttribute : BeforeAfterTestAttribute
     {
         StringTable.ResetGlobal();
         Fpu.TowardZero = false;
-        OpenTribes.Game.StaticRandom.Reset();
-        OpenTribes.Game.Projectile.ResetProjectileRandoms();
-        OpenTribes.Game.GameBase.ResetTurretRandoms();
-        OpenTribes.Game.ShapeState.Reset();
-        OpenTribes.Game.GhostManager.ResetRegistry();
-        OpenTribes.World.Shape.ResetCaches();
-        OpenTribes.World.MaterialList.ResetCache();
+        Game.StaticRandom.Reset();
+        Game.Projectile.ResetProjectileRandoms();
+        Game.GameBase.ResetTurretRandoms();
+        Game.ShapeState.Reset();
+        Game.GhostManager.ResetRegistry();
+        World.Shape.ResetCaches();
+        World.MaterialList.ResetCache();
     }
 }

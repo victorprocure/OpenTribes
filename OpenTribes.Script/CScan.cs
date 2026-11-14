@@ -1,27 +1,27 @@
-using OpenTribes.Core;
-
 namespace OpenTribes.Script;
+
+using OpenTribes.Core;
 
 /// <summary>The C library sscanf conversions the game layer uses: "%f %f %f", "%f %f %f %f %f %f" and "%d" (std::sscanf of src/game).</summary>
 /// <remarks>White space is skipped, then a decimal, hexadecimal, infinity or NaN number is read and stored to float in the current mode. The double parse runs in the mode of <c>Fpu</c> and the store follows, which together truncate like the single rounding of strtof.</remarks>
 public static class CScan
 {
-    private static bool IsSpace(char c) => c == ' ' || (c >= '\t' && c <= '\r');
-    private static bool Hex(char c) => (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+    private static bool IsSpace(char c) => c is ' ' or (>= '\t' and <= '\r');
+    private static bool Hex(char c) => c is (>= '0' and <= '9') or (>= 'a' and <= 'f') or (>= 'A' and <= 'F');
 
     /// <summary>Reads one %f at a position, skipping white space first.</summary>
     /// <param name="s">The text.</param>
     /// <param name="pos">The position, advanced past the number. Unchanged when no number starts there.</param>
     /// <param name="f">Receives the number.</param>
     /// <returns>False when no number starts at the position.</returns>
-    public static bool Float(string s, ref int pos, out float f)
+    public static bool ScanFloat(string s, ref int pos, out float f)
     {
         f = 0;
-        int i = pos;
+        var i = pos;
         while (i < s.Length && IsSpace(s[i]))
             ++i;
-        int start = i;
-        bool negative = false;
+        var start = i;
+        var negative = false;
         if (i < s.Length && (s[i] == '+' || s[i] == '-'))
             negative = s[i++] == '-';
         bool Word(string w) => i + w.Length <= s.Length && string.Compare(s, i, w, 0, w.Length, StringComparison.OrdinalIgnoreCase) == 0;
@@ -44,11 +44,11 @@ public static class CScan
         {
             i += 2;
             double m = 0;
-            int scale = 0;
-            bool point = false;
+            var scale = 0;
+            var point = false;
             for (; i < s.Length; ++i)
             {
-                char c = s[i];
+                var c = s[i];
                 if (c == '.' && !point)
                 {
                     point = true;
@@ -56,21 +56,21 @@ public static class CScan
                 }
                 if (!Hex(c))
                     break;
-                m = m * 16 + (c <= '9' ? c - '0' : (c | 0x20) - 'a' + 10);
+                m = (m * 16) + (c <= '9' ? c - '0' : (c | 0x20) - 'a' + 10);
                 if (point)
                     scale -= 4;
             }
             if (i < s.Length && (s[i] == 'p' || s[i] == 'P'))
             {
-                int j = i + 1;
-                bool eneg = false;
+                var j = i + 1;
+                var eneg = false;
                 if (j < s.Length && (s[j] == '+' || s[j] == '-'))
                     eneg = s[j++] == '-';
                 if (j < s.Length && s[j] >= '0' && s[j] <= '9')
                 {
-                    int e = 0;
+                    var e = 0;
                     while (j < s.Length && s[j] >= '0' && s[j] <= '9')
-                        e = Math.Min(e * 10 + (s[j++] - '0'), 100000);
+                        e = Math.Min((e * 10) + (s[j++] - '0'), 100000);
                     scale += eneg ? -e : e;
                     i = j;
                 }
@@ -79,7 +79,7 @@ public static class CScan
             pos = i;
             return true;
         }
-        int digits = 0;
+        var digits = 0;
         while (i < s.Length && s[i] >= '0' && s[i] <= '9')
         {
             ++i;
@@ -98,7 +98,7 @@ public static class CScan
             return false;
         if (i < s.Length && (s[i] == 'e' || s[i] == 'E'))
         {
-            int j = i + 1;
+            var j = i + 1;
             if (j < s.Length && (s[j] == '+' || s[j] == '-'))
                 ++j;
             if (j < s.Length && s[j] >= '0' && s[j] <= '9')
@@ -119,16 +119,16 @@ public static class CScan
     /// <returns>The number stored, or -1 (EOF) when the input ends before the first conversion.</returns>
     public static int Floats(string text, Span<float> output)
     {
-        string s = CString.CStr(text);
-        int pos = 0;
-        int n = 0;
+        var s = CString.CStr(text);
+        var pos = 0;
+        var n = 0;
         for (; n < output.Length; ++n)
         {
             while (pos < s.Length && IsSpace(s[pos]))
                 ++pos;
             if (pos >= s.Length)
                 return n == 0 ? -1 : n;
-            if (!Float(s, ref pos, out float f))
+            if (!ScanFloat(s, ref pos, out var f))
                 return n;
             output[n] = f;
         }
@@ -139,32 +139,32 @@ public static class CScan
     /// <param name="text">The text.</param>
     /// <param name="value">Receives the number.</param>
     /// <returns>The number stored, -1 at the end of the input.</returns>
-    public static int Int(string text, ref int value)
+    public static int ScanInt(string text, ref int value)
     {
-        string s = CString.CStr(text);
-        int i = 0;
+        var s = CString.CStr(text);
+        var i = 0;
         while (i < s.Length && IsSpace(s[i]))
             ++i;
         if (i >= s.Length)
             return -1;
-        bool negative = false;
-        int start = i;
-        if (s[i] == '+' || s[i] == '-')
+        var negative = false;
+        var start = i;
+        if (s[i] is '+' or '-')
             negative = s[i++] == '-';
         if (i >= s.Length || s[i] < '0' || s[i] > '9')
             return 0;
         long v = 0;
-        bool overflow = false;
+        var overflow = false;
         while (i < s.Length && s[i] >= '0' && s[i] <= '9')
         {
-            int d = s[i++] - '0';
+            var d = s[i++] - '0';
             if (v > (long.MaxValue - d) / 10)
                 overflow = true;
             else
-                v = v * 10 + d;
+                v = (v * 10) + d;
         }
         _ = start;
-        long r = overflow ? (negative ? long.MinValue : long.MaxValue) : (negative ? -v : v);
+        var r = overflow ? (negative ? long.MinValue : long.MaxValue) : (negative ? -v : v);
         value = unchecked((int)r);
         return 1;
     }

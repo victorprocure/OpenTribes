@@ -2,17 +2,17 @@
 // client records, mission objects or the datablocks: WaypointToWorld, the item shopping masks, GameBase::getLOSInfo and
 // getMuzzleTransform, the Interior light commands and the client-only stubs of the game plugin. The f32 helper of the
 // file is a plain store in the current mode (Fpu.Store).
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>Extension points for classes added later (Player). Each hook is optional.</summary>
 public static class BacklogHooks
 {
     /// <summary>The eye transform of a class that overrides ShapeBase vtable +0x1a4 (Player 0x00412f5c).</summary>
-    public static Func<GameBase, Transform, (bool, Transform)>? EyeTransform;
+    public static Func<GameBase, Transform, (bool, Transform)>? EyeTransform { get; set; }
     /// <summary>The muzzle transform of mounted image 0 (ShapeBase vtable +0x10c). The first result item is false when none is mounted.</summary>
-    public static Func<GameBase, Transform, (bool, Transform)>? MuzzleTransform;
+    public static Func<GameBase, Transform, (bool, Transform)>? MuzzleTransform { get; set; }
 }
 
 /// <summary>The backlog script commands: waypoints, shopping masks, item types and the commands that depend on the Player.</summary>
@@ -23,16 +23,16 @@ public static class BacklogCommands
     private static Transform Compose(in Transform a, in Transform b)
     {
         var r = new Transform();
-        for (int i = 0; i < 3; ++i)
-            for (int j = 0; j < 3; ++j)
-                r.M[i * 3 + j] = Store(Add(Add(Mul(a.M[i * 3 + 0], b.M[0 * 3 + j]), Mul(a.M[i * 3 + 1], b.M[1 * 3 + j])),
-                                           Mul(a.M[i * 3 + 2], b.M[2 * 3 + j])));
-        for (int j = 0; j < 3; ++j)
-            r.P[j] = Store(Add(Add(Add(Mul(a.P[0], b.M[0 * 3 + j]), Mul(a.P[1], b.M[1 * 3 + j])), Mul(a.P[2], b.M[2 * 3 + j])), b.P[j]));
+        for (var i = 0; i < 3; ++i)
+            for (var j = 0; j < 3; ++j)
+                r.M[(i * 3) + j] = Store(Add(Add(Mul(a.M[(i * 3) + 0], b.M[(0 * 3) + j]), Mul(a.M[(i * 3) + 1], b.M[(1 * 3) + j])),
+                                           Mul(a.M[(i * 3) + 2], b.M[(2 * 3) + j])));
+        for (var j = 0; j < 3; ++j)
+            r.P[j] = Store(Add(Add(Add(Mul(a.P[0], b.M[(0 * 3) + j]), Mul(a.P[1], b.M[(1 * 3) + j])), Mul(a.P[2], b.M[(2 * 3) + j])), b.P[j]));
         return r;
     }
 
-    private static bool IsSpaceChar(char c) => c == ' ' || (c >= '\t' && c <= '\r');
+    private static bool IsSpaceChar(char c) => c is ' ' or (>= '\t' and <= '\r');
 
     /// <summary>Converts waypoint coordinates to world x and y for the mission area.</summary>
     /// <param name="area">The mission area {x, y, w, h}.</param>
@@ -43,10 +43,10 @@ public static class BacklogCommands
     public static void WaypointToWorld(ReadOnlySpan<float> area, float wx, float wy, Span<float> output)
     {
         const float k = 0.0009765625f;
-        float x = Store(Mul(k, wx));
-        float y = Store(Mul(k, wy));
-        float px = Store(Mul(x, area[2]));
-        float py = Store(Mul(y, area[3]));
+        var x = Store(Mul(k, wx));
+        var y = Store(Mul(k, wy));
+        var px = Store(Mul(x, area[2]));
+        var py = Store(Mul(y, area[3]));
         output[0] = Store(Add(area[0], px));
         output[1] = Store(Add(area[1], py));
     }
@@ -59,13 +59,13 @@ public static class BacklogCommands
     /// <remarks>Follows 0x004197a4.</remarks>
     public static int ParseItemType(string text, int itemCount, Func<string, int> lookupByName)
     {
-        int i = 0;
+        var i = 0;
         while (i < text.Length && IsSpaceChar(text[i]))
             ++i;
-        string s = text[i..];
+        var s = text[i..];
         if (s.Length != 0 && s[0] >= '0' && s[0] <= '9')
         {
-            int n = Numbers.BorlandAtoi(s);
+            var n = Numbers.BorlandAtoi(s);
             return n >= 0 && n < itemCount ? n : -1;
         }
         return lookupByName(s);
@@ -78,9 +78,9 @@ public static class BacklogCommands
     /// <remarks>Follows isItemShoppingOn and isItemBuyingOn (0x00407c78, 0x00407d5c).</remarks>
     public static bool ItemMaskTest(uint[] words, int type)
     {
-        if (type >= 0 && type < 200)
+        if (type is >= 0 and < 200)
             return ((words[type >> 5] >> (type & 31)) & 1u) != 0;
-        for (int i = 0; i < 7; ++i)
+        for (var i = 0; i < 7; ++i)
             if (words[i] != 0)
                 return true;
         return false;
@@ -110,11 +110,11 @@ public static class BacklogCommands
                 inr.Print(1, "Converts waypoint coords (x,y in [0,1023]) to world coords.");
                 return "0 0 0";
             }
-            float[] w = { 0, 0, 0 };
+            float[] w = [0, 0, 0];
             MathCommands.ScanFloats3(a[1], w);
-            float[] area = new float[4];
+            var area = new float[4];
             game.Players.MissionArea(area);
-            float[] output = new float[2];
+            var output = new float[2];
             WaypointToWorld(area, w[0], w[1], output);
             return MathCommands.FormatF32(output[0]) + " " + MathCommands.FormatF32(output[1]) + " 0";
         });
@@ -132,39 +132,39 @@ public static class BacklogCommands
         int ItemLookup(string name) =>
             game.Sim?.DataBlocks().Find(name) is DataBlockManager.Block b && b.Group == 5 ? b.Index : -1;
         bool ShowInventory(int type) =>
-            game.Sim?.DataBlocks().At(5, type) is DataBlockManager.Block b && game.Sim.DataBlocks().GetField(b, "showInventory", "", out string v) &&
+            game.Sim?.DataBlocks().At(5, type) is DataBlockManager.Block b && game.Sim.DataBlocks().GetField(b, "showInventory", "", out var v) &&
             Numbers.ParseBool(v);
         (string Name, string Usage, bool Buying, bool Set)[] kCommands =
-        {
+        [
             ("Client::setItemShopping", "wrong argcount to setItemShoppingList(client,<type,...>)", false, true),
             ("Client::clearItemShopping", "wrong argcount to clearItemShoppingList(client,<type,...>)", false, false),
             ("Client::setItemBuying", "wrong argcount to setItemBuyList(client,<type,...>)", true, true),
             ("Client::clearItemBuying", "wrong argcount to clearItemBuyList(client,<type,...>)", true, false),
-        };
-        foreach (var c in kCommands)
+        ];
+        foreach (var (name3, usage3, buying2, set) in kCommands)
         {
-            interp.AddCommand(c.Name, (inr, a) =>
+            interp.AddCommand(name3, (inr, a) =>
             {
                 if (a.Length < 2)
                 {
-                    inr.Print(1, c.Usage);
+                    inr.Print(1, usage3);
                     return "False";
                 }
-                ClientRecord? rec = game.Players.Find(Numbers.BorlandAtoi(a[1]));
+                var rec = game.Players.Find(Numbers.BorlandAtoi(a[1]));
                 if (rec == null)
                     return "False";
-                int count = game.DataBlockCount(5);
+                var count = game.DataBlockCount(5);
                 void Apply(int type)
                 {
                     uint[] shop = rec.Shopping, buy = rec.Buying;
-                    if (c.Set)
+                    if (set)
                     {
                         // 0x00407bd8 (shopping), then 0x00407cc4 for buying
                         if (type == -1)
                             Array.Fill(shop, 0xffffffffu);
                         else if (ShowInventory(type))
                             SetBit(shop, type);
-                        if (c.Buying)
+                        if (buying2)
                         {
                             if (type == -1)
                                 Array.Fill(buy, 0xffffffffu);
@@ -179,7 +179,7 @@ public static class BacklogCommands
                             Array.Clear(buy);
                         else
                             ClearBit(buy, type);
-                        if (!c.Buying)
+                        if (!buying2)
                         {
                             if (type == -1)
                                 Array.Clear(shop);
@@ -194,9 +194,9 @@ public static class BacklogCommands
                 }
                 else
                 {
-                    for (int i = 2; i < a.Length; ++i)
+                    for (var i = 2; i < a.Length; ++i)
                     {
-                        int type = ParseItemType(a[i], count, ItemLookup);
+                        var type = ParseItemType(a[i], count, ItemLookup);
                         if (type != -1)
                             Apply(type);
                     }
@@ -204,10 +204,10 @@ public static class BacklogCommands
                 return "True";
             });
         }
-        foreach (bool buying in new[] { false, true })
+        foreach (var buying in new[] { false, true })
         {
-            string name = buying ? "Client::isItemBuyingOn" : "Client::isItemShoppingOn";
-            string usage = buying ? "wrong argcount to isItemBuyOn(client,type)" : "wrong argcount to isItemShoppingOn(client,type)";
+            var name = buying ? "Client::isItemBuyingOn" : "Client::isItemShoppingOn";
+            var usage = buying ? "wrong argcount to isItemBuyOn(client,type)" : "wrong argcount to isItemShoppingOn(client,type)";
             interp.AddCommand(name, (inr, a) =>
             {
                 if (a.Length != 3)
@@ -215,10 +215,10 @@ public static class BacklogCommands
                     inr.Print(1, usage);
                     return "False";
                 }
-                ClientRecord? rec = game.Players.Find(Numbers.BorlandAtoi(a[1]));
+                var rec = game.Players.Find(Numbers.BorlandAtoi(a[1]));
                 if (rec == null)
                     return "False";
-                int type = ParseItemType(a[2], game.DataBlockCount(5), ItemLookup);
+                var type = ParseItemType(a[2], game.DataBlockCount(5), ItemLookup);
                 return type != -1 && ItemMaskTest(buying ? rec.Buying : rec.Shopping, type) ? "True" : "False";
             });
         }
@@ -228,19 +228,19 @@ public static class BacklogCommands
         // mask 0x20e00086.
         interp.AddCommand("GameBase::getLOSInfo", (inr, a) =>
         {
-            if (a.Length != 3 && a.Length != 4)
+            if (a.Length is not 3 and not 4)
             {
                 inr.Print(1, "wrong argcount to " + a[0] + "(object,range,<rotation>)");
                 return "False";
             }
-            GameBase? gb = FindShapeBase(a[1]);
+            var gb = FindShapeBase(a[1]);
             if (gb == null)
                 return "False";
-            Transform eye = gb.Transform;
-            bool hooked = false;
+            var eye = gb.Transform;
+            var hooked = false;
             if (BacklogHooks.EyeTransform != null)
             {
-                (bool ok, Transform t) = BacklogHooks.EyeTransform(gb, eye);
+                (var ok, var t) = BacklogHooks.EyeTransform(gb, eye);
                 if (ok)
                 {
                     eye = t;
@@ -248,29 +248,29 @@ public static class BacklogCommands
                 }
             }
             if (!hooked && game.World.Find(gb) is Container.Entry e)
-                for (int i = 0; i < 3; ++i)
+                for (var i = 0; i < 3; ++i)
                     eye.P[i] = Store(Div(Add(e.Box[i], e.Box[i + 3]), 2));
             if (a.Length == 4)
             {
-                float[] e3 = { 0, 0, 0 };
+                float[] e3 = [0, 0, 0];
                 CScan.Floats(a[3], e3);
                 var rot = new Transform();
                 MissionTransform.EulerToMatrix(e3, ref rot);
                 eye = Compose(rot, eye);
             }
-            float range = Store(Numbers.BorlandAtof(a[2]));
+            var range = Store(Numbers.BorlandAtof(a[2]));
             var start = new Vec3(eye.P[0], eye.P[1], eye.P[2]);
             // ShapeBase_castLOS (0x0044bea4): the end is (0, range, 0) through the eye transform.
-            float[] along = { 0.0f, range, 0.0f };
-            float[] endp = new float[3];
+            float[] along = [0.0f, range, 0.0f];
+            var endp = new float[3];
             X87.MulPoint(along, eye.M, eye.P, endp);
             var end = new Vec3(endp[0], endp[1], endp[2]);
             object? hitObj = null;
             Vec3 hit = default, n = default;
             if (!game.World.CastRay(start, end, 0x20e00086u, gb, ref hitObj, ref hit, ref n))
                 return "False";
-            inr.SetVariable("$los::position", GameUtil.Fmt3(new[] { hit.X, hit.Y, hit.Z }));
-            inr.SetVariable("$los::normal", GameUtil.Fmt3(new[] { n.X, n.Y, n.Z }));
+            inr.SetVariable("$los::position", GameUtil.Fmt3([hit.X, hit.Y, hit.Z]));
+            inr.SetVariable("$los::normal", GameUtil.Fmt3([n.X, n.Y, n.Z]));
             inr.SetVariable("$los::object", Numbers.FormatInt(((SimObject)hitObj!).Id()));
             return "True";
         });
@@ -282,16 +282,16 @@ public static class BacklogCommands
             const string kIdentity = "1 0 0 0 1 0 0 0 1 0 0 0";
             if (a.Length != 2)
                 return kIdentity;
-            GameBase? gb = FindShapeBase(a[1]);
+            var gb = FindShapeBase(a[1]);
             if (gb == null)
                 return kIdentity;
-            Transform t = gb.Transform;
+            var t = gb.Transform;
             if (BacklogHooks.MuzzleTransform != null)
                 t = BacklogHooks.MuzzleTransform(gb, t).Item2;
             var parts = new List<string>();
-            for (int i = 0; i < 9; ++i)
+            for (var i = 0; i < 9; ++i)
                 parts.Add(CFormat.F(t.M[i], 6));
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 parts.Add(CFormat.F(t.P[i], 6));
             return string.Join(" ", parts);
         });
@@ -301,38 +301,38 @@ public static class BacklogCommands
         // (docs/interiors.md 5.4) is read by nothing on a server. switchOffLight calls the same routine with state 1 as
         // switchOnLight, as the original does. An InteriorShape without an instance does nothing here (D23).
         (string Name, int Argc, string Usage, int Op)[] kLights =
-        {
+        [
             ("Interior::toggleLight", 3, "wrong argcount to %s(Interior, Light)", 0),
             ("Interior::switchOnLight", 3, "wrong argcount to %s(Interior, Light)", 1),
             ("Interior::switchOffLight", 3, "wrong argcount to %s(Interior, Light)", 2),
             ("Interior::setLightTime", 4, "wrong argcount to %s(Interior, Light, Time)", 3),
-        };
-        foreach (var c in kLights)
-            interp.AddCommand(c.Name, (inr, a) =>
+        ];
+        foreach (var (name2, argc, usage2, op) in kLights)
+            interp.AddCommand(name2, (inr, a) =>
             {
-                if (a.Length != c.Argc)
+                if (a.Length != argc)
                 {
-                    int at = c.Usage.IndexOf("%s", StringComparison.Ordinal);
-                    inr.Print(1, c.Usage[..at] + a[0] + c.Usage[(at + 2)..]);
+                    var at = usage2.IndexOf("%s", StringComparison.Ordinal);
+                    inr.Print(1, usage2[..at] + a[0] + usage2[(at + 2)..]);
                     return "False";
                 }
                 if (FindPlain(a[1]) is not GameBase gb || !gb.IsInterior() || gb.InteriorGeo == null)
                     return "False";
-                InteriorLights lights = gb.InteriorNet.Lighting;
-                if (c.Op == 3)
+                var lights = gb.InteriorNet.Lighting;
+                if (op == 3)
                 {
-                    float t = Store(Numbers.BorlandAtof(a[3]));
-                    int lid = lights.FindByName(a[2]);
+                    var t = Store(Numbers.BorlandAtof(a[3]));
+                    var lid = lights.FindByName(a[2]);
                     if (lid != -1)
                         lights.SetTime(lid, t);
                     return "False";
                 }
-                int id = lights.FindByName(a[2]);
+                var id = lights.FindByName(a[2]);
                 if (id == -1)
                     return "False";
-                if (c.Op == 0)
+                if (op == 0)
                 {
-                    int state = lights.StateOf(id);
+                    var state = lights.StateOf(id);
                     if (state != -1)
                         lights.SetState(id, state == 0 ? 1 : 0);
                 }

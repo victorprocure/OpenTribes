@@ -1,7 +1,7 @@
 // The right button of the skin view (docs/gui.md 3.3; code 0049ae00): synthetic control only (R5).
-using OpenTribes.Gui;
-
 namespace OpenTribes.Tests;
+
+using OpenTribes.Gui;
 
 public class SkinViewZoomTests
 {

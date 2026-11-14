@@ -2,34 +2,31 @@
 // docs/static-sim.md 3): the sensor lists per team, the suppressor list and the sweep that refreshes the visibility word
 // (+0x200) of one target and of one or more clients' owned objects per tick, with the detection by eye (3.5 step 6) and the
 // jamming distance of a Player (3.8).
-using OpenTribes.Script;
-using OpenTribes.Sim;
-using OpenTribes.World;
-using static OpenTribes.Core.Fpu;
-
 namespace OpenTribes.Game;
+
+using static OpenTribes.Core.Fpu;
 
 /// <summary>The sensor manager object (id 720): the sensor network lists, jamming and target tracking.</summary>
 /// <remarks>Port of class SensorManager in src/game/sensor_manager.hpp.</remarks>
 public sealed class SensorManager : SimObject
 {
-    private readonly ClassContext mCtx;
-    private int mJamHead, mJamHeadPrev; // head.next (+0x7d4), head.prev (+0x7d8, unused)
-    private readonly List<GameBase>[] mTeams = new List<GameBase>[8];
-    private readonly List<GameBase> mSuppressors = new();
-    private readonly List<GameBase> mDummy = new(); // team -1: a list the sweep never reads
-    private int mTargetCursor = -1, mClientCursor = -1;
+    private readonly ClassContext _ctx;
+    private int _jamHead, _jamHeadPrev; // head.next (+0x7d4), head.prev (+0x7d8, unused)
+    private readonly List<GameBase>[] _teams = new List<GameBase>[8];
+    private readonly List<GameBase> _suppressors = [];
+    private readonly List<GameBase> _dummy = []; // team -1: a list the sweep never reads
+    private int _targetCursor = -1, _clientCursor = -1;
 
     /// <summary>The game state. Set by the game layer.</summary>
-    public GameState? State;
+    public GameState? State { get; set; }
 
     /// <summary>Creates the manager.</summary>
     /// <param name="ctx">The class context.</param>
     public SensorManager(ClassContext ctx)
     {
-        mCtx = ctx;
-        for (int i = 0; i < 8; ++i)
-            mTeams[i] = new List<GameBase>();
+        _ctx = ctx;
+        for (var i = 0; i < 8; ++i)
+            _teams[i] = [];
     }
 
     /// <inheritdoc/>
@@ -40,30 +37,30 @@ public sealed class SensorManager : SimObject
     public override bool ProcessArguments(IReadOnlyList<string> args) => true;
     /// <summary>Returns the head of the jamming list (head.next, +0x7d4).</summary>
     /// <returns>The object id, or -1 for the head itself.</returns>
-    public int JamFirst() => mJamHead;
+    public int JamFirst() => _jamHead;
     /// <summary>Returns the sensor list of a team.</summary>
     /// <param name="team">The team id.</param>
     /// <returns>The sensors.</returns>
-    public IReadOnlyList<GameBase> TeamList(int team) => mTeams[team];
+    public IReadOnlyList<GameBase> TeamList(int team) => _teams[team];
     /// <summary>Returns the list of suppressor objects.</summary>
     /// <returns>The suppressors.</returns>
-    public IReadOnlyList<GameBase> Suppressors() => mSuppressors;
+    public IReadOnlyList<GameBase> Suppressors() => _suppressors;
     /// <summary>Returns the target slot the timer visits next.</summary>
     /// <returns>The slot, or -1.</returns>
-    public int TargetCursor() => mTargetCursor;
+    public int TargetCursor() => _targetCursor;
     /// <summary>Returns the client slot the timer visits next.</summary>
     /// <returns>The slot, or -1.</returns>
-    public int ClientCursor() => mClientCursor;
+    public int ClientCursor() => _clientCursor;
 
     // src/game/sensor_manager.cpp lenf: s = f32((x*x + y*y) + z*z); the float with bits (bits(s) >> 1) + 0x1fc00000
     // (0x005ed031), s stored in the current mode.
     private static float Lenf(ReadOnlySpan<float> v)
     {
-        double d = Mul(v[0], v[0]);
+        var d = Mul(v[0], v[0]);
         d = Add(d, Mul(v[1], v[1]));
         d = Add(d, Mul(v[2], v[2]));
-        float s = Store(d);
-        uint bits = BitConverter.SingleToUInt32Bits(s);
+        var s = Store(d);
+        var bits = BitConverter.SingleToUInt32Bits(s);
         bits = (bits >> 1) + 0x1fc00000u;
         return BitConverter.UInt32BitsToSingle(bits);
     }
@@ -77,11 +74,11 @@ public sealed class SensorManager : SimObject
     {
         if (state.World.Find(obj) is Container.Entry e)
         {
-            for (int i = 0; i < 3; ++i)
+            for (var i = 0; i < 3; ++i)
                 c[i] = Store(Mul(Add(e.Box[i], e.Box[i + 3]), 0.5));
             return true;
         }
-        for (int i = 0; i < 3; ++i)
+        for (var i = 0; i < 3; ++i)
             c[i] = obj.Transform.P[i];
         return false;
     }
@@ -89,19 +86,19 @@ public sealed class SensorManager : SimObject
     // src/game/sensor_manager.cpp SensorManager::listFor.
     private List<GameBase> ListFor(int team)
     {
-        if (team >= 0 && team < 8)
-            return mTeams[team];
+        if (team is >= 0 and < 8)
+            return _teams[team];
         if (team == 8)
-            return mSuppressors; // team 8 resolves to the suppressor head (3.2)
-        return mDummy;
+            return _suppressors; // team 8 resolves to the suppressor head (3.2)
+        return _dummy;
     }
 
     // src/game/sensor_manager.cpp SensorManager::place: new entries first within their class; classes in the order of
     // sensorClass.
     private static void Place(List<GameBase> list, GameBase sensor)
     {
-        int c = SensorClass(sensor);
-        int at = 0;
+        var c = SensorClass(sensor);
+        var at = 0;
         while (at < list.Count && SensorClass(list[at]) < c)
             ++at;
         list.Insert(at, sensor);
@@ -112,7 +109,7 @@ public sealed class SensorManager : SimObject
     public void Insert(GameBase sensor)
     {
         Remove(sensor);
-        Place(sensor.SensorData.Supression ? mSuppressors : ListFor(sensor.Team), sensor);
+        Place(sensor.SensorData.Supression ? _suppressors : ListFor(sensor.Team), sensor);
         sensor.SensorListed = true;
     }
 
@@ -120,9 +117,9 @@ public sealed class SensorManager : SimObject
     /// <param name="sensor">The object.</param>
     public void Remove(GameBase sensor)
     {
-        mSuppressors.RemoveAll(s => s == sensor);
-        mDummy.RemoveAll(s => s == sensor);
-        foreach (List<GameBase> l in mTeams)
+        _suppressors.RemoveAll(s => s == sensor);
+        _dummy.RemoveAll(s => s == sensor);
+        foreach (var l in _teams)
             l.RemoveAll(s => s == sensor);
         sensor.SensorListed = false;
     }
@@ -152,28 +149,28 @@ public sealed class SensorManager : SimObject
         {
             // dot(normalize(centre(T) - centre(S)), eye forward) >= FOV. [TODO: the eye transform (dummy eye node) is
             // approximated by the turret aim.]
-            Span<float> d = stackalloc float[3] { Store(Sub(tc[0], sc[0])), Store(Sub(tc[1], sc[1])), Store(Sub(tc[2], sc[2])) };
-            double l = Sqrt(Add(Add(Mul(d[0], d[0]), Mul(d[1], d[1])), Mul(d[2], d[2])));
+            Span<float> d = [Store(Sub(tc[0], sc[0])), Store(Sub(tc[1], sc[1])), Store(Sub(tc[2], sc[2]))];
+            var l = Sqrt(Add(Add(Mul(d[0], d[0]), Mul(d[1], d[1])), Mul(d[2], d[2])));
             if (l > 0)
             {
                 double ce = Math.Cos(s.TurretElevation), se = Math.Sin(s.TurretElevation);
                 double cr = Math.Cos(s.TurretRotation), sr = Math.Sin(s.TurretRotation);
                 double f0 = Mul(-sr, ce), f1 = Mul(cr, ce), f2 = se;
-                double dotp = Div(Add(Add(Mul(d[0], f0), Mul(d[1], f1)), Mul(d[2], f2)), l);
+                var dotp = Div(Add(Add(Mul(d[0], f0), Mul(d[1], f1)), Mul(d[2], f2)), l);
                 if (dotp < s.TurretData.Fov)
                     return false;
             }
         }
-        Span<float> diff = stackalloc float[3]
-        {
+        Span<float> diff =
+        [
             Store(Sub(tc[0], s.Transform.P[0])), Store(Sub(tc[1], s.Transform.P[1])), Store(Sub(tc[2], s.Transform.P[2])),
-        };
+        ];
         // The centre of T against the sensor position (+0x188), approximate length, range as an int.
         if (!(Lenf(diff) <= (double)s.SensorData.Range))
             return false;
         if (s.SensorData.Doppler != 0)
         {
-            float v = Lenf(t.Velocity);
+            var v = Lenf(t.Velocity);
             if (!(v >= (double)s.SensorData.Doppler))
                 return false;
         }
@@ -206,14 +203,14 @@ public sealed class SensorManager : SimObject
         if (p.JamNext != 0)
         {
             if (p.JamNext == -1)
-                mJamHeadPrev = p.JamPrev;
+                _jamHeadPrev = p.JamPrev;
             else if (JamNode(p.JamNext) is GameBase g)
                 g.JamPrev = p.JamPrev;
         }
         if (p.JamPrev != 0)
         {
             if (p.JamPrev == -1)
-                mJamHead = p.JamNext;
+                _jamHead = p.JamNext;
             else if (JamNode(p.JamPrev) is GameBase g)
                 g.JamNext = p.JamNext;
         }
@@ -224,16 +221,16 @@ public sealed class SensorManager : SimObject
     /// <remarks>Follows 0x004398c8.</remarks>
     public void JamLink(GameBase p)
     {
-        p.JamNext = mJamHead;
+        p.JamNext = _jamHead;
         p.JamPrev = -1;
         if (p.JamNext != 0)
         {
             if (p.JamNext == -1)
-                mJamHeadPrev = p.Id();
+                _jamHeadPrev = p.Id();
             else if (JamNode(p.JamNext) is GameBase g)
                 g.JamPrev = p.Id();
         }
-        mJamHead = p.Id();
+        _jamHead = p.Id();
     }
 
     /// <summary>Refreshes the sensor state of one object (docs/static-sim.md 3.5).</summary>
@@ -242,29 +239,29 @@ public sealed class SensorManager : SimObject
     public void Update(GameBase t)
     {
         t.SensorWord &= 0x00ffffffu; // state 0
-        bool enabled = true;
+        var enabled = true;
         if (State?.Console != null)
         {
-            string v = State.Console.PeekVariable("$SensorNetworkEnabled");
+            var v = State.Console.PeekVariable("$SensorNetworkEnabled");
             enabled = v.Length == 0 || Numbers.ParseBool(v);
         }
-        int teams = State != null ? State.TeamCount : 0;
+        var teams = State != null ? State.TeamCount : 0;
         if (!enabled)
         {
-            for (int i = 0; i < teams && i < 8; ++i)
+            for (var i = 0; i < teams && i < 8; ++i)
                 t.SensorWord &= ~(1u << i);
             return;
         }
         // Every loop of the update runs over the teams of the PlayerManager (+0x24edc), not over all eight bits.
-        for (int i = 0; i < teams && i < 8; ++i)
+        for (var i = 0; i < teams && i < 8; ++i)
         {
             if (i == t.Team)
                 t.SensorWord |= (1u << i) & ~(t.SensorWord >> 16);
             else
                 t.SensorWord &= ~(1u << i);
         }
-        bool jammed = false;
-        foreach (GameBase s in mSuppressors)
+        var jammed = false;
+        foreach (var s in _suppressors)
             if (Detects(s, t))
             {
                 t.SensorWord = (t.SensorWord & 0x00ffffffu) | (2u << 24);
@@ -275,14 +272,14 @@ public sealed class SensorManager : SimObject
         // list that loops (stale links) would hang the original; the walk is bounded (D11).
         {
             using var chop = ChopScope();
-            int id = mJamHead;
-            for (int guard = 0; id != 0 && guard < 4096; ++guard)
+            var id = _jamHead;
+            for (var guard = 0; id != 0 && guard < 4096; ++guard)
             {
-                GameBase? jp = JamNode(id);
+                var jp = JamNode(id);
                 if (jp == null)
                     break;
-                float[] diff = { Store(Sub(t.Transform.P[0], jp.Transform.P[0])), Store(Sub(t.Transform.P[1], jp.Transform.P[1])),
-                                 Store(Sub(t.Transform.P[2], jp.Transform.P[2])) };
+                float[] diff = [ Store(Sub(t.Transform.P[0], jp.Transform.P[0])), Store(Sub(t.Transform.P[1], jp.Transform.P[1])),
+                                 Store(Sub(t.Transform.P[2], jp.Transform.P[2])) ];
                 if (Player.From(jp) is Player player && Lenf(diff) < player.SensorSuppression)
                 {
                     t.SensorWord = (t.SensorWord & 0x00ffffffu) | (2u << 24);
@@ -292,12 +289,12 @@ public sealed class SensorManager : SimObject
                 id = jp.JamNext;
             }
         }
-        for (int i = 0; i < teams && i < 8; ++i)
+        for (var i = 0; i < teams && i < 8; ++i)
         {
             if (i == t.Team)
                 continue;
-            bool detected = false;
-            foreach (GameBase s in mTeams[i])
+            var detected = false;
+            foreach (var s in _teams[i])
             {
                 if (jammed && s.SensorData.Supressable)
                     break;
@@ -327,26 +324,26 @@ public sealed class SensorManager : SimObject
     // start)) (SimTerrain_updateRenderParams 0x00517fe0).
     private double HazeAt(GameBase t, ReadOnlySpan<float> eye)
     {
-        Container.Entry? te = State!.World.TerrainOf(t);
-        if (te == null || te.Object == null)
+        var te = State!.World.TerrainOf(t);
+        if (te == null || te.SimObject == null)
             return 0.0;
-        var tobj = (PersistObject)te.Object;
-        float vis = tobj.Fields().Real("visibleDistance", 3000.0f);
-        float haze = tobj.Fields().Real("hazeDistance", 2000.0f);
-        float cap = vis < 10000.0f ? vis : 10000.0f;
-        float q = Store(Div(haze, vis));
-        float start = Store(Mul(haze, q));
+        var tobj = (PersistObject)te.SimObject;
+        var vis = tobj.Fields().Real("visibleDistance", 3000.0f);
+        var haze = tobj.Fields().Real("hazeDistance", 2000.0f);
+        var cap = vis < 10000.0f ? vis : 10000.0f;
+        var q = Store(Div(haze, vis));
+        var start = Store(Mul(haze, q));
         if (!(Mul(cap, 0.75) >= start))
             start = Store(Mul(cap, 0.75));
-        float span = Store(Sub(cap, start));
-        float inv = Store(Div(1.0, Add(Mul(span, 0.02), span)));
-        float[] diff = { Store(Sub(eye[0], t.Transform.P[0])), Store(Sub(eye[1], t.Transform.P[1])), Store(Sub(eye[2], t.Transform.P[2])) };
-        float d = Lenf(diff);
+        var span = Store(Sub(cap, start));
+        var inv = Store(Div(1.0, Add(Mul(span, 0.02), span)));
+        float[] diff = [Store(Sub(eye[0], t.Transform.P[0])), Store(Sub(eye[1], t.Transform.P[1])), Store(Sub(eye[2], t.Transform.P[2]))];
+        var d = Lenf(diff);
         if (!(d < cap))
             d = cap;
         if (!(d >= start))
             return 0.01f;
-        float x = Store(Sub(Mul(Sub(d, start), inv), 1.0));
+        var x = Store(Sub(Mul(Sub(d, start), inv), 1.0));
         return Sub(1.0, Mul(x, x));
     }
 
@@ -357,23 +354,23 @@ public sealed class SensorManager : SimObject
         if (pl.Fov == 0.0f || State == null)
             return false;
         using var chop = ChopScope();
-        ClientRecord? rec = State.Players.FindHuman(pl.OwnerClient);
+        var rec = State.Players.FindHuman(pl.OwnerClient);
         if (rec == null || rec.ControlObject == 0 || State.Sim == null || State.Sim.Server() == null)
             return false;
         if (State.Sim.Server()!.FindById(rec.ControlObject) is not GameBase ctl)
             return false;
-        double half = Mul(pl.Fov, 0.5);
-        float cosHalf = Store(Math.Cos(half));
-        float tanHalf = Store(Math.Tan(half));
-        Transform eye = ctl.EyeTransform();
+        var half = Mul(pl.Fov, 0.5);
+        var cosHalf = Store(Math.Cos(half));
+        var tanHalf = Store(Math.Tan(half));
+        var eye = ctl.EyeTransform();
         Span<float> c = stackalloc float[3];
         BoxCentre(State, t, c);
-        float[] d3 = { Store(Sub(c[0], eye.P[0])), Store(Sub(c[1], eye.P[1])), Store(Sub(c[2], eye.P[2])) };
+        float[] d3 = [Store(Sub(c[0], eye.P[0])), Store(Sub(c[1], eye.P[1])), Store(Sub(c[2], eye.P[2]))];
         // the point in the eye frame: the rows of the matrix are the axes (row 1 looks forward)
-        float[] local = new float[3];
-        for (int r = 0; r < 3; ++r)
-            local[r] = Store(Add(Add(Mul(eye.M[r * 3], d3[0]), Mul(eye.M[r * 3 + 1], d3[1])), Mul(eye.M[r * 3 + 2], d3[2])));
-        float d = Store(Sqrt(Add(Add(Mul(local[0], local[0]), Mul(local[1], local[1])), Mul(local[2], local[2]))));
+        var local = new float[3];
+        for (var r = 0; r < 3; ++r)
+            local[r] = Store(Add(Add(Mul(eye.M[r * 3], d3[0]), Mul(eye.M[(r * 3) + 1], d3[1])), Mul(eye.M[(r * 3) + 2], d3[2])));
+        var d = Store(Sqrt(Add(Add(Mul(local[0], local[0]), Mul(local[1], local[1])), Mul(local[2], local[2]))));
         if (!(d >= 1.0f))
             return true;
         if (!(cosHalf <= Div(local[1], d)))
@@ -384,8 +381,8 @@ public sealed class SensorManager : SimObject
             ez = Store(Sub(e.Box[5], e.Box[2]));
             ex = Store(Sub(e.Box[3], e.Box[0]));
         }
-        float size = Store(Div(ez <= ex ? ex : ez, Mul(d, tanHalf)));
-        double h = HazeAt(t, eye.P);
+        var size = Store(Div(ez <= ex ? ex : ez, Mul(d, tanHalf)));
+        var h = HazeAt(t, eye.P);
         if (!(pl.DetectHazeFactor < Mul(Sub(1.0, Mul(h, pl.DetectMinVisibility)), size)))
             return false;
         object? hitObj = null;
@@ -400,13 +397,13 @@ public sealed class SensorManager : SimObject
     // whose team does not see T yet.
     private void EyeDetect(GameBase t)
     {
-        SimManager? m = State!.Sim?.Server();
+        var m = State!.Sim?.Server();
         if (m == null)
             return;
-        foreach (int id in State.Players.PlayerIds())
+        foreach (var id in State.Players.PlayerIds())
         {
-            ClientRecord? r = State.Players.Find(id);
-            if (r == null || State.Players.VisibleToTeam(t, r.Team) || r.OwnedObject == 0)
+            var r = State.Players.Find(id);
+            if (r == null || PlayerManager.VisibleToTeam(t, r.Team) || r.OwnedObject == 0)
                 continue;
             if (Player.From(m.FindById(r.OwnedObject)) is Player pl && SeesByEye(pl, t))
                 t.SensorWord |= (1u << (int)((uint)r.Team & 31u)) & ~(t.SensorWord >> 16);
@@ -419,33 +416,33 @@ public sealed class SensorManager : SimObject
     {
         if (State == null)
             return;
-        List<GameBase?> targets = State.Targets;
-        bool any = false;
-        foreach (GameBase? g in targets)
+        var targets = State.Targets;
+        var any = false;
+        foreach (var g in targets)
             if (g != null)
                 any = true;
         if (any)
         {
-            for (int step = 0; step < 128; ++step)
+            for (var step = 0; step < 128; ++step)
             {
-                mTargetCursor = (mTargetCursor + 1) & 127;
-                if (mTargetCursor < targets.Count && targets[mTargetCursor] != null)
+                _targetCursor = (_targetCursor + 1) & 127;
+                if (_targetCursor < targets.Count && targets[_targetCursor] != null)
                 {
-                    Update(targets[mTargetCursor]!);
+                    Update(targets[_targetCursor]!);
                     break;
                 }
             }
         }
-        int players = State.Players.PlayerCount();
+        var players = State.Players.PlayerCount();
         if (players != 0)
         {
-            int n = Math.Max(1, players >> 4);
-            for (int k = 0; k < n; ++k)
+            var n = Math.Max(1, players >> 4);
+            for (var k = 0; k < n; ++k)
             {
-                for (int step = 0; step < 128; ++step)
+                for (var step = 0; step < 128; ++step)
                 {
-                    mClientCursor = (mClientCursor + 1) & 127;
-                    ClientRecord? r = State.Players.Find(2048 + mClientCursor);
+                    _clientCursor = (_clientCursor + 1) & 127;
+                    var r = State.Players.Find(2048 + _clientCursor);
                     if (r == null || !r.Used)
                         continue;
                     if (r.OwnedObject != 0 && State.Sim?.Server()?.FindById(r.OwnedObject) is GameBase o)

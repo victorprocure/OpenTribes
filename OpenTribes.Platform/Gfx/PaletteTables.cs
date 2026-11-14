@@ -1,5 +1,6 @@
-using System.Numerics;
 namespace OpenTribes.Platform.Gfx;
+
+using System.Numerics;
 
 /// <summary>Converts palettes to RGBA with the gamma table (docs/renderer.md 3.3 and 3.4).</summary>
 public static class PaletteTables
@@ -14,23 +15,26 @@ public static class PaletteTables
     public static byte[] GammaTable(float gamma)
     {
         gamma = Math.Clamp(gamma, MinGamma, MaxGamma);
-        double e = InverseAsFloat(gamma);
+        var e = InverseAsFloat(gamma);
         var t = new byte[256];
-        for (int i = 1; i < 256; ++i)
+        for (var i = 1; i < 256; ++i)
         {
-            BigInteger x = Chop(Chop(i * OneOver255, 0, 64).Item1, 0, 53).Item1; // value x * 2^-71
-            double xd = (double)x * Math.Pow(2, -71);
+            var x = Chop(Chop(i * OneOver255, 0, 64).Item1, 0, 53).Item1; // value x * 2^-71
+            var xd = (double)x * Math.Pow(2, -71);
             if (e == Math.Floor(e) && e < 4096)
             {
                 // extended chain: acc = x, then for each bit of e below the leading one: acc = acc * acc, and acc * x when the bit is set
-                BigInteger acc = x; int sh = 71; // acc * 2^-sh
-                for (int bit = BitLength((long)e) - 2; bit >= 0; --bit)
+                var acc = x;
+                var sh = 71; // acc * 2^-sh
+                for (var bit = BitLength((long)e) - 2; bit >= 0; --bit)
                 {
-                    acc *= acc; sh *= 2;
+                    acc *= acc;
+                    sh *= 2;
                     (acc, sh) = Chop(acc, sh, 64);
-                    if (((long)e >> bit & 1) != 0)
+                    if ((((long)e >> bit) & 1) != 0)
                     {
-                        acc *= x; sh += 71;
+                        acc *= x;
+                        sh += 71;
                         (acc, sh) = Chop(acc, sh, 64);
                     }
                 }
@@ -44,26 +48,26 @@ public static class PaletteTables
 
     private static readonly BigInteger OneOver255 = BigInteger.Parse("9259542123273814145"); // 0x8080808080808081 * 2^-71
 
-    private static int BitLength(long v) => 64 - System.Numerics.BitOperations.LeadingZeroCount((ulong)v);
+    private static int BitLength(long v) => 64 - BitOperations.LeadingZeroCount((ulong)v);
 
     // Truncates acc * 2^-sh to `bits` significant bits.
     private static (BigInteger, int) Chop(BigInteger acc, int sh, int bits)
     {
-        int len = (int)acc.GetBitLength();
+        var len = (int)acc.GetBitLength();
         if (len <= bits)
             return (acc, sh);
-        int drop = len - bits;
+        var drop = len - bits;
         return (acc >> drop << drop, sh);
     }
 
     // 1.0f / gamma truncated to a float (extended quotient, then stored as a float, both round toward zero).
     private static double InverseAsFloat(float gamma)
     {
-        int bits = BitConverter.SingleToInt32Bits(gamma), ex = bits >> 23 & 0xff;
-        long mg = ex == 0 ? (bits & 0x7fffff) << 1 : bits & 0x7fffff | 0x800000;
-        int eg = (ex == 0 ? 1 : ex) - 150; // gamma = mg * 2^eg
-        BigInteger q = (BigInteger.One << 54) / mg; // 2^54 / mg has at least 30 bits
-        int drop = (int)q.GetBitLength() - 24;
+        int bits = BitConverter.SingleToInt32Bits(gamma), ex = (bits >> 23) & 0xff;
+        long mg = ex == 0 ? (bits & 0x7fffff) << 1 : (bits & 0x7fffff) | 0x800000;
+        var eg = (ex == 0 ? 1 : ex) - 150; // gamma = mg * 2^eg
+        var q = (BigInteger.One << 54) / mg; // 2^54 / mg has at least 30 bits
+        var drop = (int)q.GetBitLength() - 24;
         q = q >> drop << drop;
         return (double)q * Math.Pow(2, -54 - eg);
     }
@@ -84,14 +88,14 @@ public static class PaletteTables
     {
         int w = bmp.Width, h = bmp.Height, stride = bmp.Stride;
         var rgba = new byte[w * h * 4];
-        bool keyed = (bmp.Attributes & BitmapAttributes.Transparent) != 0;
-        bool paletteAlpha = (bmp.Attributes & BitmapAttributes.Translucent) != 0 && sub.Kind == 2;
+        var keyed = (bmp.Attributes & BitmapAttributes.Transparent) != 0;
+        var paletteAlpha = (bmp.Attributes & BitmapAttributes.Translucent) != 0 && sub.Kind == 2;
         if (bmp.Depth == 24)
         {
-            for (int y = 0; y < h; ++y)
-                for (int x = 0; x < w; ++x)
+            for (var y = 0; y < h; ++y)
+                for (var x = 0; x < w; ++x)
                 {
-                    int s = y * stride + x * 3, d = (y * w + x) * 4;
+                    int s = (y * stride) + (x * 3), d = ((y * w) + x) * 4;
                     rgba[d] = gamma[bmp.Pixels[s + 2]]; // stored B, G, R
                     rgba[d + 1] = gamma[bmp.Pixels[s + 1]];
                     rgba[d + 2] = gamma[bmp.Pixels[s]];
@@ -99,14 +103,14 @@ public static class PaletteTables
                 }
             return rgba;
         }
-        for (int y = 0; y < h; ++y)
-            for (int x = 0; x < w; ++x)
+        for (var y = 0; y < h; ++y)
+            for (var x = 0; x < w; ++x)
             {
-                int idx = bmp.Pixels[y * stride + x], d = (y * w + x) * 4;
+                int idx = bmp.Pixels[(y * stride) + x], d = ((y * w) + x) * 4;
                 rgba[d] = gamma[sub.Colors[idx * 4]];
-                rgba[d + 1] = gamma[sub.Colors[idx * 4 + 1]];
-                rgba[d + 2] = gamma[sub.Colors[idx * 4 + 2]];
-                rgba[d + 3] = keyed && idx == 0 ? (byte)0 : paletteAlpha ? sub.Colors[idx * 4 + 3] : (byte)255;
+                rgba[d + 1] = gamma[sub.Colors[(idx * 4) + 1]];
+                rgba[d + 2] = gamma[sub.Colors[(idx * 4) + 2]];
+                rgba[d + 3] = keyed && idx == 0 ? (byte)0 : paletteAlpha ? sub.Colors[(idx * 4) + 3] : (byte)255;
             }
         return rgba;
     }
@@ -121,12 +125,12 @@ public static class PaletteTables
         switch (sub.Kind)
         {
             case 0 or 1 or 6 or 8:
-                for (int i = 0; i < rgba.Length; i += 4)
-                    for (int c = 0; c < 3; ++c)
+                for (var i = 0; i < rgba.Length; i += 4)
+                    for (var c = 0; c < 3; ++c)
                         rgba[i + c] = (byte)(((rgba[i + c] >> 3) << 3) | (rgba[i + c] >> 5));
                 return rgba;
             case 2:
-                for (int i = 0; i < rgba.Length; ++i)
+                for (var i = 0; i < rgba.Length; ++i)
                     rgba[i] = (byte)((rgba[i] >> 4) * 17);
                 return rgba;
             default:
@@ -139,9 +143,9 @@ public static class PaletteTables
     public static PaletteBank Grayscale()
     {
         var rgba = new byte[1024];
-        for (int i = 0; i < 256; ++i)
+        for (var i = 0; i < 256; ++i)
         {
-            rgba[i * 4] = rgba[i * 4 + 1] = rgba[i * 4 + 2] = (byte)i;
+            rgba[i * 4] = rgba[(i * 4) + 1] = rgba[(i * 4) + 2] = (byte)i;
         }
         return PaletteBank.FromColors(rgba, 256);
     }

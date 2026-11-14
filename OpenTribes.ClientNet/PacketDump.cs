@@ -1,25 +1,25 @@
+namespace OpenTribes.ClientNet;
+
 using System.Text;
 using System.Text.Json;
 using OpenTribes.Game;
 
-namespace OpenTribes.ClientNet;
-
 /// <summary>A JSON lines dump of decoded packets: one object per packet with the events, the PSC block and the ghost updates, each with its field list (name, value) in wire order.</summary>
 public sealed class PacketDump : IDisposable
 {
-    private readonly StreamWriter? mOut;
-    private long mIndex;
+    private readonly StreamWriter? _out;
+    private long _index;
 
     /// <summary>Creates the dump.</summary>
     /// <param name="path">The output file, or null to write nothing.</param>
     public PacketDump(string? path)
     {
         if (path != null)
-            mOut = new StreamWriter(path, false, new UTF8Encoding(false)) { AutoFlush = false };
+            _out = new StreamWriter(path, false, new UTF8Encoding(false)) { AutoFlush = false };
     }
 
     /// <summary>Closes the file.</summary>
-    public void Dispose() => mOut?.Dispose();
+    public void Dispose() => _out?.Dispose();
 
     /// <summary>Writes a decoded field value as JSON. Non-finite doubles are written as strings.</summary>
     /// <param name="w">The writer.</param>
@@ -28,33 +28,49 @@ public sealed class PacketDump : IDisposable
     {
         switch (v)
         {
-            case null: w.WriteNullValue(); break;
-            case long l: w.WriteNumberValue(l); break;
-            case int i: w.WriteNumberValue(i); break;
-            case uint u: w.WriteNumberValue(u); break;
-            case bool b: w.WriteBooleanValue(b); break;
+            case null:
+                w.WriteNullValue();
+                break;
+            case long l:
+                w.WriteNumberValue(l);
+                break;
+            case int i:
+                w.WriteNumberValue(i);
+                break;
+            case uint u:
+                w.WriteNumberValue(u);
+                break;
+            case bool b:
+                w.WriteBooleanValue(b);
+                break;
             case double d:
                 if (double.IsFinite(d))
                     w.WriteNumberValue(d);
                 else
                     w.WriteStringValue(d.ToString(System.Globalization.CultureInfo.InvariantCulture));
                 break;
-            case float f: Value(w, (double)f); break;
-            case string s: w.WriteStringValue(s); break;
+            case float f:
+                Value(w, (double)f);
+                break;
+            case string s:
+                w.WriteStringValue(s);
+                break;
             case System.Collections.IEnumerable e:
                 w.WriteStartArray();
-                foreach (object? x in e)
+                foreach (var x in e)
                     Value(w, x);
                 w.WriteEndArray();
                 break;
-            default: w.WriteStringValue(Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture)); break;
+            default:
+                w.WriteStringValue(Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture));
+                break;
         }
     }
 
     private static void Fields(Utf8JsonWriter w, string name, IEnumerable<DecodedField> fields)
     {
         w.WriteStartArray(name);
-        foreach (DecodedField f in fields)
+        foreach (var f in fields)
         {
             w.WriteStartArray();
             w.WriteStringValue(f.Name);
@@ -69,7 +85,7 @@ public sealed class PacketDump : IDisposable
     /// <param name="t">The time in seconds.</param>
     public void WriteCorrection(CorrectionRecord c, double t)
     {
-        if (mOut == null)
+        if (_out == null)
             return;
         using var ms = new MemoryStream();
         using (var w = new Utf8JsonWriter(ms))
@@ -96,7 +112,7 @@ public sealed class PacketDump : IDisposable
                     if ((k == "pos" && !s.HasPosition) || (k == "vel" && !s.HasVelocity))
                         continue;
                     w.WriteStartArray(k);
-                    foreach (float f in v)
+                    foreach (var f in v)
                         Value(w, (double)f);
                     w.WriteEndArray();
                 }
@@ -118,7 +134,7 @@ public sealed class PacketDump : IDisposable
             }
             w.WriteEndObject();
         }
-        mOut.WriteLine(Encoding.UTF8.GetString(ms.ToArray()));
+        _out.WriteLine(Encoding.UTF8.GetString(ms.ToArray()));
     }
 
     private static void Value2(Utf8JsonWriter w, string name, double v)
@@ -134,13 +150,13 @@ public sealed class PacketDump : IDisposable
     /// <param name="seq">The VC sequence number, or null.</param>
     public void Write(DecodedPacket p, double t, string? client = null, long? seq = null)
     {
-        if (mOut == null)
+        if (_out == null)
             return;
         using var ms = new MemoryStream();
         using (var w = new Utf8JsonWriter(ms))
         {
             w.WriteStartObject();
-            w.WriteNumber("n", mIndex++);
+            w.WriteNumber("n", _index++);
             w.WriteNumber("t", Math.Round(t, 4));
             w.WriteString("dir", p.Direction);
             if (client != null)
@@ -160,7 +176,7 @@ public sealed class PacketDump : IDisposable
             if (p.RateReq is var (ri, rs))
                 w.WriteString("rateReq", ri + "ms/" + rs);
             w.WriteStartArray("events");
-            foreach (DecodedEvent e in p.Events)
+            foreach (var e in p.Events)
             {
                 w.WriteStartObject();
                 w.WriteNumber("tag", e.Tag);
@@ -188,7 +204,7 @@ public sealed class PacketDump : IDisposable
                 w.WriteBoolean("done", p.Ghosts.Done);
                 w.WriteNumber("bits", p.Ghosts.Bits);
                 w.WriteStartArray("updates");
-                foreach (DecodedGhost g in p.Ghosts.Updates)
+                foreach (var g in p.Ghosts.Updates)
                 {
                     w.WriteStartObject();
                     w.WriteNumber("i", g.Index);
@@ -205,7 +221,7 @@ public sealed class PacketDump : IDisposable
             }
             w.WriteEndObject();
         }
-        mOut.Write(Encoding.UTF8.GetString(ms.ToArray()));
-        mOut.Write('\n');
+        _out.Write(Encoding.UTF8.GetString(ms.ToArray()));
+        _out.Write('\n');
     }
 }

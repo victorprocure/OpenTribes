@@ -5,7 +5,7 @@ public static class ClientKeyTable
 {
     /// <summary>The keys in table order.</summary>
     public static readonly ClientCommands.KeyName[] Keys =
-    {
+    [
         new(1, '\x1b', '\x1b', "escape"),
         new(2, '1', '!', null),
         new(3, '2', '@', null),
@@ -117,5 +117,5 @@ public static class ClientKeyTable
         new(211, '\0', '\0', "delete"),
         new(219, '\0', '\0', "win"),
         new(220, '\0', '\0', "win"),
-    };
+    ];
 }

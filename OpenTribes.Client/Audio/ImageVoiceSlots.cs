@@ -6,11 +6,11 @@ public sealed class ImageVoiceSlots
 {
     /// <summary>The number of image slots.</summary>
     public const int Count = 8;
-    private readonly int[] mHandle = new int[Count];
-    private readonly bool[] mLoops = new bool[Count];
+    private readonly int[] _handle = new int[Count];
+    private readonly bool[] _loops = new bool[Count];
 
     /// <summary>The voice handle of each slot, 0 for none.</summary>
-    public IReadOnlyList<int> Handles => mHandle;
+    public IReadOnlyList<int> Handles => _handle;
 
     /// <summary>Stores the voice a slot just started.</summary>
     /// <param name="slot">The image slot.</param>
@@ -20,8 +20,8 @@ public sealed class ImageVoiceSlots
     {
         if (slot is < 0 or >= Count)
             return;
-        mHandle[slot] = handle;
-        mLoops[slot] = handle != 0 && loops;
+        _handle[slot] = handle;
+        _loops[slot] = handle != 0 && loops;
     }
 
     /// <summary>Takes the handle to stop on a state change of a slot.</summary>
@@ -29,11 +29,11 @@ public sealed class ImageVoiceSlots
     /// <returns>The handle, or 0 when none: only a looping voice is stopped, then forgotten.</returns>
     public int StateChanged(int slot)
     {
-        if (slot is < 0 or >= Count || !mLoops[slot])
+        if (slot is < 0 or >= Count || !_loops[slot])
             return 0;
-        int h = mHandle[slot];
-        mHandle[slot] = 0;
-        mLoops[slot] = false;
+        var h = _handle[slot];
+        _handle[slot] = 0;
+        _loops[slot] = false;
         return h;
     }
 
@@ -45,16 +45,16 @@ public sealed class ImageVoiceSlots
     {
         if (slot is < 0 or >= Count)
             return 0;
-        int h = mHandle[slot];
-        mHandle[slot] = 0;
-        mLoops[slot] = false;
+        var h = _handle[slot];
+        _handle[slot] = 0;
+        _loops[slot] = false;
         return h;
     }
 
     /// <summary>Forgets every handle.</summary>
     public void Clear()
     {
-        Array.Clear(mHandle);
-        Array.Clear(mLoops);
+        Array.Clear(_handle);
+        Array.Clear(_loops);
     }
 }

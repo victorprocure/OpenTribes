@@ -1,18 +1,19 @@
 // Selecting players and giving orders on the command map (docs/gui.md 3.3 "The command map"): TSCommander [004d1bf0 left down, 004d2754 drag,
 // 004d2b1c up, 004d2a98, 004d291c, 004d2404, 004d25ec, 004d2614, 004d23bc, 004d3018, 004d3220, 004d32c4], CommandTeamCtrl [004a8b00, 004a850c, 004a8a6c]
 // and the chat menu it drives [00401fe0, 00402068]. Synthetic data only.
+namespace OpenTribes.Tests;
+
 using OpenTribes.Game;
 using OpenTribes.Gui;
 using OpenTribes.Platform.Gfx;
-using OpenTribes.Platform.Gl;
-
-namespace OpenTribes.Tests;
 
 public class CommandOrdersTests
 {
+    private static readonly string[] Values1 = ["2048|IssueTargCommand|1|Attack|4|2050"];
+    private static readonly string[] Values2 = ["setIssueCommand", "1", "*Attack"];
     internal sealed class RectDev : IGfxDevice
     {
-        public readonly List<string> Calls = new();
+        public List<string> Calls { get; } = [];
         public int Width => 640;
         public int Height => 480;
         public void Dispose() { }
@@ -32,7 +33,7 @@ public class CommandOrdersTests
         public void BlitRegion(PbmpBitmap bitmap, GfxRect source, int x, int y, BlitFlip flip = BlitFlip.None) { }
         public void BlitStretch(PbmpBitmap bitmap, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) { }
         public void BlitRegionStretch(PbmpBitmap bitmap, GfxRect source, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) { }
-        public byte[] ReadPixels() => Array.Empty<byte>();
+        public byte[] ReadPixels() => [];
         public IGfxTexture CreateTexture3D(ReadOnlySpan<byte> rgba, int width, int height, TextureOptions options) => throw new NotSupportedException();
         public void BeginScene3D(in Camera3D camera, float hazeR, float hazeG, float hazeB) { }
         public void SetCamera3D(in Camera3D camera) { }
@@ -41,17 +42,18 @@ public class CommandOrdersTests
     }
 
     private static ClientDataBlock Block(int group, int index, params (string, object)[] fields) =>
-        new() { Group = group, Index = index, Fields = fields.Select(f => new DecodedField(f.Item1, f.Item2)).ToList() };
+        new() { Group = group, Index = index, Fields = [.. fields.Select(f => new DecodedField(f.Item1, f.Item2))] };
 
     // The map is 408 x 408 at (31, 36) on the canvas. A slot at (x, y) in 1/1024 stands at (31 + x * 408 >> 10, 36 + 408 - (y * 408 >> 10)).
     internal sealed class Rig
     {
-        public readonly GuiFixture Fx = new();
-        public readonly ClientWorld World = new() { PlayerId = 2049 };
-        public readonly GuiCommandMap Map;
-        public readonly GuiControl Current;
-        public readonly List<string> Remote = new(), Menu = new();
-        public bool MenuExists = true;
+        public GuiFixture Fx { get; } = new();
+        public ClientWorld World { get; } = new() { PlayerId = 2049 };
+        public GuiCommandMap Map { get; }
+        public GuiControl Current { get; }
+        public List<string> Remote { get; } = [];
+        public List<string> Menu { get; } = [];
+        public bool MenuExists { get; set; } = true;
 
         public Rig(bool withTeamList = false)
         {
@@ -74,8 +76,8 @@ public class CommandOrdersTests
             Fx.Host.SetChatMenuMode = (n, m) => Menu.Add($"{n} {m}");
             Fx.Interp.AddCommand("remoteEval", (_, a) => { Remote.Add(string.Join("|", a.Skip(1))); return "True"; });
             Fx.Interp.SetVariable("$pref::mapFilter", "15");
-            GuiControl root = Root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-            GuiControl parent = GuiFixture.Make("SimGui::Control", 31, 0, 409, 480);
+            var root = Root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+            var parent = GuiFixture.Make("SimGui::Control", 31, 0, 409, 480);
             Map = (GuiCommandMap)GuiFixture.Make("FearGui::TSCommander", 0, 36, 408, 408);
             Current = GuiFixture.Make("FearGui::FGCurrentCommand", 5, 5, 100, 20);
             root.AddChild(parent);
@@ -84,7 +86,7 @@ public class CommandOrdersTests
             Current.Id = GuiCommandMap.CurrentCommandId;
             if (withTeamList)
             {
-                GuiControl team = GuiFixture.Make("FearGui::CommandTeamCtrl", 450, 100, 640, 15, ("active", (byte)1));
+                var team = GuiFixture.Make("FearGui::CommandTeamCtrl", 450, 100, 640, 15, ("active", (byte)1));
                 root.AddChild(team);
                 Team = (GuiCommandTeam)team;
             }
@@ -92,13 +94,13 @@ public class CommandOrdersTests
             Fx.Content(root);
         }
 
-        public GuiCommandTeam? Team;
-        public GuiControl Root = null!;
+        public GuiCommandTeam? Team { get; set; }
+        public GuiControl Root { get; set; } = null!;
 
         public void Slot(int i, int x, int y, int team, int group) =>
             World.Psc.CommandSlots[i] = new ClientCommandSlot { Present = true, X = x, Y = y, Team = team, Group = group, Index = 0, Active = true };
 
-        public (int X, int Y) At(int slot) => (31 + (World.Psc.CommandSlots[slot].X * 408 >> 10), 36 + 408 - (World.Psc.CommandSlots[slot].Y * 408 >> 10));
+        public (int X, int Y) At(int slot) => (31 + ((World.Psc.CommandSlots[slot].X * 408) >> 10), 36 + 408 - ((World.Psc.CommandSlots[slot].Y * 408) >> 10));
 
         public void Down(int x, int y, byte mod = 0) => Map.MsDown(new GuiEvent { X = x, Y = y, Mod = mod });
         public void Drag(int x, int y) => Map.MsDrag(new GuiEvent { X = x, Y = y });
@@ -111,7 +113,7 @@ public class CommandOrdersTests
             Up(x, y);
         }
 
-        public int[] Picked() => Enumerable.Range(0, 256).Where(i => Map.Selected[i]).ToArray();
+        public int[] Picked() => [.. Enumerable.Range(0, 256).Where(i => Map.Selected[i])];
     }
 
     // ---- picking ----
@@ -122,11 +124,11 @@ public class CommandOrdersTests
         var r = new Rig();
         var (x, y) = r.At(2);
         r.Down(x + 3, y - 3);
-        Assert.Equal(new[] { 2 }, r.Picked());
+        Assert.Equal([2], r.Picked());
         Assert.True(r.World.Players.Clients[2050].Selected);
         Assert.Equal("CommandChatMenu 1", r.Menu[^1]);
         r.Up(x + 3, y - 3);
-        Assert.Equal(new[] { 2 }, r.Picked());
+        Assert.Equal([2], r.Picked());
     }
 
     [Fact]
@@ -144,13 +146,13 @@ public class CommandOrdersTests
         var r = new Rig();
         r.Click(2);
         r.Click(3);
-        Assert.Equal(new[] { 3 }, r.Picked());
+        Assert.Equal([3], r.Picked());
         Assert.False(r.World.Players.Clients[2050].Selected);
         r.Click(2, mod: 1);
-        Assert.Equal(new[] { 2, 3 }, r.Picked());
+        Assert.Equal([2, 3], r.Picked());
         r.Menu.Clear();
         r.Click(2, mod: 1);
-        Assert.Equal(new[] { 3 }, r.Picked());
+        Assert.Equal([3], r.Picked());
         // deselecting switches the command menu off [004d2a98]
         Assert.Contains("CommandChatMenu 0", r.Menu);
     }
@@ -180,16 +182,16 @@ public class CommandOrdersTests
         r.Slot(132, 600, 600, 0, 19);
         r.Map.Group = 0x13;
         r.Click(129);
-        Assert.Equal(new[] { 129 }, r.Picked());
+        Assert.Equal([129], r.Picked());
         r.Click(132, mod: 1); // shift: one turret is held, no second
-        Assert.Equal(new[] { 129 }, r.Picked());
+        Assert.Equal([129], r.Picked());
         r.Click(132);
-        Assert.Equal(new[] { 132 }, r.Picked());
+        Assert.Equal([132], r.Picked());
         Assert.Equal(132 - 128, r.Map.SelectedTurretTarget());
         // the kind in view changes what a click can reach
         r.Map.Group = 3;
         r.Click(2);
-        Assert.Equal(new[] { 2 }, r.Picked()); // the turret is dropped when a player is picked
+        Assert.Equal([2], r.Picked()); // the turret is dropped when a player is picked
     }
 
     [Fact]
@@ -200,7 +202,7 @@ public class CommandOrdersTests
         r.Slot(133, 800, 800, 0, 8);
         r.Map.Group = 4;
         r.Click(133);
-        Assert.Equal(new[] { 133 }, r.Picked());
+        Assert.Equal([133], r.Picked());
         Assert.Equal(133 - 128, r.Map.SelectedStaticTarget());
     }
 
@@ -217,7 +219,7 @@ public class CommandOrdersTests
         r.Down(x2 - 20, y2 - 20);
         r.Drag(x3 + 20, y3 + 20);
         r.Up(x3 + 20, y3 + 20);
-        Assert.Equal(new[] { 2, 3 }, r.Picked());
+        Assert.Equal([2, 3], r.Picked());
         Assert.False(r.World.Players.Clients[2049].Selected);
     }
 
@@ -230,7 +232,7 @@ public class CommandOrdersTests
         r.Down(x2 - 20, y2 - 20, mod: 1);
         r.Drag(x2 + 20, y2 + 20);
         r.Up(x2 + 20, y2 + 20);
-        Assert.Equal(new[] { 1, 2 }, r.Picked());
+        Assert.Equal([1, 2], r.Picked());
     }
 
     [Fact]
@@ -241,7 +243,7 @@ public class CommandOrdersTests
         r.Down(x2, y2 - 30);
         r.Drag(x2 + 30, y2 + 30);
         r.Up(x2 + 30, y2 + 30); // the slot sits on the left edge
-        Assert.Equal(new[] { 2 }, r.Picked());
+        Assert.Equal([2], r.Picked());
         var s = new Rig();
         s.Down(x2 - 30, y2 - 30);
         s.Drag(x2, y2 + 30);
@@ -326,7 +328,7 @@ public class CommandOrdersTests
         r.Map.SetIssueCommand(1, "Attack");
         var (x, y) = r.At(4);
         r.Down(x + 2, y + 1);
-        Assert.Equal(new[] { "2048|IssueTargCommand|1|Attack|4|2050" }, r.Remote);
+        Assert.Equal(Values1, r.Remote);
         Assert.Equal("enemy player", r.Fx.Interp.PeekVariable("$CommandTarget"));
         Assert.Equal("Foe", r.Fx.Interp.PeekVariable("$CommandTargetName"));
     }
@@ -405,13 +407,13 @@ public class CommandOrdersTests
     public void EscapeInTheCommandMenuCancelsTheOrderAndIsTakenAtTheTopLevel() // [00402068]
     {
         var tree = new ChatMenuTree { Mode = 1 };
-        tree.Add("aAttack", new[] { "setIssueCommand", "1", "*Attack" });
+        tree.Add("aAttack", ["setIssueCommand", "1", "*Attack"]);
         Assert.False(tree.OnKey(1, 1, '\0', 0, _ => { }, () => false));
         Assert.True(tree.OnKey(1, 1, '\0', 0, _ => { }, () => true));
         // without the order cursor the item still runs
         var ran = new List<string>();
-        Assert.True(tree.OnKey(0x1e, 1, 'a', 0, w => ran.AddRange(w)));
-        Assert.Equal(new[] { "setIssueCommand", "1", "*Attack" }, ran);
+        Assert.True(tree.OnKey(0x1e, 1, 'a', 0, ran.AddRange));
+        Assert.Equal(Values2, ran);
     }
 
     [Fact]
@@ -458,17 +460,17 @@ public class CommandOrdersTests
     private static PbmaArray Pieces()
     {
         var a = new PbmaArray { BitmapCount = 12 };
-        for (int i = 0; i < 12; ++i)
+        for (var i = 0; i < 12; ++i)
             a.Bitmaps.Add(new PbmpBitmap { Width = 8, Height = 8 });
         return a;
     }
 
     private static void ListDown(Rig r, int row, byte mod = 0, int clicks = 1, int dx = 60)
     {
-        GuiCommandTeam team = r.Team!;
+        var team = r.Team!;
         team.PreRender();
         var (gx, gy) = team.GlobalOrigin();
-        team.MsDown(new GuiEvent { X = gx + dx, Y = gy + row * team.RowHeight + 2, Mod = mod, ClickCount = clicks });
+        team.MsDown(new GuiEvent { X = gx + dx, Y = gy + (row * team.RowHeight) + 2, Mod = mod, ClickCount = clicks });
     }
 
     [Fact]
@@ -476,17 +478,17 @@ public class CommandOrdersTests
     {
         var r = TeamRig();
         r.Team!.PreRender();
-        Assert.Equal(new[] { 2049, 2050, 2051 }, r.Team.Rows.Select(x => x.Id));
+        Assert.Equal([2049, 2050, 2051], r.Team.Rows.Select(x => x.Id));
         ListDown(r, 1);
-        Assert.Equal(new[] { 2 }, r.Picked());
+        Assert.Equal([2], r.Picked());
         Assert.True(r.World.Players.Clients[2050].Selected);
         ListDown(r, 2);
-        Assert.Equal(new[] { 3 }, r.Picked());
+        Assert.Equal([3], r.Picked());
         // ctrl flips
         ListDown(r, 1, mod: 0x04);
-        Assert.Equal(new[] { 2, 3 }, r.Picked());
+        Assert.Equal([2, 3], r.Picked());
         ListDown(r, 1, mod: 0x04);
-        Assert.Equal(new[] { 3 }, r.Picked());
+        Assert.Equal([3], r.Picked());
     }
 
     [Fact]
@@ -495,7 +497,7 @@ public class CommandOrdersTests
         var r = TeamRig();
         ListDown(r, 0);
         ListDown(r, 2, mod: 1);
-        Assert.Equal(new[] { 1, 2, 3 }, r.Picked());
+        Assert.Equal([1, 2, 3], r.Picked());
     }
 
     [Fact]
@@ -505,7 +507,7 @@ public class CommandOrdersTests
         ListDown(r, 0);
         ListDown(r, 0, clicks: 2);
         // Rec (1), then the first record under Rec (Dan, 2), then the first under Dan (Eve, 3)
-        Assert.Equal(new[] { 1, 2, 3 }, r.Picked());
+        Assert.Equal([1, 2, 3], r.Picked());
     }
 
     [Fact]
@@ -513,7 +515,7 @@ public class CommandOrdersTests
     {
         var r = TeamRig();
         r.Team!.PreRender();
-        int before = r.Team.Rows.Count;
+        var before = r.Team.Rows.Count;
         // the glyph of a row at depth 0 starts at 4 + the two picture widths (none loaded) and is step (8 + 2) wide
         ListDown(r, 0, dx: 6);
         Assert.False(r.World.Players.Clients[2049].Expanded);
@@ -555,37 +557,39 @@ public class CommandOrdersTests
 // The client wiring: the console function, the command chat menu and the buttons of the command screen [00421e14, 00401fe0, 00402068, 004dd280].
 public sealed class CommandOrdersClientTests : IDisposable
 {
-    private readonly string mRoot = Path.Combine(Path.GetTempPath(), "ot-cmdord-" + Guid.NewGuid().ToString("N"));
-    private OpenTribes.Client.App.ClientApp? mApp;
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "ot-cmdord-" + Guid.NewGuid().ToString("N"));
+    private Client.App.ClientApp? _app;
 
     public CommandOrdersClientTests()
     {
-        Directory.CreateDirectory(Path.Combine(mRoot, "config"));
-        Directory.CreateDirectory(Path.Combine(mRoot, "temp"));
+        Directory.CreateDirectory(Path.Combine(_root, "config"));
+        Directory.CreateDirectory(Path.Combine(_root, "temp"));
     }
 
     public void Dispose()
     {
-        mApp?.Dispose();
-        try { Directory.Delete(mRoot, true); } catch (IOException) { }
+        _app?.Dispose();
+        try
+        { Directory.Delete(_root, true); }
+        catch (IOException) { }
     }
 
-    private OpenTribes.Client.App.ClientApp Boot()
+    private Client.App.ClientApp Boot()
     {
-        File.WriteAllText(Path.Combine(mRoot, "console.cs"),
+        File.WriteAllText(Path.Combine(_root, "console.cs"),
             "newClient(); focusClient();\n" +
             "newObject(MainWindow, SimGui::Canvas, \"Tribes\", 640, 480, True, \"512 384\", \"1024 768\");\n" +
             "function Game::EndFrame() {}\n$ConsoleWorld::DefaultSearchPath = \"config;base;temp\";\n" +
             "newObject(CommandChatMenu, ChatMenu, \"Command Menu\");\n" +
             "addCMCommand(CommandChatMenu, \"aAttack\", setIssueCommand, 1, \"Attack enemy forces~wattway\");\n");
-        var opt = OpenTribes.Client.App.ClientOptions.Parse(new[] { "--root", mRoot, "--headless" }, out string err)!;
+        var opt = Client.App.ClientOptions.Parse(["--root", _root, "--headless"], out var err)!;
         Assert.Equal("", err);
-        mApp = new OpenTribes.Client.App.ClientApp(opt);
-        Assert.True(mApp.Start(out string error), error);
-        return mApp;
+        _app = new Client.App.ClientApp(opt);
+        Assert.True(_app.Start(out var error), error);
+        return _app;
     }
 
-    private (GuiCommandMap Map, ClientWorld World, List<string> Remote) Screen(OpenTribes.Client.App.ClientApp app)
+    private static (GuiCommandMap Map, ClientWorld World, List<string> Remote) Screen(Client.App.ClientApp app)
     {
         var world = new ClientWorld { PlayerId = 2049 };
         world.Players.Clients[2049] = new ClientPlayerRecord { Id = 2049, Name = "Rec", Team = 0 };
@@ -596,7 +600,7 @@ public sealed class CommandOrdersClientTests : IDisposable
         app.Interp.SetVariable("$pref::mapFilter", "15");
         var remote = new List<string>();
         app.Interp.AddCommand("remoteEval", (_, a) => { remote.Add(string.Join("|", a.Skip(1))); return "True"; });
-        GuiControl root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
+        var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
         var map = (GuiCommandMap)GuiFixture.Make("FearGui::TSCommander", 0, 36, 408, 408);
         map.Id = GuiCommandMap.MapId;
         var current = GuiFixture.Make("FearGui::FGCurrentCommand", 5, 5, 100, 20);
@@ -623,12 +627,12 @@ public sealed class CommandOrdersClientTests : IDisposable
     {
         var app = Boot();
         var (map, world, _) = Screen(app);
-        var game = (GameState)typeof(OpenTribes.Client.App.ClientApp).GetField("mGameState", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(app)!;
+        var game = (GameState)typeof(Client.App.ClientApp).GetField("_gameState", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(app)!;
         map.SelectSlot(2, true);
         Assert.True(world.Players.Clients[2050].Selected);
         Assert.NotNull(game.ChatMenus.Showing(game, "CommandChatMenu"));
         // the item key runs `setIssueCommand 1 text`: the order cursor is on
-        Assert.True(game.ChatMenus.OnKey(game, 0x1e, 1, 'a', 0, w => app.Interp.CallFunction(w[0], w.Skip(1).ToArray())));
+        Assert.True(game.ChatMenus.OnKey(game, 0x1e, 1, 'a', 0, w => app.Interp.CallFunction(w[0], [.. w.Skip(1)])));
         Assert.Equal(1, map.OrderMode);
         Assert.Equal("Attack enemy forces~wattway", map.OrderText);
         // Escape ends it and is taken even at the top level of the menu
@@ -684,6 +688,6 @@ public sealed class CommandOrdersClientTests : IDisposable
     }
 
     private static ClientDataBlock Block(int group, int index, params (string, object)[] fields) =>
-        new() { Group = group, Index = index, Fields = fields.Select(f => new DecodedField(f.Item1, f.Item2)).ToList() };
+        new() { Group = group, Index = index, Fields = [.. fields.Select(f => new DecodedField(f.Item1, f.Item2))] };
 }
 

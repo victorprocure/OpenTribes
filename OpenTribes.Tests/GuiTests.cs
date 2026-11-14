@@ -1,4 +1,6 @@
 // Tests of OpenTribes.Gui (ROADMAP M9 C6, docs/gui.md): synthetic `.gui` bytes only (R5), no game data.
+namespace OpenTribes.Tests;
+
 using System.Text;
 using OpenTribes.Gui;
 using OpenTribes.Platform.Gfx;
@@ -6,12 +8,10 @@ using OpenTribes.Platform.Gl;
 using OpenTribes.Script;
 using Xunit.Abstractions;
 
-namespace OpenTribes.Tests;
-
 // Builds persistent blocks the way docs/gui.md 1.2 and 1.3 describe them.
-internal sealed class GuiW
+internal sealed class GuiW : IDisposable
 {
-    public readonly MemoryStream M = new();
+    public MemoryStream M { get; } = new();
     public GuiW U8(int v) { M.WriteByte((byte)v); return this; }
     public GuiW U32(uint v) { M.Write(BitConverter.GetBytes(v)); return this; }
     public GuiW Pstr(string s) { M.WriteByte((byte)s.Length); M.Write(Encoding.Latin1.GetBytes(s)); return this; }
@@ -41,22 +41,25 @@ internal sealed class GuiW
     // A block: tag, size (everything after the size field), version 0, body, padded to even.
     public static byte[] Block(string tag, GuiW body)
     {
-        byte[] b = body.ToArray();
+        var b = body.ToArray();
         var m = new GuiW().Raw(Encoding.Latin1.GetBytes(tag)).U32((uint)(b.Length + 4)).U32(0).Raw(b);
         if ((b.Length & 1) != 0)
             m.U8(0);
         return m.ToArray();
     }
+
+    /// <inheritdoc/>
+    public void Dispose() => M.Dispose();
 }
 
 internal sealed class GuiFixture
 {
-    public readonly Interpreter Interp = new();
-    public readonly List<string> Output = new();
-    public readonly GuiHost Host;
-    public readonly GuiCanvas Canvas;
-    public readonly GuiRuntime Runtime;
-    public long Clock = 1000;
+    public Interpreter Interp { get; } = new();
+    public List<string> Output { get; } = [];
+    public GuiHost Host { get; }
+    public GuiCanvas Canvas { get; }
+    public GuiRuntime Runtime { get; }
+    public long Clock { get; set; } = 1000;
 
     public GuiFixture(int w = 640, int h = 480)
     {
@@ -68,14 +71,17 @@ internal sealed class GuiFixture
 
     public static GuiControl Make(string cls, int x = 0, int y = 0, int w = 50, int h = 50, params (string, object)[] fields)
     {
-        GuiControl c = GuiFactory.Create(GuiClassTable.ByName(cls)!);
-        c.X = x; c.Y = y; c.W = w; c.H = h;
+        var c = GuiFactory.Create(GuiClassTable.ByName(cls)!);
+        c.X = x;
+        c.Y = y;
+        c.W = w;
+        c.H = h;
         foreach (var (k, v) in fields)
             c.F[k] = v;
         return c;
     }
 
-    public GuiControl Content(GuiControl root, GuiDelegate? del = null)
+    public GuiControl Content(GuiControl root, GuiScreenResponder? del = null)
     {
         Canvas.SetContent(root, del);
         Canvas.Frame();
@@ -91,8 +97,10 @@ internal sealed class GuiFixture
     public void Move(int x, int y)
     {
         int dx = x - (int)Canvas.CursorX, dy = y - (int)Canvas.CursorY;
-        if (dx != 0) Canvas.HandleInput(new RawInput { Device = RawInput.DevMouse, ObjType = RawInput.ObjXAxis, Value = dx });
-        if (dy != 0) Canvas.HandleInput(new RawInput { Device = RawInput.DevMouse, ObjType = RawInput.ObjYAxis, Value = dy });
+        if (dx != 0)
+            Canvas.HandleInput(new RawInput { Device = RawInput.DevMouse, ObjType = RawInput.ObjXAxis, Value = dx });
+        if (dy != 0)
+            Canvas.HandleInput(new RawInput { Device = RawInput.DevMouse, ObjType = RawInput.ObjYAxis, Value = dy });
     }
 
     public void Button(bool down, int index = 0) =>
@@ -109,7 +117,7 @@ internal sealed class GuiFixture
 
     public bool Key(string name, bool make, byte mod = 0, char ascii = '\0')
     {
-        int scan = GuiCanvas.ScanForName(name);
+        var scan = GuiCanvas.ScanForName(name);
         if (ascii == '\0' && name.Length == 1)
             ascii = name[0];
         return Canvas.HandleInput(new RawInput { Device = RawInput.DevKeyboard, Index = (byte)scan, Action = (byte)(make ? 1 : 0), Ascii = ascii, Mod = mod });
@@ -123,31 +131,32 @@ internal sealed class GuiFixture
 
     public void Type(string text)
     {
-        foreach (char ch in text)
+        foreach (var ch in text)
             Tap(ch == ' ' ? "space" : ch.ToString(), 0, ch);
     }
 }
 
 public class GuiTests
 {
-    private readonly ITestOutputHelper mOut;
-    public GuiTests(ITestOutputHelper output) => mOut = output;
+    private static readonly string[] Values1 = ["fill 0,0,639,479 c0"];
+    private readonly ITestOutputHelper _out;
+    public GuiTests(ITestOutputHelper output) => _out = output;
 
     // ---- docs/gui.md 1: loading ----
 
     [Fact]
     public void ControlBodyFieldsAndChildNames() // 1.2, 1.3
     {
-        byte[] child = GuiW.Block("SGct", GuiW.Control(x: 4, y: 5, w: 10, h: 11, id: 77));
-        byte[] root = GuiW.Block("SGct", GuiW.Control("cmd();", 1, 2, 300, 200, 3, 9, 1, 2, "$var", 1, 7, (child, "Kid")));
-        GuiControl c = GuiLoader.Load(root, out string err);
+        var child = GuiW.Block("SGct", GuiW.Control(x: 4, y: 5, w: 10, h: 11, id: 77));
+        var root = GuiW.Block("SGct", GuiW.Control("cmd();", 1, 2, 300, 200, 3, 9, 1, 2, "$var", 1, 7, (child, "Kid")));
+        var c = GuiLoader.Load(root, out var err);
         Assert.True(c != null, err);
         Assert.Equal("SimGui::Control", c.ClassName);
         Assert.Equal((1, 2, 300, 200), (c.X, c.Y, c.W, c.H));
         Assert.Equal("cmd();", c.Command);
         Assert.Equal("$var", c.ConsoleVar);
         Assert.Equal(((uint)9, (uint)1, (uint)2, (byte)1, (byte)7), (c.Id, c.HSizing, c.VSizing, c.Opaque, c.FillColor));
-        GuiControl kid = Assert.Single(c.Children);
+        var kid = Assert.Single(c.Children);
         Assert.Equal(("Kid", (uint)77), (kid.Name, kid.Id));
         Assert.Same(c, kid.Parent);
         Assert.Same(kid, c.FindByName("kid"));
@@ -159,7 +168,7 @@ public class GuiTests
     {
         var body = new GuiW().U32(1).U32(2).U32(150003).U32(150001).U32(150002).U32(160009).Buf81("Hello").U32(2).U32(3)
             .U8(1).U32(100100).Raw(GuiW.Control(w: 80, h: 16).ToArray());
-        GuiControl c = GuiLoader.Load(GuiW.Block("SGst", body), out string err);
+        var c = GuiLoader.Load(GuiW.Block("SGst", body), out var err);
         Assert.True(c != null, err);
         Assert.IsType<GuiSimpleText>(c);
         Assert.Equal(((uint)150003, (uint)150001, (uint)150002, (uint)160009), (c.U("disabledFontTag"), c.U("fontTag"), c.U("highlightFontTag"), c.U("textTag")));
@@ -170,47 +179,61 @@ public class GuiTests
     [Fact]
     public void EveryClassOfTable31RoundTripsItsPersistentFields() // 3.1: all 140 rows, 1.4 loaders and the writer of D44
     {
-        int loadable = 0;
-        foreach (GuiClassRow row in GuiClassTable.Rows.Where(GuiClassTable.IsControl))
+        var loadable = 0;
+        foreach (var row in GuiClassTable.Rows.Where(GuiClassTable.IsControl))
         {
-            GuiControl c = GuiFactory.Create(row);
-            c.W = 33; c.H = 22; c.Command = "x();";
-            GuiLoader.Routines.TryGetValue(GuiLoader.RoutineFor(row) ?? "", out string[]? ops);
+            var c = GuiFactory.Create(row);
+            c.W = 33;
+            c.H = 22;
+            c.Command = "x();";
+            GuiLoader.Routines.TryGetValue(GuiLoader.RoutineFor(row) ?? "", out var ops);
             // Give every field of the routine a value.
             void Fill(string routine)
             {
-                if (!GuiLoader.Routines.TryGetValue(routine, out string[]? o))
+                if (!GuiLoader.Routines.TryGetValue(routine, out var o))
                     return;
-                foreach (string op in o)
+                foreach (var op in o)
                 {
-                    if (op[0] == '@') { Fill(op[1..]); continue; }
-                    string[] p = op.Split(' ');
-                    if (p[0] is "u8") c.F[p[1]] = (byte)1;
-                    else if (p[0] is "u32" or "i32") c.F[p[1]] = (uint)7;
-                    else if (p[0] is "pstr" or "buf81") c.F[p[1]] = "s" + p[1];
+                    if (op[0] == '@')
+                    { Fill(op[1..]); continue; }
+                    var p = op.Split(' ');
+                    if (p[0] is "u8")
+                        c.F[p[1]] = (byte)1;
+                    else if (p[0] is "u32" or "i32")
+                        c.F[p[1]] = (uint)7;
+                    else if (p[0] is "pstr" or "buf81")
+                        c.F[p[1]] = "s" + p[1];
                 }
             }
             if (GuiLoader.RoutineFor(row) is string r)
                 Fill(r);
             if (GuiLoader.RoutineFor(row) is "UniversalButton")
             {
-                c.F["bodyVersion"] = (uint)3; c.F["radioId"] = (uint)5; c.F["bitmapRoot"] = "BTN_X"; c.F["lowResX"] = (uint)1; c.F["lowResY"] = (uint)2;
-                c.F["on"] = (uint)1; c.F["isSwitch"] = (uint)1; c.F["mirrorVar"] = (uint)0;
+                c.F["bodyVersion"] = (uint)3;
+                c.F["radioId"] = (uint)5;
+                c.F["bitmapRoot"] = "BTN_X";
+                c.F["lowResX"] = (uint)1;
+                c.F["lowResY"] = (uint)2;
+                c.F["on"] = (uint)1;
+                c.F["isSwitch"] = (uint)1;
+                c.F["mirrorVar"] = (uint)0;
             }
-            if (row.Name == "FearGui::FGShellBorder" || row.Name == "FearGui::MMShellBorder")
+            if (row.Name is "FearGui::FGShellBorder" or "FearGui::MMShellBorder")
                 c.F["bitmapName"] = "Background0.bmp";
             if (GuiLoader.RoutineFor(row) is "Smacker")
-                foreach (string k in new[] { "movieTag", "movieDoneTag", "palStart", "palColors" }) c.F[k] = (uint)3;
+                foreach (var k in new[] { "movieTag", "movieDoneTag", "palStart", "palColors" })
+                    c.F[k] = (uint)3;
             if (GuiLoader.RoutineFor(row) is "Smacker")
-                foreach (string k in new[] { "loop", "preload", "stretch" }) c.F[k] = (byte)1;
+                foreach (var k in new[] { "loop", "preload", "stretch" })
+                    c.F[k] = (byte)1;
             c.PersistVersion = 1;
-            byte[] bytes = GuiWriter.Write(c);
-            GuiControl back = GuiLoader.Load(bytes, out string err);
+            var bytes = GuiWriter.Write(c);
+            var back = GuiLoader.Load(bytes, out var err);
             Assert.True(back != null, row.Name + ": " + err);
             Assert.Equal(row.Name, back.ClassName);
             Assert.Equal((33, 22, "x();"), (back.W, back.H, back.Command));
             foreach (var kv in c.F)
-                if (back.F.TryGetValue(kv.Key, out object? v))
+                if (back.F.TryGetValue(kv.Key, out var v))
                     Assert.True(Convert.ToString(kv.Value) == Convert.ToString(v), $"{row.Name}.{kv.Key}: {kv.Value} vs {v}");
             ++loadable;
         }
@@ -220,22 +243,22 @@ public class GuiTests
     [Fact]
     public void UnknownTagAndShortBodyFail() // 1.1 failure, 1.6 (the 14 legacy files fail the same way)
     {
-        Assert.Null(GuiLoader.Load(GuiW.Block("FGbt", GuiW.Control()), out string e1));
+        Assert.Null(GuiLoader.Load(GuiW.Block("FGbt", GuiW.Control()), out var e1));
         Assert.Contains("unknown class tag FGbt", e1);
-        byte[] good = GuiW.Block("SGct", GuiW.Control());
+        var good = GuiW.Block("SGct", GuiW.Control());
         // A truncated block, and a body that does not end where its size says (an older layout).
         Assert.Null(GuiLoader.Load(good[..(good.Length - 6)], out _));
-        byte[] extra = GuiW.Block("SGct", GuiW.Control().U8(1).U8(2));
-        Assert.Null(GuiLoader.Load(extra, out string e2));
+        var extra = GuiW.Block("SGct", GuiW.Control().U8(1).U8(2));
+        Assert.Null(GuiLoader.Load(extra, out var e2));
         Assert.Contains("read", e2);
     }
 
     [Fact]
     public void TrailingBytesAfterTheRootBlockAreIgnored() // 1.2
     {
-        byte[] root = GuiW.Block("SGct", GuiW.Control(w: 12));
-        byte[] file = root.Concat(new byte[] { 1, 2, 3, 4, 5 }).ToArray();
-        GuiControl c = GuiLoader.Load(file, out string err);
+        var root = GuiW.Block("SGct", GuiW.Control(w: 12));
+        var file = root.Concat(new byte[] { 1, 2, 3, 4, 5 }).ToArray();
+        var c = GuiLoader.Load(file, out var err);
         Assert.True(c != null, err);
         Assert.Equal(12, c.W);
     }
@@ -243,15 +266,16 @@ public class GuiTests
     [Fact]
     public void PersBlockLoadsHudClass() // 1.2 PERS, 1.4 004afef4 (HealthHud)
     {
-        string name = "FearGui::HealthHud";
+        var name = "FearGui::HealthHud";
         var body = new GuiW().U32(0).U32(0).U32(131).U32(35).U32(1).Raw(GuiW.Control(w: 131, h: 35, id: 140104).ToArray());
         var blk = new GuiW().Raw(Encoding.Latin1.GetBytes("PERS"));
-        byte[] b = body.ToArray();
-        int head = 2 + ((name.Length + 1) & ~1);
+        var b = body.ToArray();
+        var head = 2 + ((name.Length + 1) & ~1);
         blk.U32((uint)(head + 4 + b.Length)).Raw(BitConverter.GetBytes((ushort)name.Length)).Raw(Encoding.Latin1.GetBytes(name));
-        if ((name.Length & 1) != 0) blk.U8(0);
+        if ((name.Length & 1) != 0)
+            blk.U8(0);
         blk.U32(0).Raw(b);
-        GuiControl c = GuiLoader.Load(blk.ToArray(), out string err);
+        var c = GuiLoader.Load(blk.ToArray(), out var err);
         Assert.True(c != null, err);
         Assert.IsType<GuiHealthHud>(c);
         Assert.Equal(140104u, c.Id);
@@ -267,7 +291,7 @@ public class GuiTests
     public void HorizontalSizing(uint rule, int x, int y, int w, int h) // 2.4
     {
         var parent = GuiFixture.Make("SimGui::Control", 0, 0, 400, 300);
-        GuiControl kid = GuiFixture.Make("SimGui::Control", 10, 20, 50, 30);
+        var kid = GuiFixture.Make("SimGui::Control", 10, 20, 50, 30);
         kid.HSizing = rule;
         parent.AddChild(kid);
         parent.Resize(0, 0, 500, 300);
@@ -282,9 +306,9 @@ public class GuiTests
     public void VerticalSizingAndDescendantsFollow(uint rule, int y, int h) // 2.4
     {
         var parent = GuiFixture.Make("SimGui::Control", 0, 0, 400, 300);
-        GuiControl kid = GuiFixture.Make("SimGui::Control", 10, 20, 50, 30);
+        var kid = GuiFixture.Make("SimGui::Control", 10, 20, 50, 30);
         kid.VSizing = rule;
-        GuiControl grand = GuiFixture.Make("SimGui::Control", 1, 1, 10, 10);
+        var grand = GuiFixture.Make("SimGui::Control", 1, 1, 10, 10);
         grand.VSizing = 2;
         kid.AddChild(grand);
         parent.AddChild(kid);
@@ -298,7 +322,7 @@ public class GuiTests
     public void EveryStackElementFillsTheSurfaceEachFrame() // 2.4, D53
     {
         var fx = new GuiFixture(800, 600);
-        GuiControl root = fx.Content(GuiFixture.Make("SimGui::Control", 5, 6, 640, 480));
+        var root = fx.Content(GuiFixture.Make("SimGui::Control", 5, 6, 640, 480));
         Assert.Equal((0, 0, 800, 600), (root.X, root.Y, root.W, root.H));
     }
 
@@ -308,8 +332,8 @@ public class GuiTests
     public void HitTestPicksLastChildFirstAndSkipsInvisible() // 2.3
     {
         var root = GuiFixture.Make("SimGui::Control", 0, 0, 100, 100);
-        GuiControl a = GuiFixture.Make("SimGui::Control", 10, 10, 50, 50);
-        GuiControl b = GuiFixture.Make("SimGui::Control", 20, 20, 50, 50);
+        var a = GuiFixture.Make("SimGui::Control", 10, 10, 50, 50);
+        var b = GuiFixture.Make("SimGui::Control", 20, 20, 50, 50);
         root.AddChild(a);
         root.AddChild(b);
         Assert.Same(b, root.Pick(30, 30));
@@ -330,7 +354,7 @@ public class GuiTests
         hidden.Visible = false;
         btn = GuiFixture.Make("FearGui::FGUniversalButton", 10, 70, 40, 20, ("active", (byte)1), ("bodyVersion", (uint)3));
         e2 = GuiFixture.Make("SimGui::TextEdit", 10, 100, 100, 20, ("active", (byte)1), ("maxLength", (uint)40));
-        foreach (GuiControl c in new[] { e1, hidden, btn, e2 })
+        foreach (var c in new[] { e1, hidden, btn, e2 })
             root.AddChild(c);
         return root;
     }
@@ -358,7 +382,7 @@ public class GuiTests
     public void ArrowsAreNotFocusKeysWhenTheTopControlHasFlagBit2() // 2.7 step 6
     {
         var fx = new GuiFixture();
-        GuiControl root = TabScreen(out var e1, out var e2, out _, out _);
+        var root = TabScreen(out var e1, out var e2, out _, out _);
         root.Flags |= 4;
         fx.Content(root);
         fx.Tap("down");
@@ -378,7 +402,7 @@ public class GuiTests
         var edit = (GuiTextEdit)e2;
         fx.Key("a", true, 0, 'a');
         Assert.Equal("a", edit.Text);
-        long t0 = fx.Clock;
+        var t0 = fx.Clock;
         Assert.Equal(t0 + 300, fx.Canvas.KeyRepeatAt);
         fx.Frame(299);
         Assert.Equal("a", edit.Text);
@@ -446,7 +470,7 @@ public class GuiTests
         var fx = new GuiFixture();
         fx.Interp.Evaluate("function MyBtn::onAction() { echo(\"onAction\"); } function cmd() { echo(\"command\"); } function MsgFn() { echo(\"message\"); }");
         var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        GuiControl btn = GuiFixture.Make("SimGui::ActiveCtrl", 10, 10, 60, 20, ("active", (byte)1), ("messageTag", (uint)120500));
+        var btn = GuiFixture.Make("SimGui::ActiveCtrl", 10, 10, 60, 20, ("active", (byte)1), ("messageTag", (uint)120500));
         btn.Name = "MyBtn";
         btn.Command = "cmd();";
         root.AddChild(btn);
@@ -454,7 +478,7 @@ public class GuiTests
         fx.Content(root);
         fx.Output.Clear();
         fx.Click(20, 15);
-        Assert.Equal(new[] { "command", "onAction", "message" }, fx.Output.Where(l => l is "command" or "onAction" or "message"));
+        Assert.Equal(["command", "onAction", "message"], fx.Output.Where(l => l is "command" or "onAction" or "message"));
     }
 
     [Fact]
@@ -527,7 +551,7 @@ public class GuiTests
     {
         var fx = new GuiFixture();
         var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        GuiUniversalButton b = Uni("BTN_X", sw: true);
+        var b = Uni("BTN_X", sw: true);
         b.ConsoleVar = "$mir";
         b.F["mirrorVar"] = (byte)1;
         root.AddChild(b);
@@ -549,7 +573,7 @@ public class GuiTests
     {
         var fx = new GuiFixture();
         var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        GuiUniversalButton b = Uni("BTN_X", sw: true, cmd: "echo(\"on-cmd\");", alt: "echo(\"off-cmd\");");
+        var b = Uni("BTN_X", sw: true, cmd: "echo(\"on-cmd\");", alt: "echo(\"off-cmd\");");
         b.X = b.Y = 10;
         b.ConsoleVar = "$sw";
         root.AddChild(b);
@@ -577,15 +601,17 @@ public class GuiTests
     {
         var fx = new GuiFixture();
         var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        GuiControl pageA = GuiFixture.Make("SimGui::Control", 0, 100, 50, 50);
+        var pageA = GuiFixture.Make("SimGui::Control", 0, 100, 50, 50);
         pageA.Id = 501;
-        GuiControl pageB = GuiFixture.Make("SimGui::Control", 0, 100, 50, 50);
+        var pageB = GuiFixture.Make("SimGui::Control", 0, 100, 50, 50);
         pageB.Id = 502;
         pageB.Visible = false;
         GuiUniversalButton a = Uni("A", radio: 140212, on: true), b = Uni("B", radio: 140212);
-        a.X = 10; b.X = 40;
-        a.F["messageTag"] = 501u; b.F["messageTag"] = 502u;
-        foreach (GuiControl c in new GuiControl[] { pageA, pageB, a, b })
+        a.X = 10;
+        b.X = 40;
+        a.F["messageTag"] = 501u;
+        b.F["messageTag"] = 502u;
+        foreach (var c in new GuiControl[] { pageA, pageB, a, b })
             root.AddChild(c);
         fx.Content(root);
         a.SetValue("TRUE");
@@ -697,11 +723,11 @@ public class GuiTests
         e.AltCommand = "echo(\"alt\");";
         e.ConsoleVar = "$te";
         fx.Key("q", true, 0, 'q');
-        Assert.Equal(new[] { "cmd" }, fx.Output.Where(l => l is "cmd" or "alt"));
+        Assert.Equal(["cmd"], fx.Output.Where(l => l is "cmd" or "alt"));
         Assert.Equal("q", fx.Interp.PeekVariable("$te"));        // key down also writes the variable
         fx.Output.Clear();
         fx.Key("enter", true);
-        Assert.Equal(new[] { "cmd", "alt" }, fx.Output.Where(l => l is "cmd" or "alt"));
+        Assert.Equal(["cmd", "alt"], fx.Output.Where(l => l is "cmd" or "alt"));
     }
 
     [Fact]
@@ -709,7 +735,7 @@ public class GuiTests
     {
         var fx = new GuiFixture();
         fx.Content(TabScreen(out var e1, out var e2, out _, out _));
-        ((GuiControl)e1).AltCommand = "echo(\"leave\");";
+        e1.AltCommand = "echo(\"leave\");";
         fx.Tap("tab");
         Assert.Contains("leave", fx.Output);
         Assert.Same(e2, fx.Canvas.FirstResponder);
@@ -730,7 +756,7 @@ public class GuiTests
         cancel.Name = "DialogEscapeButton";
         cancel.Command = "echo(\"cancel\");";
         edit = GuiFixture.Make("FearGui::TestEdit", 10, 50, 100, 20, ("active", (byte)1), ("maxLength", (uint)10));
-        foreach (GuiControl c in new[] { ok, cancel, edit })
+        foreach (var c in new[] { ok, cancel, edit })
             box.AddChild(c);
         root.AddChild(box);
         return root;
@@ -741,14 +767,14 @@ public class GuiTests
     {
         var fx = new GuiFixture();
         fx.Content(GuiFixture.Make("SimGui::Control", 0, 0, 640, 480));
-        GuiControl d = DialogRoot(out _, out _, out var e);
+        var d = DialogRoot(out _, out _, out var e);
         e.Parent!.RemoveChild(e);                                // no text field: nothing else to focus
         fx.Canvas.PushDialog(d);
         fx.Frame();
         Assert.IsType<GuiDlgBox>(fx.Canvas.FirstResponder);       // the named dialog takes the focus by itself
         fx.Tap("enter");
         fx.Tap("escape");
-        Assert.Equal(new[] { "ok", "cancel" }, fx.Output.Where(l => l is "ok" or "cancel"));
+        Assert.Equal(["ok", "cancel"], fx.Output.Where(l => l is "ok" or "cancel"));
     }
 
     [Fact]
@@ -758,7 +784,7 @@ public class GuiTests
         fx.Content(GuiFixture.Make("SimGui::Control", 0, 0, 640, 480));
         fx.Canvas.PushDialog(DialogRoot(out _, out _, out var edit));
         fx.Frame();
-        fx.Canvas.SetFirstResponder((IGuiResponder)edit);
+        fx.Canvas.SetFirstResponder(edit);
         fx.Type("hi");
         fx.Tap("enter");
         Assert.Contains("ok", fx.Output);
@@ -770,11 +796,11 @@ public class GuiTests
     public void ADialogWithControl141000DimsTheScreenBehindIt() // 2.5 dimmed rule, D53
     {
         var fx = new GuiFixture();
-        GuiControl content = fx.Content(GuiFixture.Make("SimGui::Control", 0, 0, 640, 480));
-        GuiControl under = GuiFixture.Make("FearGui::FGControl", 0, 0, 10, 10);
+        var content = fx.Content(GuiFixture.Make("SimGui::Control", 0, 0, 640, 480));
+        var under = GuiFixture.Make("FearGui::FGControl", 0, 0, 10, 10);
         content.AddChild(under);
         Assert.False(under.Dimmed);
-        GuiControl dlg = DialogRoot(out var ok, out _, out _);
+        var dlg = DialogRoot(out var ok, out _, out _);
         fx.Canvas.PushDialog(dlg);
         Assert.True(under.Dimmed);
         Assert.False(ok.Dimmed);                                 // the dialog's own controls are not dimmed
@@ -789,7 +815,7 @@ public class GuiTests
     [Fact]
     public void MessageTagsLoadContentPushAndPopDialogsAndRunCommands() // 2.8 table
     {
-        string dir = Path.Combine(Path.GetTempPath(), "gui-test-" + Guid.NewGuid().ToString("N"));
+        var dir = Path.Combine(Path.GetTempPath(), "gui-test-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         try
         {
@@ -821,7 +847,7 @@ public class GuiTests
     public void DelegateCanKeepADialogOpen() // 2.2 pop dialog
     {
         var fx = new GuiFixture();
-        var del = new GuiDelegate { Name = "x", OnPop = (d, m) => -1 };
+        var del = new GuiScreenResponder { Name = "x", OnPop = (d, m) => -1 };
         fx.Content(GuiFixture.Make("SimGui::Control", 0, 0, 640, 480), del);
         fx.Canvas.PushDialog(GuiFixture.Make("SimGui::Control", 0, 0, 640, 480));
         fx.Canvas.PopDialog(0);
@@ -855,7 +881,7 @@ public class GuiTests
     {
         var fx = new GuiFixture();
         var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        GuiControl t = GuiFixture.Make("SimGui::SimpleText", 5, 6, 70, 8, ("active", (byte)1), ("text", "hi"));
+        var t = GuiFixture.Make("SimGui::SimpleText", 5, 6, 70, 8, ("active", (byte)1), ("text", "hi"));
         t.Name = "Lbl";
         t.Id = 4242;
         root.AddChild(t);
@@ -882,9 +908,9 @@ public class GuiTests
     {
         var fx = new GuiFixture();
         var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        GuiControl combo = GuiFixture.Make("FearGui::FGStandardComboBox", 0, 0, 100, 19, ("active", (byte)1));
+        var combo = GuiFixture.Make("FearGui::FGStandardComboBox", 0, 0, 100, 19, ("active", (byte)1));
         combo.Name = "Combo";
-        GuiControl list = GuiFixture.Make("FearGui::StandardListCtrl", 0, 30, 100, 100, ("active", (byte)1));
+        var list = GuiFixture.Make("FearGui::StandardListCtrl", 0, 30, 100, 100, ("active", (byte)1));
         list.Name = "List";
         root.AddChild(combo);
         root.AddChild(list);
@@ -911,7 +937,7 @@ public class GuiTests
     {
         var fx = new GuiFixture();
         var root = GuiFixture.Make("SimGui::Control", 0, 0, 640, 480);
-        GuiControl s = GuiFixture.Make("FearGui::FGSlider", 10, 10, 112, 17, ("active", (byte)1), ("sliderVersion", (uint)3),
+        var s = GuiFixture.Make("FearGui::FGSlider", 10, 10, 112, 17, ("active", (byte)1), ("sliderVersion", (uint)3),
             ("minValue", 0u), ("maxValue", BitConverter.SingleToUInt32Bits(1f)), ("value", 0u));
         s.Name = "Sl";
         root.AddChild(s);
@@ -922,14 +948,14 @@ public class GuiTests
         Assert.Equal("3", fx.Interp.Evaluate("Control::getValue(Sl);"));
         fx.Interp.Evaluate("FGSlider::setDiscretePositions(Sl, 0);");
         fx.Interp.Evaluate("Control::setValue(Sl, 0.5);");
-        double v = double.Parse(fx.Interp.Evaluate("Control::getValue(Sl);"), System.Globalization.CultureInfo.InvariantCulture);
+        var v = double.Parse(fx.Interp.Evaluate("Control::getValue(Sl);"), System.Globalization.CultureInfo.InvariantCulture);
         Assert.InRange(v, 0.45, 0.55);
     }
 
     [Fact]
     public void LoadObjectAndStoreObjectRoundTripALayout() // 5.1, D44
     {
-        string dir = Path.Combine(Path.GetTempPath(), "gui-test-" + Guid.NewGuid().ToString("N"));
+        var dir = Path.Combine(Path.GetTempPath(), "gui-test-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         try
         {
@@ -941,7 +967,7 @@ public class GuiTests
             fx.Interp.Evaluate($"loadObject(playGui, \"{src.Replace("\\", "\\\\")}\");");
             Assert.True(fx.Runtime.Named.ContainsKey("playGui"));
             Assert.Equal("True", fx.Interp.Evaluate($"storeObject(playGui, \"{dst.Replace("\\", "\\\\")}\");"));
-            GuiControl back = GuiLoader.Load(File.ReadAllBytes(dst), out string err);
+            var back = GuiLoader.Load(File.ReadAllBytes(dst), out var err);
             Assert.True(back != null, err);
             Assert.Equal((140114u, 640, 480), (back.Id, back.W, back.H));
             Assert.Equal(1u, back.U("produce3dEvents"));
@@ -997,7 +1023,7 @@ public class GuiTests
 
     private sealed class RecDev : IGfxDevice
     {
-        public readonly List<string> Calls = new();
+        public List<string> Calls { get; } = [];
         public int Width => 640;
         public int Height => 480;
         public void Dispose() { }
@@ -1016,7 +1042,7 @@ public class GuiTests
         public void BlitRegion(PbmpBitmap bitmap, GfxRect source, int x, int y, BlitFlip flip = BlitFlip.None) { }
         public void BlitStretch(PbmpBitmap bitmap, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) { }
         public void BlitRegionStretch(PbmpBitmap bitmap, GfxRect source, int x, int y, int width, int height, BlitFlip flip = BlitFlip.None) { }
-        public byte[] ReadPixels() => Array.Empty<byte>();
+        public byte[] ReadPixels() => [];
         public IGfxTexture CreateTexture3D(ReadOnlySpan<byte> rgba, int width, int height, TextureOptions options) => throw new NotSupportedException();
         public void BeginScene3D(in Camera3D camera, float hazeR, float hazeG, float hazeB) { }
         public void SetCamera3D(in Camera3D camera) { }
@@ -1040,7 +1066,7 @@ public class GuiTests
     [Fact]
     public void HealthHudDrawsTheBarClippedToItsLength() // 4.2: origin (x + 37, y + 10), clip to origin.x .. origin.x + L
     {
-        List<string> calls = DrawHealth(0.5);                    // value 0.5: L = 42, palette 0xf2
+        var calls = DrawHealth(0.5);                    // value 0.5: L = 42, palette 0xf2
         Assert.Contains("clip 37,10,78,17", calls);
         Assert.Contains(calls, c => c.StartsWith("fill 37,10,120,17 c" + "f2"));
     }
@@ -1056,7 +1082,7 @@ public class GuiTests
         fx.Canvas.ViewHasCamera = false;
         var dev = new RecDev();
         fx.Canvas.Render(dev);
-        Assert.Equal(new[] { "fill 0,0,639,479 c0" }, dev.Calls.Where(c => c.StartsWith("fill", StringComparison.Ordinal)).ToArray());
+        Assert.Equal(Values1, dev.Calls.Where(c => c.StartsWith("fill", StringComparison.Ordinal)).ToArray());
         Assert.DoesNotContain("clip 37,10,78,17", dev.Calls);
         fx.Canvas.ViewHasCamera = true;
         var dev2 = new RecDev();
@@ -1126,30 +1152,33 @@ public class GuiTests
     public void HeadlessRenderOfASyntheticDialog() // 2.5, 2.9: fills and dimmed colours reach the framebuffer
     {
         GlWindow? win = null;
-        foreach (string? driver in new string?[] { "offscreen", null })
+        foreach (var driver in new string?[] { "offscreen", null })
         {
-            win = GlWindow.TryCreate("gui-test", 64, 48, hidden: true, driver, out string err);
+            win = GlWindow.TryCreate("gui-test", 64, 48, hidden: true, driver, out var err);
             if (win != null)
                 break;
         }
         if (win == null)
         {
-            mOut.WriteLine("SKIPPED: no OpenGL 3.3 context could be made");
+            _out.WriteLine("SKIPPED: no OpenGL 3.3 context could be made");
             return;
         }
         using (win)
         {
             using var gd = new GlGfxDevice(win);
             var rgba = new byte[1024];
-            void Set(int i, byte r, byte g, byte b) { rgba[i * 4] = r; rgba[i * 4 + 1] = g; rgba[i * 4 + 2] = b; }
+            void Set(int i, byte r, byte g, byte b)
+            { rgba[i * 4] = r; rgba[(i * 4) + 1] = g; rgba[(i * 4) + 2] = b; }
             Set(5, 10, 200, 10);     // FGControl fill
             Set(6, 200, 10, 10);     // FGControl disabled fill
             Set(0xf4, 20, 30, 220);  // FGDlgBox fill
             gd.SetPalette(PaletteBank.FromColors(rgba, 256), 1f);
             var fx = new GuiFixture(64, 48);
-            GuiControl content = fx.Content(GuiFixture.Make("SimGui::Control", 0, 0, 64, 48));
-            GuiControl panel = GuiFixture.Make("FearGui::FGControl", 2, 2, 20, 20);
-            panel.Opaque = 1; panel.FillColor = 5; panel.DisabledFill = 6;
+            var content = fx.Content(GuiFixture.Make("SimGui::Control", 0, 0, 64, 48));
+            var panel = GuiFixture.Make("FearGui::FGControl", 2, 2, 20, 20);
+            panel.Opaque = 1;
+            panel.FillColor = 5;
+            panel.DisabledFill = 6;
             content.AddChild(panel);
             var dlg = GuiFixture.Make("SimGui::Control", 0, 0, 64, 48);
             var box = GuiFixture.Make("FearGui::FGDlgBox", 30, 10, 30, 30, ("active", (byte)1));
@@ -1160,8 +1189,8 @@ public class GuiTests
             gd.ClearRgb(0, 0, 0);
             fx.Canvas.Render(gd);
             gd.EndFrame();
-            byte[] px = gd.ReadPixels();
-            (int, int, int) P(int x, int y) => (px[(y * 64 + x) * 4], px[(y * 64 + x) * 4 + 1], px[(y * 64 + x) * 4 + 2]);
+            var px = gd.ReadPixels();
+            (int, int, int) P(int x, int y) => (px[((y * 64) + x) * 4], px[(((y * 64) + x) * 4) + 1], px[(((y * 64) + x) * 4) + 2]);
             Assert.Equal((10, 200, 10), P(10, 10));                  // not dimmed: the fill colour
 
             fx.Canvas.PushDialog(dlg);

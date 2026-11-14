@@ -1,6 +1,6 @@
-using OpenTribes.Platform.Gfx;
-
 namespace OpenTribes.Gui;
+
+using OpenTribes.Platform.Gfx;
 
 /// <summary>The list of the score dialog of the Tab key (Score.gui, lr_score.gui): the headings, the teams and the players.</summary>
 /// <remarks>Follows FearGui::ScoreListCtrl (draw 004c2198). FearGui::MenuDisplayCtrl, which lists the server menu, is <see cref="GuiMenuDisplay"/>.</remarks>
@@ -20,7 +20,7 @@ public sealed class GuiScoreList : GuiList
     public readonly record struct Line(string Text, int[] Columns, bool Heading, bool Local);
 
     /// <summary>The lines shown, rebuilt before each render.</summary>
-    public readonly List<Line> Lines = new();
+    public List<Line> Lines { get; } = [];
 
     private bool LowRes => Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384);
     private PftFont? HeadingFont => Host?.FontByName(LowRes ? "sf_white_6.pft" : "sf_white_10b.pft");
@@ -35,9 +35,9 @@ public sealed class GuiScoreList : GuiList
     /// <returns>The positions: the first cell sits at 0, every later cell starts with its position as one character.</returns>
     public static int[] Columns(string heading)
     {
-        string[] cells = heading.Split('\t');
+        var cells = heading.Split('\t');
         var cols = new int[Math.Max(1, cells.Length)];
-        for (int i = 1; i < cells.Length; ++i)
+        for (var i = 1; i < cells.Length; ++i)
             cols[i] = cells[i].Length > 0 ? cells[i][0] & 0xff : cols[i - 1] + 60;
         return cols;
     }
@@ -47,8 +47,8 @@ public sealed class GuiScoreList : GuiList
     /// <returns>The heading cells without their position characters.</returns>
     public static string HeadingText(string heading)
     {
-        string[] cells = heading.Split('\t');
-        for (int i = 1; i < cells.Length; ++i)
+        var cells = heading.Split('\t');
+        for (var i = 1; i < cells.Length; ++i)
             cells[i] = cells[i].Length > 0 ? cells[i][1..] : "";
         return string.Join('\t', cells);
     }
@@ -63,15 +63,15 @@ public sealed class GuiScoreList : GuiList
         var lines = new List<Line>();
         if (board.Teams.Count > 0 && board.TeamHeading.Length > 0)
         {
-            int[] tc = Columns(board.TeamHeading);
+            var tc = Columns(board.TeamHeading);
             lines.Add(new Line(HeadingText(board.TeamHeading), tc, true, false));
-            foreach (ScoreRow t in board.Teams)
+            foreach (var t in board.Teams)
                 lines.Add(new Line(t.Text, tc, false, false));
         }
-        int[] cc = Columns(board.ClientHeading);
+        var cc = Columns(board.ClientHeading);
         if (board.ClientHeading.Length > 0)
             lines.Add(new Line(HeadingText(board.ClientHeading), cc, true, false));
-        foreach (ScoreRow c in board.Clients)
+        foreach (var c in board.Clients)
             lines.Add(new Line(c.Text, cc, false, selected >= 0 && c.Id == selected));
         return lines;
     }
@@ -82,7 +82,7 @@ public sealed class GuiScoreList : GuiList
         Lines.Clear();
         if (Host?.Hud?.Scores is ScoreBoard board)
             Lines.AddRange(Build(board));
-        int h = Lines.Count * LineHeight;
+        var h = Lines.Count * LineHeight;
         if (Parent != null)
             h = Math.Max(h, Parent.H);
         if (h != H)
@@ -100,32 +100,32 @@ public sealed class GuiScoreList : GuiList
     public override void Render(GuiPaint p, int ox, int oy)
     {
         int gx = ox + X, gy = oy + Y;
-        int lh = LineHeight;
-        bool low = LowRes;
-        for (int i = 0; i < Lines.Count; ++i)
+        var lh = LineHeight;
+        var low = LowRes;
+        for (var i = 0; i < Lines.Count; ++i)
         {
-            int y = gy + i * lh;
+            var y = gy + (i * lh);
             if (y > p.Clip.Bottom)
                 break;
             if (y + lh < p.Clip.Top)
                 continue;
-            Line line = Lines[i];
-            PftFont? f = line.Heading ? HeadingFont : RowFont;
+            var line = Lines[i];
+            var f = line.Heading ? HeadingFont : RowFont;
             if (line.Local)
                 p.Fill(gx, y, Math.Min(W, HighlightWidth), lh, LocalRowColor);
-            string[] cells = line.Text.Split('\t');
-            for (int k = 0; k < cells.Length; ++k)
+            var cells = line.Text.Split('\t');
+            for (var k = 0; k < cells.Length; ++k)
             {
                 if (cells[k].Length == 0)
                     continue;
-                int col = line.Columns[Math.Min(k, line.Columns.Length - 1)] + (k >= line.Columns.Length ? 60 * (k - line.Columns.Length + 1) : 0);
+                var col = line.Columns[Math.Min(k, line.Columns.Length - 1)] + (k >= line.Columns.Length ? 60 * (k - line.Columns.Length + 1) : 0);
                 if (low)
                     col = col * 70 / 100;
                 // The draw clips each cell at the next column less 2 pixels [code 004c2198].
-                GfxRect saved = p.Clip;
+                var saved = p.Clip;
                 if (k + 1 < line.Columns.Length)
                 {
-                    int next = line.Columns[k + 1];
+                    var next = line.Columns[k + 1];
                     if (low)
                         next = next * 70 / 100;
                     p.SetClip(saved.Intersect(new GfxRect(gx + col, y - 2, gx + next - 3, y + lh - 1)));
@@ -146,10 +146,10 @@ public sealed class GuiMenuDisplay : GuiControl
         int gx = ox + X, gy = oy + Y;
         if (Host?.Hud?.ServerMenu is not ServerMenuView menu)
             return;
-        bool low = Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384);
-        PftFont? row = Host.FontByName(low ? "sf_yellow_6.pft" : "sf_yellow_10b.pft");
-        PftFont? head = row;
-        int y = gy;
+        var low = Canvas != null && (Canvas.Width < 512 || Canvas.Height < 384);
+        var row = Host.FontByName(low ? "sf_yellow_6.pft" : "sf_yellow_10b.pft");
+        var head = row;
+        var y = gy;
         if (menu.Title.Length > 0)
         {
             p.Text(head, gx, y, menu.Title);

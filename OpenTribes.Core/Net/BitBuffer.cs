@@ -1,44 +1,44 @@
 namespace OpenTribes.Net;
 
 /// <summary>Darkstar bit stream: bits are packed LSB first (bit n is bit n&amp;7 of byte n&gt;&gt;3).</summary>
-/// <remarks>Port of src/net/bitstream.cpp. Strings are byte strings (one char per byte, <see cref="OpenTribes.Core.ByteString"/>). Overruns set the error flag instead of throwing.</remarks>
-public sealed class BitStream
+/// <remarks>Port of src/net/bitstream.cpp. Strings are byte strings (one char per byte, <see cref="Core.ByteString"/>). Overruns set the error flag instead of throwing.</remarks>
+public sealed class BitBuffer
 {
-    private readonly byte[] mBuf;
-    private readonly ulong mLimitBits;
-    private uint mPos;
-    private bool mError;
+    private readonly byte[] _buf;
+    private readonly ulong _limitBits;
+    private uint _pos;
+    private bool _error;
 
     /// <summary>Creates a stream over a buffer.</summary>
     /// <param name="buffer">The buffer to read or write.</param>
     /// <param name="sizeBytes">The usable size in bytes.</param>
-    public BitStream(byte[] buffer, int sizeBytes)
+    public BitBuffer(byte[] buffer, int sizeBytes)
     {
-        mBuf = buffer;
-        mLimitBits = (ulong)sizeBytes * 8;
+        _buf = buffer;
+        _limitBits = (ulong)sizeBytes * 8;
     }
 
     /// <summary>Creates a stream over a whole buffer.</summary>
     /// <param name="buffer">The buffer to read or write.</param>
-    public BitStream(byte[] buffer) : this(buffer, buffer.Length) { }
+    public BitBuffer(byte[] buffer) : this(buffer, buffer.Length) { }
 
     /// <summary>Writes bits from the start of a span. A write past the limit sets the error flag and writes nothing.</summary>
     /// <param name="bitCount">The number of bits.</param>
     /// <param name="src">The source bytes, read LSB first.</param>
     public void WriteBits(uint bitCount, ReadOnlySpan<byte> src)
     {
-        if ((ulong)(mPos + bitCount) > mLimitBits)
+        if (_pos + bitCount > _limitBits)
         {
-            mError = true;
+            _error = true;
             return;
         }
-        for (uint i = 0; i < bitCount; ++i, ++mPos)
+        for (uint i = 0; i < bitCount; ++i, ++_pos)
         {
-            byte mask = (byte)(1u << (int)(mPos & 7));
+            var mask = (byte)(1u << (int)(_pos & 7));
             if (((src[(int)(i >> 3)] >> (int)(i & 7)) & 1) != 0)
-                mBuf[mPos >> 3] |= mask;
+                _buf[_pos >> 3] |= mask;
             else
-                mBuf[mPos >> 3] &= (byte)~mask;
+                _buf[_pos >> 3] &= (byte)~mask;
         }
     }
 
@@ -49,13 +49,14 @@ public sealed class BitStream
     {
         for (uint i = 0; i < (bitCount + 7) / 8; ++i)
             dst[(int)i] = 0;
-        if ((ulong)(mPos + bitCount) > mLimitBits)
+
+        if (_pos + bitCount > _limitBits)
         {
-            mError = true;
+            _error = true;
             return;
         }
-        for (uint i = 0; i < bitCount; ++i, ++mPos)
-            if (((mBuf[mPos >> 3] >> (int)(mPos & 7)) & 1) != 0)
+        for (uint i = 0; i < bitCount; ++i, ++_pos)
+            if (((_buf[_pos >> 3] >> (int)(_pos & 7)) & 1) != 0)
                 dst[(int)(i >> 3)] |= (byte)(1u << (int)(i & 7));
     }
 
@@ -64,7 +65,7 @@ public sealed class BitStream
     /// <param name="bitCount">The number of bits, 1 to 32.</param>
     public void WriteInt(uint value, uint bitCount)
     {
-        ReadOnlySpan<byte> bytes = stackalloc byte[4] { (byte)value, (byte)(value >> 8), (byte)(value >> 16), (byte)(value >> 24) };
+        ReadOnlySpan<byte> bytes = [(byte)value, (byte)(value >> 8), (byte)(value >> 16), (byte)(value >> 24)];
         WriteBits(bitCount, bytes);
     }
 
@@ -75,7 +76,7 @@ public sealed class BitStream
     {
         Span<byte> bytes = stackalloc byte[4];
         ReadBits(bitCount, bytes);
-        uint v = bytes[0] | (uint)bytes[1] << 8 | (uint)bytes[2] << 16 | (uint)bytes[3] << 24;
+        var v = bytes[0] | ((uint)bytes[1] << 8) | ((uint)bytes[2] << 16) | ((uint)bytes[3] << 24);
         return bitCount == 32 ? v : v & ((1u << (int)bitCount) - 1);
     }
 
@@ -108,8 +109,8 @@ public sealed class BitStream
     /// <returns>The value.</returns>
     public int ReadSignedInt(uint bitCount)
     {
-        bool negative = ReadFlag();
-        int magnitude = unchecked((int)ReadInt(bitCount - 1));
+        var negative = ReadFlag();
+        var magnitude = unchecked((int)ReadInt(bitCount - 1));
         return negative ? -magnitude : magnitude;
     }
 
@@ -126,28 +127,28 @@ public sealed class BitStream
     /// <param name="maxLen">The maximum characters to write, at most 255.</param>
     public void WriteString(string s, int maxLen = 255)
     {
-        int len = s.Length < maxLen ? s.Length : maxLen;
+        var len = s.Length < maxLen ? s.Length : maxLen;
         if (len > 255)
             len = 255;
         uint huffBits = 0;
-        for (int i = 0; i < len; ++i)
+        for (var i = 0; i < len; ++i)
             huffBits += Huffman.HuffmanCode((byte)s[i]).Length;
 
-        bool compressed = huffBits < (uint)len * 8;
+        var compressed = huffBits < (uint)len * 8;
         WriteFlag(compressed);
         WriteInt((uint)len, 8);
         if (!compressed)
         {
             Span<byte> raw = stackalloc byte[len];
-            for (int i = 0; i < len; ++i)
+            for (var i = 0; i < len; ++i)
                 raw[i] = (byte)s[i];
             WriteBytes(raw);
             return;
         }
-        for (int i = 0; i < len; ++i)
+        for (var i = 0; i < len; ++i)
         {
-            HuffmanCode code = Huffman.HuffmanCode((byte)s[i]);
-            for (int b = 0; b < code.Length; ++b)
+            var code = Huffman.HuffmanCode((byte)s[i]);
+            for (var b = 0; b < code.Length; ++b)
                 WriteFlag(((code.Bits >> b) & 1) != 0);
         }
     }
@@ -156,8 +157,8 @@ public sealed class BitStream
     /// <returns>The byte string. Empty when a raw string does not fit in the stream (DECISIONS D20).</returns>
     public string ReadString()
     {
-        bool compressed = ReadFlag();
-        uint len = ReadInt(8);
+        var compressed = ReadFlag();
+        var len = ReadInt(8);
         var output = new System.Text.StringBuilder((int)len);
         if (compressed)
         {
@@ -168,9 +169,9 @@ public sealed class BitStream
             return output.ToString();
         }
         // Raw: one read of all the bytes. When they do not fit nothing is read (DECISIONS D20: empty here).
-        if ((ulong)(mPos + len * 8) > mLimitBits)
+        if (_pos + (len * 8) > _limitBits)
         {
-            mError = true;
+            _error = true;
             return output.ToString();
         }
         for (uint i = 0; i < len; ++i)
@@ -180,17 +181,17 @@ public sealed class BitStream
 
     /// <summary>Gets the current bit position.</summary>
     /// <returns>The position in bits.</returns>
-    public uint BitPosition() => mPos;
+    public uint BitPosition() => _pos;
 
     /// <summary>Moves to a bit position.</summary>
     /// <param name="pos">The position in bits.</param>
-    public void SetBitPosition(uint pos) => mPos = pos;
+    public void SetBitPosition(uint pos) => _pos = pos;
 
     /// <summary>Gets the current position rounded up to whole bytes (getBytePtr).</summary>
     /// <returns>The position in bytes.</returns>
-    public int BytePosition() => (int)((mPos + 7) / 8);
+    public int BytePosition() => (int)((_pos + 7) / 8);
 
     /// <summary>Tells whether a read or write ran past the limit.</summary>
     /// <returns>True after an overrun.</returns>
-    public bool Error() => mError;
+    public bool Error() => _error;
 }

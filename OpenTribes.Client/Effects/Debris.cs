@@ -1,9 +1,9 @@
+namespace OpenTribes.Client.Effects;
+
 using OpenTribes.Client.Scene;
 using OpenTribes.Client.Shapes;
 using OpenTribes.Game;
 using OpenTribes.World;
-
-namespace OpenTribes.Client.Effects;
 
 /// <summary>The DebrisData fields the pieces use (docs/shapes-render.md 4.4).</summary>
 /// <param name="MinTimeout">The shortest life in seconds.</param>
@@ -31,11 +31,11 @@ public readonly record struct DebrisParams(double MinTimeout = 3, double MaxTime
     /// <param name="b">The block, or null for the defaults.</param>
     /// <returns>The parameters.</returns>
     public static DebrisParams From(ClientDataBlock? b) =>
-        b == null ? Default : new DebrisParams(Scene.Db.Num(b, "minTimeout", 3), Scene.Db.Num(b, "maxTimeout", 6), Scene.Db.Num(b, "explodeOnBounce", 0.3),
-            Scene.Db.Flag(b, "explodeOnRest"), (int)Scene.Db.Num(b, "spawnedExplosionID", -1), Scene.Db.Num(b, "elasticity", 0.25), Scene.Db.Num(b, "friction", 0.5),
-            Scene.Db.Num(b, "mass", 100), (int)Scene.Db.Num(b, "spawnedDebrisMask", 1), Scene.Db.Num(b, "spawnedDebrisStrength", 50),
-            Scene.Db.Num(b, "spawnedDebrisRadius", 0.2), (int)Scene.Db.Num(b, "collisionDetail", 0), Scene.Db.Num(b, "damage", 100),
-            Scene.Db.Num(b, "damageThreshold", 1));
+        b == null ? Default : new DebrisParams(Db.Num(b, "minTimeout", 3), Db.Num(b, "maxTimeout", 6), Db.Num(b, "explodeOnBounce", 0.3),
+            Db.Flag(b, "explodeOnRest"), (int)Db.Num(b, "spawnedExplosionID", -1), Db.Num(b, "elasticity", 0.25), Db.Num(b, "friction", 0.5),
+            Db.Num(b, "mass", 100), (int)Db.Num(b, "spawnedDebrisMask", 1), Db.Num(b, "spawnedDebrisStrength", 50),
+            Db.Num(b, "spawnedDebrisRadius", 0.2), (int)Db.Num(b, "collisionDetail", 0), Db.Num(b, "damage", 100),
+            Db.Num(b, "damageThreshold", 1));
 }
 
 /// <summary>A ray against the static world: the first interior surface along (sx, sy, sz) + t * (dx, dy, dz), 0 &lt;= t &lt;= len.</summary>
@@ -72,48 +72,48 @@ public sealed class DebrisBody
     public const double Gravity = -20;
 
     /// <summary>The position of the piece origin (the centre of its box).</summary>
-    public double X;
+    public double X { get; set; }
     /// <summary>The y position.</summary>
-    public double Y;
+    public double Y { get; set; }
     /// <summary>The z position.</summary>
-    public double Z;
+    public double Z { get; set; }
     /// <summary>The linear velocity x.</summary>
-    public double Vx;
+    public double Vx { get; set; }
     /// <summary>The linear velocity y.</summary>
-    public double Vy;
+    public double Vy { get; set; }
     /// <summary>The linear velocity z.</summary>
-    public double Vz;
+    public double Vz { get; set; }
     /// <summary>The spin about x.</summary>
-    public double Wx;
+    public double Wx { get; set; }
     /// <summary>The spin about y.</summary>
-    public double Wy;
+    public double Wy { get; set; }
     /// <summary>The spin about z.</summary>
-    public double Wz;
+    public double Wz { get; set; }
     /// <summary>The accumulated spin angle about x.</summary>
-    public double Ax;
+    public double Ax { get; set; }
     /// <summary>The accumulated spin angle about y.</summary>
-    public double Ay;
+    public double Ay { get; set; }
     /// <summary>The accumulated spin angle about z.</summary>
-    public double Az;
+    public double Az { get; set; }
     /// <summary>The seconds lived.</summary>
-    public double Age;
+    public double Age { get; set; }
     /// <summary>The lifetime: minTimeout + (maxTimeout - minTimeout) * random.</summary>
-    public double Life;
+    public double Life { get; set; }
     /// <summary>The collision sphere radius (Debris +0x318), from PartDebris loadShape (0047603c), see <see cref="PartDebris.Measure"/>.</summary>
-    public double Radius = 0.25;
+    public double Radius { get; set; } = 0.25;
     /// <summary>The mass.</summary>
-    public double Mass = 100;
+    public double Mass { get; set; } = 100;
     /// <summary>The self damage left (+0x348, DebrisData <c>damage</c>). Below zero the piece explodes.</summary>
-    public double Damage = double.PositiveInfinity;
+    public double Damage { get; set; } = double.PositiveInfinity;
     /// <summary>True when the piece collided in the last tick.</summary>
-    public bool Collided;
+    public bool Collided { get; set; }
     /// <summary>True when the piece collided in the tick before.</summary>
-    public bool PrevCollided;
+    public bool PrevCollided { get; set; }
     /// <summary>True when the piece lies still.</summary>
-    public bool Frozen;
+    public bool Frozen { get; set; }
     /// <summary>True when the piece ended.</summary>
-    public bool Done;
-    private double mSvx, mSvy, mSvz, mSwx, mSwy, mSwz;   // the smoothed velocities +0x358..+0x36c (0.9 old + 0.1 new, z velocity x 0.25)
+    public bool Done { get; set; }
+    private double _svx, _svy, _svz, _swx, _swy, _swz;   // the smoothed velocities +0x358..+0x36c (0.9 old + 0.1 new, z velocity x 0.25)
 
     /// <summary>Decides whether the piece explodes now.</summary>
     /// <param name="p">The debris parameters.</param>
@@ -122,7 +122,7 @@ public sealed class DebrisBody
     /// <remarks>Follows the top of Debris_tick (004721f8): the explosion decisions from the collision flags of the last two ticks. An explosion follows a bounce (a contact now and none in the tick before) with the chance explodeOnBounce, two ticks of contact in a row, and a piece whose horizontal velocity components are both at most 1e-5 when explodeOnRest is set.</remarks>
     public bool WantsExplosion(DebrisParams p, Random rng)
     {
-        bool explode = false;
+        var explode = false;
         if (Collided && !PrevCollided && rng.NextDouble() < p.ExplodeOnBounce)
             explode = true;
         if (!explode && (Damage < 0 || (Collided && PrevCollided)))
@@ -150,7 +150,9 @@ public sealed class DebrisBody
         double v0x = Vx, v0y = Vy, v0z = Vz;
         Vz += Gravity * TimeSlice;
         double dx = (v0x + Vx) * 0.5 * TimeSlice, dy = (v0y + Vy) * 0.5 * TimeSlice, dz = (v0z + Vz) * 0.5 * TimeSlice;
-        Ax += Wx * TimeSlice; Ay += Wy * TimeSlice; Az += Wz * TimeSlice;
+        Ax += Wx * TimeSlice;
+        Ay += Wy * TimeSlice;
+        Az += Wz * TimeSlice;
         if (Frozen)
         {
             // Debris_collide 00472ad0, the frozen branch (flag +0x164 & 0x80): velocity zero, the transform stays.
@@ -160,8 +162,8 @@ public sealed class DebrisBody
         else
         {
             double nx = X + dx, ny = Y + dy, nz = Z + dz;
-            bool hit = false;
-            double len = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+            var hit = false;
+            var len = Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
             if (ray != null && len > 1e-9)
             {
                 double ux = dx / len, uy = dy / len, uz = dz / len;
@@ -183,7 +185,7 @@ public sealed class DebrisBody
                     terrain.Height((float)(nx + offX), (float)(ny + offY + 0.5), ref hyp) && terrain.Height((float)(nx + offX), (float)(ny + offY - 0.5), ref hym))
                 {
                     (tx, ty, tz) = (hxm - hxp, hym - hyp, 1);
-                    double tl = Math.Sqrt(tx * tx + ty * ty + tz * tz);
+                    var tl = Math.Sqrt((tx * tx) + (ty * ty) + (tz * tz));
                     (tx, ty, tz) = (tx / tl, ty / tl, tz / tl);
                 }
                 hit |= Bounce(p, tx, ty, tz, rng);
@@ -192,9 +194,13 @@ public sealed class DebrisBody
             Collided = hit;
         }
         // the smoothed velocities and the freeze (Debris_tick: after the first second, in contact, both slow)
-        mSvx = mSvx * 0.9 + Vx * 0.1; mSvy = mSvy * 0.9 + Vy * 0.1; mSvz = (mSvz * 0.9 + Vz * 0.1) * 0.25;
-        mSwx = mSwx * 0.9 + Wx * 0.1; mSwy = mSwy * 0.9 + Wy * 0.1; mSwz = mSwz * 0.9 + Wz * 0.1;
-        if (Age > 1 && Collided && mSvx * mSvx + mSvy * mSvy + mSvz * mSvz < 0.1 && mSwx * mSwx + mSwy * mSwy + mSwz * mSwz < 0.1)
+        _svx = (_svx * 0.9) + (Vx * 0.1);
+        _svy = (_svy * 0.9) + (Vy * 0.1);
+        _svz = ((_svz * 0.9) + (Vz * 0.1)) * 0.25;
+        _swx = (_swx * 0.9) + (Wx * 0.1);
+        _swy = (_swy * 0.9) + (Wy * 0.1);
+        _swz = (_swz * 0.9) + (Wz * 0.1);
+        if (Age > 1 && Collided && (_svx * _svx) + (_svy * _svy) + (_svz * _svz) < 0.1 && (_swx * _swx) + (_swy * _swy) + (_swz * _swz) < 0.1)
         {
             Vx = Vy = Vz = Wx = Wy = Wz = 0;
             Frozen = true;
@@ -206,24 +212,30 @@ public sealed class DebrisBody
     // comes back times elasticity, and the spin is drawn again at random within half the sum of the old spin components. False when the piece moves away.
     private bool Bounce(DebrisParams p, double nx, double ny, double nz, Random rng)
     {
-        double vn = Vx * nx + Vy * ny + Vz * nz;
+        var vn = (Vx * nx) + (Vy * ny) + (Vz * nz);
         // Debris_collide 00472ad0, only on the detailed collision path (collisionDetail not 0; every stock DebrisData has 0): the dot of velocity and surface
         // normal less damageThreshold (+0x7c), when positive, is taken off the self damage (+0x348) at 004731cb.
         if (p.CollisionDetail != 0 && vn - p.DamageThreshold > 0)
             Damage -= vn - p.DamageThreshold;
         if (vn > 0)
             return false;
-        Vx -= vn * nx; Vy -= vn * ny; Vz -= vn * nz;
-        (double tx, double ty, double tz) = (Vx, Vy, Vz);
-        double f = -vn * p.Friction, tl = Math.Sqrt(tx * tx + ty * ty + tz * tz);
+        Vx -= vn * nx;
+        Vy -= vn * ny;
+        Vz -= vn * nz;
+        (var tx, var ty, var tz) = (Vx, Vy, Vz);
+        double f = -vn * p.Friction, tl = Math.Sqrt((tx * tx) + (ty * ty) + (tz * tz));
         if (f < tl)
             (tx, ty, tz) = (tx * f / tl, ty * f / tl, tz * f / tl);
-        Vx -= tx; Vy -= ty; Vz -= tz;
-        Vx -= p.Elasticity * vn * nx; Vy -= p.Elasticity * vn * ny; Vz -= p.Elasticity * vn * nz;
-        double m = (Math.Abs(Wx) + Math.Abs(Wy) + Math.Abs(Wz)) * 0.5;   // 1/3 x sum x 1.5
-        Wx = rng.NextDouble() * 2 * m - m;
-        Wy = rng.NextDouble() * 2 * m - m;
-        Wz = rng.NextDouble() * 2 * m - m;
+        Vx -= tx;
+        Vy -= ty;
+        Vz -= tz;
+        Vx -= p.Elasticity * vn * nx;
+        Vy -= p.Elasticity * vn * ny;
+        Vz -= p.Elasticity * vn * nz;
+        var m = (Math.Abs(Wx) + Math.Abs(Wy) + Math.Abs(Wz)) * 0.5;   // 1/3 x sum x 1.5
+        Wx = (rng.NextDouble() * 2 * m) - m;
+        Wy = (rng.NextDouble() * 2 * m) - m;
+        Wz = (rng.NextDouble() * 2 * m) - m;
         return true;
     }
 
@@ -252,30 +264,32 @@ public sealed class DebrisEffect : IEffect
 
     private sealed class Piece
     {
-        public DebrisBody Body = new();
-        public int Object;
-        public double Cx, Cy, Cz;        // world centre of the piece at spawn (where it rotates)
+        public DebrisBody Body { get; set; } = new();
+        public int Object { get; set; }
+        public double Cx { get; set; }        // world centre of the piece at spawn (where it rotates)
+        public double Cy { get; set; }        // world centre of the piece at spawn (where it rotates)
+        public double Cz { get; set; }        // world centre of the piece at spawn (where it rotates)
     }
 
-    private readonly RenderInstance mInst;
-    private readonly Xf mBase;
-    private readonly List<Piece> mPieces = new();
-    private readonly Terrain? mTerrain;
-    private readonly DebrisParams mParams;
-    private readonly Random mRng;
-    private readonly DebrisRay? mRay;
-    private readonly Action<int, double, double, double>? mExplode;
-    private readonly Action<DebrisCloudSpec>? mCloud;
-    private double mAcc;
+    private readonly RenderInstance _inst;
+    private readonly Xf _base;
+    private readonly List<Piece> _pieces = [];
+    private readonly Terrain? _terrain;
+    private readonly DebrisParams _params;
+    private readonly Random _rng;
+    private readonly DebrisRay? _ray;
+    private readonly Action<int, double, double, double>? _explode;
+    private readonly Action<DebrisCloudSpec>? _cloud;
+    private double _acc;
 
     /// <inheritdoc/>
-    public bool Alive => mPieces.Exists(p => !p.Body.Done);
+    public bool Alive => _pieces.Exists(p => !p.Body.Done);
     /// <inheritdoc/>
     public PointLight? Light => null;
     /// <summary>The number of pieces.</summary>
-    public int PieceCount => mPieces.Count;
+    public int PieceCount => _pieces.Count;
     /// <summary>The bodies of the pieces.</summary>
-    public IEnumerable<DebrisBody> Bodies => mPieces.Select(p => p.Body);
+    public IEnumerable<DebrisBody> Bodies => _pieces.Select(p => p.Body);
 
     /// <summary>Creates the effect with one piece per visible object of the dying shape.</summary>
     /// <param name="inst">The shape instance of the dying shape.</param>
@@ -293,19 +307,19 @@ public sealed class DebrisEffect : IEffect
     public DebrisEffect(RenderInstance inst, Xf baseXf, double vx, double vy, double vz, Terrain? terrain, Random rng,
                         DebrisParams? param = null, DebrisRay? ray = null, Action<int, double, double, double>? explode = null, Action<DebrisCloudSpec>? cloud = null)
     {
-        mInst = inst;
-        mBase = baseXf;
-        mTerrain = terrain;
-        mParams = param ?? DebrisParams.Default;
-        mRng = rng;
-        mRay = ray;
-        mExplode = explode;
-        mCloud = cloud;
-        RenderShape sh = inst.Shape;
-        int debrisNode = sh.FindNode("debris0");
-        int detail = 0;
+        _inst = inst;
+        _base = baseXf;
+        _terrain = terrain;
+        _params = param ?? DebrisParams.Default;
+        _rng = rng;
+        _ray = ray;
+        _explode = explode;
+        _cloud = cloud;
+        var sh = inst.Shape;
+        var debrisNode = sh.FindNode("debris0");
+        var detail = 0;
         if (debrisNode >= 0)
-            for (int d = 0; d < sh.Details.Length; ++d)
+            for (var d = 0; d < sh.Details.Length; ++d)
                 if (sh.Details[d].RootNode == debrisNode)
                     detail = d;
         inst.Animate(detail);
@@ -313,37 +327,41 @@ public sealed class DebrisEffect : IEffect
         // the shape centre in the world: the point the burst moves the pieces away from (ShapeBase_explode 0044cdec, two m_mul_point)
         var (scx, scy, scz) = baseXf.Apply(sh.Cx, sh.Cy, sh.Cz);
         var nodes = new HashSet<int>(sh.Subtree(sh.DetailRoot(detail)));
-        for (int oi = 0; oi < sh.Objects.Length; ++oi)
+        for (var oi = 0; oi < sh.Objects.Length; ++oi)
         {
-            RsObject ob = sh.Objects[oi];
+            var ob = sh.Objects[oi];
             if (!nodes.Contains(ob.Node) || ob.Mesh < 0 || ob.Mesh >= sh.Meshes.Length || sh.Meshes[ob.Mesh].Faces.Length == 0 || !inst.Objects[oi].Visible)
                 continue;
             // the part box of 005c3b18 / 005ad14c at the object's current frame: the part origin moves to its centre (the middle of the frame box)
-            RsMesh m = sh.Meshes[ob.Mesh];
-            PartBox box = PartDebris.Measure(m, inst.Objects[oi].Frame);
-            bool hasBox = m.Frames.Length > 0 && m.Verts.Length >= (m.Frames[Math.Clamp(inst.Objects[oi].Frame, 0, m.Frames.Length - 1)].FirstVert + 2) * 4;
+            var m = sh.Meshes[ob.Mesh];
+            var box = PartDebris.Measure(m, inst.Objects[oi].Frame);
+            var hasBox = m.Frames.Length > 0 && m.Verts.Length >= (m.Frames[Math.Clamp(inst.Objects[oi].Frame, 0, m.Frames.Length - 1)].FirstVert + 2) * 4;
             double lx = box.Cx, ly = box.Cy, lz = box.Cz;
             var (sx, sy, sz) = inst.ObjectTransform(oi).Apply(lx, ly, lz);
             var (wx, wy, wz) = baseXf.Apply(sx, sy, sz);
             var piece = new Piece { Object = oi, Cx = wx, Cy = wy, Cz = wz };
-            DebrisBody body = piece.Body;
-            body.X = wx; body.Y = wy; body.Z = wz;
+            var body = piece.Body;
+            body.X = wx;
+            body.Y = wy;
+            body.Z = wz;
             body.Mass = PieceMass;
             // PartDebris loadShape 0047603c: radius +0x318 = 0.5 x m_Point3F_lenf (005ed031, the bit trick root) of the part's bounds size, sphere centre +0x30c = the
             // box centre = the piece origin (PartDebris.Measure); a mesh without a box (never in a stock shape) keeps a small sphere
             body.Radius = hasBox ? box.Radius : 0.17;
             // Debris_init: lifetime = minTimeout + (maxTimeout - minTimeout) * random
-            body.Life = mParams.MinTimeout + (mParams.MaxTimeout - mParams.MinTimeout) * rng.NextDouble();
-            body.Damage = mParams.Damage;   // Debris_init: +0x348 = DebrisData damage (+0x78)
+            body.Life = _params.MinTimeout + ((_params.MaxTimeout - _params.MinTimeout) * rng.NextDouble());
+            body.Damage = _params.Damage;   // Debris_init: +0x348 = DebrisData damage (+0x78)
             // the cloud launch 00476858: the object velocity, plus the impulse along (piece - shape centre), plus a spin of +-strength * 0.0025 (at most 2.5) per axis
-            double dx = wx - scx, dy = wy - scy, dz = wz - scz, dl = Math.Sqrt(dx * dx + dy * dy + dz * dz);
-            double k = dl > 1e-9 ? BurstStrength / PieceMass / dl : 0;
-            body.Vx = vx + dx * k; body.Vy = vy + dy * k; body.Vz = vz + dz * k;
-            double spin = Math.Min(BurstStrength * 0.005, 5);
-            body.Wx = rng.NextDouble() * spin - spin * 0.5;
-            body.Wy = rng.NextDouble() * spin - spin * 0.5;
-            body.Wz = rng.NextDouble() * spin - spin * 0.5;
-            mPieces.Add(piece);
+            double dx = wx - scx, dy = wy - scy, dz = wz - scz, dl = Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+            var k = dl > 1e-9 ? BurstStrength / PieceMass / dl : 0;
+            body.Vx = vx + (dx * k);
+            body.Vy = vy + (dy * k);
+            body.Vz = vz + (dz * k);
+            var spin = Math.Min(BurstStrength * 0.005, 5);
+            body.Wx = (rng.NextDouble() * spin) - (spin * 0.5);
+            body.Wy = (rng.NextDouble() * spin) - (spin * 0.5);
+            body.Wz = (rng.NextDouble() * spin) - (spin * 0.5);
+            _pieces.Add(piece);
         }
     }
 
@@ -353,10 +371,10 @@ public sealed class DebrisEffect : IEffect
     /// <inheritdoc/>
     public void Tick(double dt)
     {
-        mAcc += dt;
-        while (mAcc >= DebrisBody.TimeSlice)
+        _acc += dt;
+        while (_acc >= DebrisBody.TimeSlice)
         {
-            mAcc -= DebrisBody.TimeSlice;
+            _acc -= DebrisBody.TimeSlice;
             Step();
         }
     }
@@ -364,22 +382,22 @@ public sealed class DebrisEffect : IEffect
     // One Debris_tick (004721f8) of every piece.
     private void Step()
     {
-        foreach (Piece p in mPieces)
+        foreach (var p in _pieces)
         {
-            DebrisBody b = p.Body;
+            var b = p.Body;
             if (b.Done)
                 continue;
-            bool explode = b.WantsExplosion(mParams, mRng);
+            var explode = b.WantsExplosion(_params, _rng);
             if (!explode)
-                explode = b.Integrate(mParams, mTerrain, mRay, mRng, 0, 0, 0);
+                explode = b.Integrate(_params, _terrain, _ray, _rng, 0, 0, 0);
             if (!explode)
                 continue;
             b.Done = true;
             // Debris_explode: the secondary cloud first, then the Explosion of spawnedExplosionID at the piece position
-            if (b.SecondaryCloud(mParams, PieceBudget - b.Age) is { } spec)
-                mCloud?.Invoke(spec);
-            if (mParams.Explosion >= 0)
-                mExplode?.Invoke(mParams.Explosion, b.X, b.Y, b.Z);
+            if (b.SecondaryCloud(_params, PieceBudget - b.Age) is { } spec)
+                _cloud?.Invoke(spec);
+            if (_params.Explosion >= 0)
+                _explode?.Invoke(_params.Explosion, b.X, b.Y, b.Z);
         }
     }
 
@@ -388,16 +406,16 @@ public sealed class DebrisEffect : IEffect
     {
         if (!Alive)
             return;
-        foreach (Piece p in mPieces)
+        foreach (var p in _pieces)
         {
-            DebrisBody b = p.Body;
+            var b = p.Body;
             if (b.Done)
                 continue;
-            Xf xf = mBase.Then(Xf.Translate(-p.Cx, -p.Cy, -p.Cz)).Then(Xf.Euler(b.Ax, b.Ay, b.Az)).Then(Xf.Translate(b.X, b.Y, b.Z));
-            ShapeDraw d = ctx.Draw(xf, mInst.Shape.Name + " debris");
+            var xf = _base.Then(Xf.Translate(-p.Cx, -p.Cy, -p.Cz)).Then(Xf.Euler(b.Ax, b.Ay, b.Az)).Then(Xf.Translate(b.X, b.Y, b.Z));
+            var d = ctx.Draw(xf, _inst.Shape.Name + " debris");
             d.ForceDetail = Detail;
-            d.ObjectFilter = new HashSet<int> { p.Object };
-            RenderImage? img = ctx.Renderer.Build(mInst, ctx.Camera, d);
+            d.ObjectFilter = [p.Object];
+            var img = ctx.Renderer.Build(_inst, ctx.Camera, d);
             if (img != null)
                 ctx.Lists.Add(img);
         }

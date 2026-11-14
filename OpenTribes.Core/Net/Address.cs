@@ -5,9 +5,9 @@ namespace OpenTribes.Net;
 public struct Address : IEquatable<Address>, IComparable<Address>
 {
     /// <summary>The IPv4 address in host byte order.</summary>
-    public uint Ip;
+    public uint Ip { get; set; }
     /// <summary>The UDP port.</summary>
-    public ushort Port;
+    public ushort Port { get; set; }
 
     /// <summary>Creates an endpoint.</summary>
     /// <param name="ip">The IPv4 address in host byte order.</param>
@@ -56,4 +56,16 @@ public struct Address : IEquatable<Address>, IComparable<Address>
     /// <returns>The text.</returns>
     public override readonly string ToString() =>
         "IP:" + (Ip >> 24) + "." + ((Ip >> 16) & 0xff) + "." + ((Ip >> 8) & 0xff) + "." + (Ip & 0xff) + ":" + Port;
+
+    /// <summary>Compares two endpoints.</summary>
+    /// <param name="left">The first endpoint.</param>
+    /// <param name="right">The second endpoint.</param>
+    /// <returns>True when <paramref name="left"/> sorts before or equal to <paramref name="right"/>.</returns>
+    public static bool operator <=(Address left, Address right) => left.CompareTo(right) <= 0;
+
+    /// <summary>Compares two endpoints.</summary>
+    /// <param name="left">The first endpoint.</param>
+    /// <param name="right">The second endpoint.</param>
+    /// <returns>True when <paramref name="left"/> sorts after or equal to <paramref name="right"/>.</returns>
+    public static bool operator >=(Address left, Address right) => left.CompareTo(right) >= 0;
 }
