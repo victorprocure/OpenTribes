@@ -288,6 +288,13 @@ public sealed class VolArchive : IDisposable
         var size = ReadU32(header[4..]) & SizeMask;
         if (compression == VolCompression.None)
         {
+            // Check the block fits in the file before allocating: a short block fails as before, without a size-sized buffer.
+            var left = _file.Length - _file.Position;
+            if (size > left)
+            {
+                _error = "short read for " + entry.Name;
+                return false;
+            }
             output = new byte[size];
             if (ReadFull(_file, output) != size)
             {
@@ -318,8 +325,17 @@ public sealed class VolArchive : IDisposable
             }
             return true;
         }
-        var lzPacked = new byte[size];
+        // Deliberate departure from stock: the packed buffer is the part of the block the file holds (the
+        // decoder reads zeros past it anyway) and an output that no packed input could expand to is
+        // rejected. One packed byte decodes to at most 48 bytes (a 60-byte match costs at least 10 bits).
+        var lzLeft = _file.Length - _file.Position;
+        var lzPacked = new byte[Math.Min(size, lzLeft > 0 ? (ulong)lzLeft : 0)];
         var lzGot = ReadFull(_file, lzPacked);
+        if (size > (ulong)lzGot * 64)
+        {
+            _error = "LZH data too short for " + entry.Name;
+            return false;
+        }
         output = new byte[size];
         Lzh.LzhDecode(lzPacked.AsSpan(0, lzGot), output);
         return true;
