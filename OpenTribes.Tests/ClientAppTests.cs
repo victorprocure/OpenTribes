@@ -49,6 +49,33 @@ public sealed class ClientAppTests : IDisposable
 
     private string Eval(string text) => _app!.Interp.Evaluate(text);
 
+    // ---- bad demos ----
+
+    [Fact]
+    public void PlayDemoOnAShortOrBadFileReturnsFalse()
+    {
+        Boot();
+        Directory.CreateDirectory(Path.Combine(_root, "recordings"));
+        File.WriteAllBytes(Path.Combine(_root, "recordings", "tiny.rec"), [1, 2, 3]);
+        Assert.Equal("False", Eval("playDemo(\"tiny.rec\");"));
+        Assert.Null(_app!.Game);
+    }
+
+    [Fact]
+    public void PlayDemoOnATruncatedRecordingStarts()
+    {
+        Boot();
+        Directory.CreateDirectory(Path.Combine(_root, "recordings"));
+        var f = new List<byte>();
+        f.AddRange(BitConverter.GetBytes(2052u));
+        f.AddRange(BitConverter.GetBytes(2048u));
+        f.AddRange(BitConverter.GetBytes(10u));
+        f.AddRange([0xff, 9, 0, 1, 2]);              // a packet record cut off
+        File.WriteAllBytes(Path.Combine(_root, "recordings", "cut.rec"), [.. f]);
+        Assert.Equal("True", Eval("playDemo(\"cut.rec\");"));
+        Assert.NotNull(_app!.Game);
+    }
+
     // ---- quit ----
 
     [Fact]

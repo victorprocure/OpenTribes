@@ -56,7 +56,9 @@ public sealed class DemoFile
 
     /// <summary>Parses a demo file.</summary>
     /// <param name="data">The file bytes.</param>
-    /// <returns>The parsed file.</returns>
+    /// <returns>The parsed file. A file cut off inside a record (a client that crashed while recording) gives the whole records before the cut with <see cref="Complete"/> false.</returns>
+    /// <exception cref="InvalidDataException">The file is shorter than its header, or a record has an unknown kind or PSC sub-kind.</exception>
+    /// <remarks>Stock playback ends the demo when the input ends inside a record (docs/client-net.md 5.4, 00551118), so a short tail stops the parse here the same way.</remarks>
     public static DemoFile Parse(byte[] data)
     {
         var d = new DemoFile();
@@ -81,10 +83,12 @@ public sealed class DemoFile
             var rec = new DemoRecord { Time = time, KindByte = kind };
             if (kind == 0xff)
             {
+                if (data.Length - p < 2)
+                    break;
                 int len = BitConverter.ToUInt16(data, p);
                 p += 2;
-                if (p + len > data.Length)
-                    throw new InvalidDataException("packet record past the end of the file");
+                if (data.Length - p < len)
+                    break;
                 rec.Kind = DemoRecordKind.Packet;
                 rec.Packet = data.AsSpan(p, len).ToArray();
                 p += len;
@@ -92,9 +96,13 @@ public sealed class DemoFile
             }
             else if (kind == 0x01)
             {
+                if (p >= data.Length)
+                    break;
                 var sub = data[p++];
                 if (sub == 1)
                 {
+                    if (data.Length - p < 32)
+                        break;
                     // 32 byte raw Move: 4 x f32 axes, jet/crouch/jump/fire bytes, i32 useItem, f32 turn, f32 pitch.
                     rec.Kind = DemoRecordKind.Move;
                     rec.Move = new Move
@@ -116,6 +124,8 @@ public sealed class DemoFile
                 }
                 else if (sub == 0)
                 {
+                    if (data.Length - p < 8)
+                        break;
                     rec.Kind = DemoRecordKind.Action;
                     rec.ActionValue = BitConverter.ToSingle(data, p);
                     rec.ActionId = BitConverter.ToUInt32(data, p + 4);
