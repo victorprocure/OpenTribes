@@ -184,6 +184,34 @@ public class GfxFormatTests
         Assert.Contains("8 and 24", err);
     }
 
+    [Theory]
+    [InlineData(10, 0x80000000u)]   // offBits at or above 2^31 turned negative in an int cast
+    [InlineData(10, 0xFFFFFFFFu)]
+    [InlineData(10, 100000u)]       // past the end of the data
+    [InlineData(14, 0x80000000u)]   // info header size
+    [InlineData(14, 0xFFFFFFF0u)]
+    [InlineData(14, 100000u)]
+    public void WindowsBmpHugeOffsetsFailWithAFormatError(int at, uint value)
+    {
+        var file = WindowsBmp(3, 2, 8, new byte[8], true);
+        BitConverter.GetBytes(value).CopyTo(file, at);
+        Assert.False(PbmpBitmap.TryParse(file, false, out var b, out var err));
+        Assert.Null(b);
+        Assert.NotEqual("", err);
+    }
+
+    [Fact]
+    public void WindowsBmpWithALargerInfoHeaderStillParses()
+    {
+        // A valid file with an info header larger than 40 bytes and the pixels at offBits keeps parsing.
+        byte[] rows = [1, 2, 3, 0, 4, 5, 6, 0];
+        var file = WindowsBmp(3, 2, 8, rows, true);
+        var ext = file.Take(14 + 40).Concat(new byte[8]).Concat(file.Skip(14 + 40)).ToArray();
+        BitConverter.GetBytes(48u).CopyTo(ext, 14);
+        BitConverter.GetBytes((uint)(14 + 48 + 1024)).CopyTo(ext, 10);
+        Assert.Equal(rows, Bitmap(ext).Pixels);
+    }
+
     // ---- 2.3 PBMA ----
 
     [Fact]
