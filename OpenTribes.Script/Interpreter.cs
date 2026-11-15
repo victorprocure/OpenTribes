@@ -90,6 +90,8 @@ public sealed class Interpreter
     private string _lastValue = "";
     private readonly Dictionary<string, Action<string>> _bindings = new(StringComparer.Ordinal);
     private readonly SortedDictionary<string, int> _unknown = new(StringComparer.Ordinal);
+    private int _remoteNames;
+    private bool _remoteDropLogged;
 
     // x87 tests against zero: NaN compares unordered, which the original treats as equal to 0.
     private static bool Truthy(double v) => v != 0 && !double.IsNaN(v);
@@ -1109,10 +1111,34 @@ public sealed class Interpreter
     /// <returns>The result string.</returns>
     public string CallFunction(string name, IReadOnlyList<string> args) => Call(name, [.. args]);
 
+    /// <summary>The most names a network peer may add to the string table through remote calls.</summary>
+    public const int MaxRemoteNames = 1024;
+
+    /// <summary>Calls a function or command for a remote event of a network peer.</summary>
+    /// <param name="name">The name, <c>remote</c> and the name the peer sent.</param>
+    /// <param name="args">The arguments.</param>
+    /// <returns>The result string.</returns>
+    /// <remarks>Stock (SimConsoleEvent_unpack 00510118 and the console call) interns every name a peer sends and prints "name: Unknown command." when it has no function, so a peer that sends distinct names grows the string table and the log without bound. Deliberate departure from stock: after <see cref="MaxRemoteNames"/> new names from remote calls, a name not yet in the string table is dropped without interning, and only the first such drop is logged. Names already in the table, and the first new names, run as in stock.</remarks>
+    public string CallRemote(string name, IReadOnlyList<string> args) => Call(name, [.. args], true);
+
     // src/script/interpreter.cpp Interpreter::call.
-    private string Call(string name, List<string> args)
+    private string Call(string name, List<string> args, bool remote = false)
     {
-        var key = _strings.Intern(name);
+        var key = remote ? _strings.Lookup(name) : _strings.Intern(name);
+        if (key == null)
+        {
+            if (_remoteNames >= MaxRemoteNames)
+            {
+                if (!_remoteDropLogged)
+                {
+                    _remoteDropLogged = true;
+                    Print(1, "Too many unknown remote commands: further ones are dropped and not logged.");
+                }
+                return "False";
+            }
+            ++_remoteNames;
+            key = _strings.Intern(name);
+        }
         if (_focus == null || !_focus.Commands.TryGetValue(key, out var fn))
             _functions.TryGetValue(key, out fn);
         if (fn == null)

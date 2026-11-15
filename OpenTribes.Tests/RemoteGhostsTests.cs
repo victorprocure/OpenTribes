@@ -136,6 +136,39 @@ public class RemoteGhostsTests
         Assert.Equal(before + 3, rp.Steps);
     }
 
+    [Fact]
+    public void FrameOfNormalPlayCatchesUpEveryTick()
+    {
+        var (rp, _) = MakePlayer("rg_normal");
+        rp.Place(1000, Start, Vel, 0.4f, 0.05f, false);
+        Apply(rp, 2000, false, 0, 0);                     // SimTime 1984
+        var before = rp.Steps;
+        rp.Advance(1984 + 1024);                          // a 1024 ms frame: every one of the 32 ticks steps
+        Assert.Equal(before + 32, rp.Steps);
+        Assert.Equal(3008u, rp.SimTime);
+        Assert.Equal(2000u, SmoothWindow.CatchUpStart(2000, 3024));
+        Assert.Equal(2000u, SmoothWindow.CatchUpStart(2000, 2000));
+        Assert.Equal(3000u, SmoothWindow.CatchUpStart(3000, 2000));   // a copy ahead of the frame is left alone
+    }
+
+    [Fact]
+    public void LongStallStepsOnlyTheLastSecond()
+    {
+        var (rp, _) = MakePlayer("rg_stall");
+        rp.Place(1000, Start, Vel, 0.4f, 0.05f, false);
+        Apply(rp, 2000, false, 0, 0);                     // SimTime 1984
+        var before = rp.Steps;
+        rp.Advance(1984 + 60000);                         // a 60 s stall: stock would run 1875 steps
+        Assert.Equal(before + 32, rp.Steps);
+        Assert.Equal(61984u, rp.SimTime);
+        Assert.Equal(60000u - 1024u, SmoothWindow.CatchUpStart(1984, 60000));
+        var (rv, _) = MakeFlier("rg_vstall");
+        rv.Place(new float[3], [100f, 100f, 70f]);
+        rv.SetState(2000, new Move { Forward = 1.0f }, Pos, Rot, 2, 0.0f, 20.0f, 0, 0);
+        rv.Advance(1984 + 60000);
+        Assert.Equal(61984u, rv.SimTime);
+    }
+
     private static (RemoteVehicle, Flier) MakeFlier(string name)
     {
         var f = new ClientPredictionTests.Side(name).Make("100 100 70");

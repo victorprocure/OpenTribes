@@ -24,11 +24,7 @@ public sealed class ConsoleLog : IDisposable
     }
 
     /// <summary>Closes the file.</summary>
-    public void Dispose()
-    {
-        _file?.Dispose();
-        _file = null;
-    }
+    public void Dispose() => Close();
 
     private FileStream? OpenAppend()
     {
@@ -51,10 +47,7 @@ public sealed class ConsoleLog : IDisposable
         if (mode != 0 && _mode == 0)
             _headerDue = true;
         if (_mode == 2)
-        {
-            _file?.Dispose();
-            _file = null;
-        }
+            Close();
         else if (mode == 2)
         {
             _file = OpenAppend();
@@ -80,26 +73,48 @@ public sealed class ConsoleLog : IDisposable
             _file = OpenAppend();
         if (_file != null)
         {
-            if (_headerDue)
+            try
             {
-                var tm = _localTime();
-                var header = _lastHope
-                    ? string.Format(CultureInfo.InvariantCulture, "--- {0}/{1}/{2} -- {3}:{4}:{5} ---\n\r",
-                                    tm.Month, tm.Day, tm.Year, tm.Hour, tm.Minute, tm.Second)
-                    : string.Format(CultureInfo.InvariantCulture, "-------------------------- {0}/{1}/{2} -- {3:D2}:{4:D2}:{5:D2} -----\r\n",
-                                    tm.Month, tm.Day, tm.Year, tm.Hour, tm.Minute, tm.Second);
-                _file.Write(ByteString.ToBytes(header));
-                _headerDue = false;
+                if (_headerDue)
+                {
+                    var tm = _localTime();
+                    var header = _lastHope
+                        ? string.Format(CultureInfo.InvariantCulture, "--- {0}/{1}/{2} -- {3}:{4}:{5} ---\n\r",
+                                        tm.Month, tm.Day, tm.Year, tm.Hour, tm.Minute, tm.Second)
+                        : string.Format(CultureInfo.InvariantCulture, "-------------------------- {0}/{1}/{2} -- {3:D2}:{4:D2}:{5:D2} -----\r\n",
+                                        tm.Month, tm.Day, tm.Year, tm.Hour, tm.Minute, tm.Second);
+                    _headerDue = false;
+                    _file.Write(ByteString.ToBytes(header));
+                }
+                _file.Write(ByteString.ToBytes(line));
+                _file.Write("\r\n"u8);
+                if (_mode == 2)
+                    _file.Flush();
             }
-            _file.Write(ByteString.ToBytes(line));
-            _file.Write("\r\n"u8);
-            if (_mode == 2)
-                _file.Flush();
+            catch (IOException)
+            {
+                // The original stream write (00585948) records the WriteFile error and skips every later write until the
+                // file is opened again; the line is lost and the server keeps running. Mode 2 closes the file for that.
+                Close();
+                return;
+            }
         }
         if (_mode == 1 && _file != null)
+            Close();
+    }
+
+    // Closes the file. Flushing a full disk fails again on close: that data is lost.
+    private void Close()
+    {
+        var f = _file;
+        _file = null;
+        try
         {
-            _file.Dispose();
-            _file = null;
+            f?.Dispose();
+        }
+        catch (IOException)
+        {
+            // nothing to report to: this is the log
         }
     }
 }

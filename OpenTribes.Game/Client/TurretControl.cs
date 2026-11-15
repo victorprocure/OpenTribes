@@ -147,8 +147,16 @@ public sealed class TurretControl
         return r;
     }
 
+    // Deliberate departure from stock: Turret_wrapRotation (00453120) and Turret_wrapElevation (0045317c) loop until the angle is in range,
+    // which never ends for infinity or a float so large that subtracting 2 pi leaves it unchanged. A stock server sends angles that its own
+    // wrap already put in range (Turret_updateAim 00456874, Turret_track 00454bf8), so any angle outside +-WrapLimit is hostile and resets to 0.
+    // NaN also resets: stock leaves it unchanged.
+    private const float WrapLimit = 10000.0f;
+
     private static void WrapRotation(ref float r)
     {
+        if (!(Math.Abs(r) <= WrapLimit))
+            r = 0.0f;
         while (r > TwoPi)
             r -= TwoPi;
         while (r < 0.0f)
@@ -157,6 +165,8 @@ public sealed class TurretControl
 
     private static void WrapElevation(ref float e)
     {
+        if (!(Math.Abs(e) <= WrapLimit))
+            e = 0.0f;
         while (e < -Pi)
             e += TwoPi;
         while (e > Pi)
