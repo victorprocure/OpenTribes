@@ -63,6 +63,8 @@ public sealed class Interpreter
     {
         public Node? Decl { get; set; }
         public Command? Builtin { get; set; }
+        // The depth a call adds: CallWeight, plus the body nesting for a script function.
+        public int Weight { get; init; } = CallWeight;
     }
     private sealed class Frame
     {
@@ -91,6 +93,7 @@ public sealed class Interpreter
     private readonly Dictionary<string, Action<string>> _bindings = new(StringComparer.Ordinal);
     private readonly SortedDictionary<string, int> _unknown = new(StringComparer.Ordinal);
     private int _remoteNames;
+    private int _depth;
     private bool _remoteDropLogged;
 
     // x87 tests against zero: NaN compares unordered, which the original treats as equal to 0.
@@ -414,12 +417,19 @@ public sealed class Interpreter
         if (r.Error)
             Print(1, ScriptParser.SyntaxErrorMessage(r, fileName.Length == 0 ? "" : _strings.Intern(fileName)));
 
+        if (_depth + r.MaxNesting > MaxDepth)
+        {
+            Print(1, "Script nested too deep: not run.");
+            return "";
+        }
+        _depth += r.MaxNesting;
         var saved = _lastValue;
         _lastValue = "";
         foreach (var s in r.Statements)
             Exec(s); // top-level completion codes are ignored
         var result = _lastValue;
         _lastValue = saved;
+        _depth -= r.MaxNesting;
         return result;
     }
 
@@ -497,7 +507,7 @@ public sealed class Interpreter
             case NodeKind.Function:
             {
                 var fname = _strings.Intern(n.Name);
-                _functions[fname] = new Function { Decl = n };
+                _functions[fname] = new Function { Decl = n, Weight = CallWeight + n.Nesting };
                 foreach (var w in _worlds) // a script function replaces a native command, as in the shared set
                     w.Commands.Remove(fname);
                 return Completion.Normal;
@@ -1111,6 +1121,17 @@ public sealed class Interpreter
     /// <returns>The result string.</returns>
     public string CallFunction(string name, IReadOnlyList<string> args) => Call(name, [.. args]);
 
+    /// <summary>The script depth limit, in parser nesting levels: a call adds <see cref="CallWeight"/> plus the body nesting of a script function, and a parsed text adds its own nesting while it runs.</summary>
+    /// <remarks>Deliberate departure from stock: the stock interpreter (Console_execute 005f4308, FuncCallExprNode_getString 005f6cf8 with a 4 KB
+    /// frame per call) has no limit and ends the process when its 1 MB native stack overflows, at about 240 nested script calls. A call past this
+    /// limit prints an error and returns "False", as an unknown command does. The stock scripts and mods reach a depth of about 80; a recursive
+    /// function such as <c>return 1 + f(%n - 1);</c> (weight 7) may nest about 290 calls, more than the stock stack allows. At the limit the worst case uses about 3 MB
+    /// of stack in a debug build.</remarks>
+    public const int MaxDepth = 2048;
+
+    /// <summary>The depth a call adds besides the body nesting of a script function.</summary>
+    public const int CallWeight = 2;
+
     /// <summary>The most names a network peer may add to the string table through remote calls.</summary>
     public const int MaxRemoteNames = 1024;
 
@@ -1147,11 +1168,20 @@ public sealed class Interpreter
             Print(1, key + ": Unknown command.");
             return "False";
         }
+        var weight = fn.Weight;
+        if ((_depth += weight) > MaxDepth)
+        {
+            _depth -= weight;
+            Print(1, key + ": Script calls nested too deep.");
+            return "False";
+        }
         if (fn.Builtin != null)
         {
             args.Insert(0, key);
             var cmd = fn.Builtin; // the command may redefine itself
-            return cmd(this, [.. args]) ?? "False";
+            var r = cmd(this, [.. args]) ?? "False";
+            _depth -= weight;
+            return r;
         }
         var decl = fn.Decl!;
         _frames.Add(new Frame());
@@ -1160,6 +1190,7 @@ public sealed class Interpreter
         ExecList(decl.Body);
         var result = _frames[^1].Result;
         _frames.RemoveAt(_frames.Count - 1);
+        _depth -= weight;
         return result;
     }
 }
