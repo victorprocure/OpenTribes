@@ -432,7 +432,8 @@ public sealed class ClientEvents
                 e.Text = "from=" + from + " type=" + type + " msg=" + Repr(msg);
                 e.Apply = () =>
                 {
-                    pm.Script("onClientMessage(" + from + ", \"" + msg + "\");");
+                    // Stock passes the text raw, so a quote in it could add statements. Escaping it is a deliberate departure.
+                    pm.Script("onClientMessage(" + from + ", \"" + OpenTribes.Script.Builtins.ScriptEscape(msg) + "\");");
                     // no sender record (server message): the text alone, else "<name>: <text>"
                     var sender = pm.Get((int)from);
                     var shown = pm.StripVoice(msg);

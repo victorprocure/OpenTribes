@@ -399,28 +399,40 @@ public sealed class ServerBrowser : IDisposable
         UpdateProgress(Query().PendingPings, Query().PendingRequests, true);
     }
 
+    // 0042a384: a copy of at most max characters.
+    private static string Bounded(string s, int max) => s.Length > max ? s[..max] : s;
+
+    /// <summary>Copies the fields of an info reply into a row and sets its state to info (0042c4cc).</summary>
+    /// <param name="row">The row.</param>
+    /// <param name="r">The reply.</param>
+    /// <remarks>The handler copies the strings into fixed row fields (0042a384): 63 characters of host name, 31 of version, mission, mod list and mission type.</remarks>
+    public static void TakeInfo(GuiServerList.Server row, ServerInfoRecord r)
+    {
+        row.Name = Bounded(r.Hostname, 63);
+        row.Version = Bounded(r.Version, 31);
+        row.Players = r.Players;
+        row.MaxPlayers = r.MaxPlayers;
+        row.Mission = Bounded(r.Mission, 31);
+        row.MissionType = Bounded(r.MissionType, 31);
+        row.ModList = Bounded(r.ModList, 31);
+        row.Info = r.Info;
+        row.TeamHeading = r.TeamHeading;
+        row.ClientHeading = r.ClientHeading;
+        row.Rows = [.. r.Rows];
+        row.Cpu = r.Cpu;
+        row.Password = r.Password;
+        row.Dedicated = r.Dedicated;
+        row.State = GuiServerList.StateInfo;
+    }
+
     // 0042c4cc: the info of a server. Its row takes the fields and shows the final state.
     private void OnInfo(ServerInfoRecord r)
     {
         ++_infoCount;
         if (List?.Find(r.Address) is { } row)
         {
-            row.Name = r.Hostname;
-            row.Version = r.Version;
-            row.Players = r.Players;
-            row.MaxPlayers = r.MaxPlayers;
-            row.Mission = r.Mission;
-            row.MissionType = r.MissionType;
-            row.ModList = r.ModList;
-            row.Info = r.Info;
-            row.TeamHeading = r.TeamHeading;
-            row.ClientHeading = r.ClientHeading;
-            row.Rows = [.. r.Rows];
-            row.Cpu = r.Cpu;
-            row.Password = r.Password;
-            row.Dedicated = r.Dedicated;
-            row.State = GuiServerList.StateInfo;
-            _owner.Servers[row.Id] = (ToJoinAddress(row.Address), r.Hostname);
+            TakeInfo(row, r);
+            _owner.Servers[row.Id] = (ToJoinAddress(row.Address), row.Name);
             // 004c5f24: the open info dialog shows this server: its fields follow the reply.
             if (Find(InfoAddressId) is { } shown && string.Equals(shown.GetText(), row.Address, StringComparison.OrdinalIgnoreCase))
                 FillInfoDialog(row);

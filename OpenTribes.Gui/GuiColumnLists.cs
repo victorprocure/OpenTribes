@@ -831,15 +831,17 @@ public sealed class GuiServerList : GuiColumnList
 
     /// <summary>Builds the text of config\GameServerList.cs, one addGameServer line per row (004c4e2c).</summary>
     /// <returns>The file text.</returns>
+    /// <remarks>The string fields are escaped (<see cref="Builtins.ScriptEscape"/>), a deliberate departure from the stock writer, which writes them raw so a server reply could add statements to the file.</remarks>
     public string BuildServerFile()
     {
         var sb = new System.Text.StringBuilder();
         sb.Append("//-----------------------------------\n//\n// Database of GAME servers\n//\n//-----------------------------------\n\n");
         foreach (var s in _servers)
-            sb.Append("addGameServer(\"").Append(s.Address).Append("\", \"").Append(s.Name).Append("\", \"").Append(s.Version)
+            sb.Append("addGameServer(\"").Append(Builtins.ScriptEscape(s.Address)).Append("\", \"").Append(Builtins.ScriptEscape(s.Name))
+              .Append("\", \"").Append(Builtins.ScriptEscape(s.Version))
               .Append("\", \"").Append(s.Ping.ToString(CultureInfo.InvariantCulture)).Append("\", \"")
-              .Append(s.Favorite ? "TRUE" : "FALSE").Append("\", \"").Append(s.ModList).Append("\", \"").Append(s.Mission)
-              .Append("\", \"").Append(s.MissionType).Append("\", \"").Append(s.Cpu.ToString(CultureInfo.InvariantCulture))
+              .Append(s.Favorite ? "TRUE" : "FALSE").Append("\", \"").Append(Builtins.ScriptEscape(s.ModList)).Append("\", \"")
+              .Append(Builtins.ScriptEscape(s.Mission)).Append("\", \"").Append(Builtins.ScriptEscape(s.MissionType)).Append("\", \"").Append(s.Cpu.ToString(CultureInfo.InvariantCulture))
               .Append("\", \"").Append(s.NeverPing ? "TRUE" : "FALSE").Append("\");\n");
         return sb.ToString();
     }
