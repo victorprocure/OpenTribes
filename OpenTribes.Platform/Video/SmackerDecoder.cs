@@ -23,6 +23,9 @@ public sealed class SmackerDecoder
 {
     private const int MaxTracks = 7;
 
+    /// <summary>The most unpacked audio bytes ReadAudio returns for a track: 128 MB, about 12 minutes of 44.1 kHz 16-bit stereo, far above any movie of the game.</summary>
+    private const long MaxAudioBytes = 128L * 1024 * 1024;
+
     private readonly byte[] _data;
     private readonly int[] _frameStart;
     private readonly int[] _frameSize;
@@ -74,7 +77,7 @@ public sealed class SmackerDecoder
         Pixels = new byte[w * h];
     }
 
-    private int _treesAt, _treeSize;
+    private int _treesAt, _treeSize;   // inside the file, TryOpen checked them
 
     /// <summary>Tests whether data starts with a Smacker signature.</summary>
     /// <param name="d">The file bytes.</param>
@@ -106,12 +109,13 @@ public sealed class SmackerDecoder
         long ring = (flags & 1) != 0 ? 1 : 0;
         var total = (int)(frames + ring);
         var usec = rate > 0 ? rate * 1000L : rate < 0 ? -rate * 10L : 100_000;
-        var treeSize = (int)U(0x34);
-        var sizesAt = 0x68;
+        // The header fields are 32 bit values from the file: the offsets are summed in long so they cannot wrap.
+        var treeSize = (long)U(0x34);
+        const int sizesAt = 0x68;
         var typesAt = sizesAt + (total * 4);
         var treesAt = typesAt + total;
         var dataAt = treesAt + treeSize;
-        if (dataAt > d.Length || treeSize < 0)
+        if (dataAt > d.Length)
         {
             error = "Smacker header runs past the file";
             return null;
@@ -119,20 +123,21 @@ public sealed class SmackerDecoder
         var starts = new int[total];
         var sizes = new int[total];
         var types = new byte[total];
-        long pos = dataAt;
-        for (var i = 0; i < total; ++i)
+        var pos = dataAt;
+        var keep = 0;
+        for (; keep < total; ++keep)
         {
-            sizes[i] = (int)(U(sizesAt + (i * 4)) & ~3u);
-            types[i] = d[typesAt + i];
-            starts[i] = (int)pos;
-            pos += sizes[i];
+            var size = U(sizesAt + (keep * 4)) & ~3u;
+            if (pos + size > d.Length)
+                break;
+            sizes[keep] = (int)size;
+            types[keep] = d[typesAt + keep];
+            starts[keep] = (int)pos;
+            pos += size;
         }
-        if (pos > d.Length)
+        if (keep < total)
         {
             // A truncated file plays what is there; trim the frame list to the last whole frame.
-            var keep = 0;
-            while (keep < total && starts[keep] + sizes[keep] <= d.Length)
-                ++keep;
             if (keep == 0)
             {
                 error = "Smacker frame data missing";
@@ -157,7 +162,7 @@ public sealed class SmackerDecoder
         try
         {
             dec._treesAt = treesAt;
-            dec._treeSize = treeSize;
+            dec._treeSize = (int)treeSize;
             dec.ReadTrees();
         }
         catch (Exception e) when (e is InvalidDataException or IndexOutOfRangeException or ArgumentException)
@@ -183,23 +188,23 @@ public sealed class SmackerDecoder
     private sealed class BitReader
     {
         private readonly byte[] _d;
-        private readonly int _end;
-        public int Bit { get; set; }                // bit offset from the start of mD
+        private readonly long _end;                 // in bits as a long: a chunk of 256 MB or more overflows an int
+        public long Bit { get; set; }               // bit offset from the start of mD
 
         public BitReader(byte[] d, int start, int length)
         {
             _d = d;
-            Bit = start * 8;
-            _end = (start + length) * 8;
+            Bit = start * 8L;
+            _end = (start + (long)length) * 8;
         }
 
-        public int BitsLeft => _end - Bit;
+        public int BitsLeft => (int)Math.Min(_end - Bit, int.MaxValue);
 
         public int Get1()
         {
             if (Bit >= _end)
                 throw new InvalidDataException("bit stream ended");
-            var v = (_d[Bit >> 3] >> (Bit & 7)) & 1;
+            var v = (_d[(int)(Bit >> 3)] >> (int)(Bit & 7)) & 1;
             ++Bit;
             return v;
         }
@@ -262,6 +267,7 @@ public sealed class SmackerDecoder
     // at 0 at the start of every frame.
     private sealed class BigTree
     {
+        private const int MaxBigTreeDepth = 500;
         public List<int> Left { get; } = [];
         public List<int> Right { get; } = [];
         public List<int> Value { get; } = [];
@@ -285,7 +291,8 @@ public sealed class SmackerDecoder
 
         private int Node(BitReader br, ByteTree? low, ByteTree? high, int[] esc, int depth)
         {
-            if (depth > 100000)
+            // A code in a Smacker tree is at most 32 bits, the cap leaves room over that and keeps the recursion shallow enough for any thread stack.
+            if (depth > MaxBigTreeDepth)
                 throw new InvalidDataException("tree too deep");
             var id = Left.Count;
             Left.Add(-1);
@@ -391,7 +398,7 @@ public sealed class SmackerDecoder
         if ((type & 1) != 0 && chunk.Length > 0)
         {
             var len = chunk[0] * 4;
-            ReadPalette(chunk[1..Math.Min(len, chunk.Length)]);
+            ReadPalette(chunk[1..Math.Max(1, Math.Min(len, chunk.Length))]);
             PaletteChanged = true;
             p += len;
         }
@@ -399,8 +406,14 @@ public sealed class SmackerDecoder
         {
             if ((type & (2 << t)) == 0)
                 continue;
-            var alen = (int)BitConverter.ToUInt32(chunk.Slice(p, 4));
-            p += Math.Max(alen, 4);
+            if (chunk.Length - p < 4)
+            {
+                // No room for a length: the chunk ends inside the audio and holds no video.
+                p = chunk.Length;
+                break;
+            }
+            var alen = BitConverter.ToUInt32(chunk.Slice(p, 4));
+            p = (int)Math.Min(p + Math.Max(alen, 4u), chunk.Length);
         }
         if (p < chunk.Length)
             DecodeVideo(chunk[Math.Min(p, chunk.Length)..]);
@@ -543,6 +556,9 @@ public sealed class SmackerDecoder
         if (!a.HasData || a.Rate <= 0)
             return null;
         var pcm = new MemoryStream();
+        // A packed chunk may not unpack to more than the header's largest buffer of the track, and the track as a whole stays
+        // under MaxAudioBytes. A chunk over either limit is skipped like a chunk that does not decode.
+        var chunkLimit = a.MaxBytes > 0 ? a.MaxBytes : MaxAudioBytes;
         for (var i = 0; i < FrameCount; ++i)
         {
             if ((_frameType[i] & (2 << track)) == 0)
@@ -554,14 +570,14 @@ public sealed class SmackerDecoder
                 if ((_frameType[i] & (2 << t)) == 0)
                     continue;
                 var alen = (int)BitConverter.ToUInt32(chunk.Slice(p, 4));
-                if (alen < 4 || p + alen > chunk.Length)
+                if (alen < 4 || alen > chunk.Length - p)
                     break;
                 if (t == track)
                 {
                     var body = chunk.Slice(p + 4, alen - 4);
                     if (a.Packed)
                     {
-                        var dec = UnpackAudio(body);
+                        var dec = UnpackAudio(body, (int)Math.Min(chunkLimit, MaxAudioBytes - pcm.Length));
                         if (dec != null)
                             pcm.Write(dec);
                     }
@@ -579,12 +595,12 @@ public sealed class SmackerDecoder
 
     // One Huffman DPCM audio chunk: the unpacked byte count, three flag bits (data, stereo, 16 bit), 1 << (stereo + 16 bit) byte
     // trees, the start value of each channel (the right channel first) and then one delta per sample.
-    private static byte[]? UnpackAudio(ReadOnlySpan<byte> body)
+    private static byte[]? UnpackAudio(ReadOnlySpan<byte> body, int limit)
     {
         if (body.Length < 5)
             return null;
         var unpacked = (int)BitConverter.ToUInt32(body[..4]);
-        if (unpacked is <= 0 or > (64 * 1024 * 1024))
+        if (unpacked <= 0 || unpacked > limit)
             return null;
         var bytes = body[4..].ToArray();
         var br = new BitReader(bytes, 0, bytes.Length);
