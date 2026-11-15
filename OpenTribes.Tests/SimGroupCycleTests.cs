@@ -73,4 +73,27 @@ public class SimGroupCycleTests
         Run("deleteObject($G1);");
         Assert.Equal("FalseFalseFalseFalseFalse", Run("echo(isObject($G1), isObject($G2), isObject($G3), isObject($G4), isObject($X));"));
     }
+
+    // An owning SimSet that is its own member, or a member of a set it owns: deleting it must end.
+    [Theory]
+    [InlineData("$S = newObject(S, SimSet, 1); addToSet($S, $S);")]
+    [InlineData("$S = newObject(S, SimSet, 1); $T = newObject(T, SimSet, 1); addToSet($S, $T); addToSet($T, $S);")]
+    public void DeletingAnOwningSetThatContainsItselfEnds(string setup)
+    {
+        Run(setup);
+        var id = Numbers.BorlandAtoi(Run("echo($S);"));
+        Run("deleteObject($S);");
+        Assert.Null(_sim.Server()!.FindById(id));
+        Assert.Equal("ok", Run("echo(ok);"));
+    }
+
+    // An owning set without a cycle still deletes its members.
+    [Fact]
+    public void DeletingAnOwningSetStillDeletesItsMembers()
+    {
+        Run("$S = newObject(S, SimSet, 1); $M = newObject(M, SimSet); addToSet($S, $M);");
+        var member = Numbers.BorlandAtoi(Run("echo($M);"));
+        Run("deleteObject($S);");
+        Assert.Null(_sim.Server()!.FindById(member));
+    }
 }
