@@ -220,6 +220,29 @@ public static class Builtins
         return output.ToString();
     }
 
+    /// <summary>Escapes a string for a double-quoted script literal so the lexer (005f7644) reads back the same string.</summary>
+    /// <param name="value">The string.</param>
+    /// <returns>The string with \n \t \\ \" and \xHH for the other bytes below 0x20 and from 0x80 to 0xff.</returns>
+    /// <remarks>For script text built from network or file strings. <see cref="ExportEscape"/> does not read back: its hex digits 10 to 15 and \r are not escapes the lexer knows.</remarks>
+    public static string ScriptEscape(string value)
+    {
+        var output = new StringBuilder();
+        foreach (var c in value)
+        {
+            if (c == '\n')
+                output.Append("\\n");
+            else if (c == '\t')
+                output.Append("\\t");
+            else if (c is '\\' or '"')
+                output.Append('\\').Append(c);
+            else if (c is < (char)0x20 or (>= (char)0x80 and <= (char)0xff))
+                output.Append("\\x").Append(((int)c).ToString("X2", System.Globalization.CultureInfo.InvariantCulture));
+            else
+                output.Append(c);
+        }
+        return output.ToString();
+    }
+
     /// <summary>Registers the built-in commands.</summary>
     /// <param name="interp">The interpreter.</param>
     /// <param name="res">The resource manager, or null.</param>
