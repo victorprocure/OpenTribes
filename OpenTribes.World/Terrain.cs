@@ -269,6 +269,10 @@ public sealed class Terrain
                 return null;
         var count = 0;
         GetInto(d, ref pos, ref count);
+        // Deliberate departure from stock (hostile file): each entry is 8 bytes (id, length) so a list longer than
+        // the bytes left cannot be complete. A negative count was a 2^32 loop that ended at the first short read.
+        if (count < 0 || (long)count * 8 > d.Length - pos)
+            return null;
         var dot = dtfName.LastIndexOf('.');
         var stem = dtfName[..(dot < 0 ? dtfName.Length : dot)];
         for (uint i = 0; i < (uint)count; ++i)
@@ -279,10 +283,14 @@ public sealed class Terrain
             var name = stem + "#" + id.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".dtb";
             if (name.Length > 511) // char name[512]
                 name = name[..511];
-            var blk = new GridBlock();
-            if (!res.Read(name, out var b) || !GridBlock.Parse(b, blk))
-                return null;
-            t._blocks[id] = blk;
+            // A repeated id names the same file and replaces the same entry with the same block: parse it once.
+            if (!t._blocks.ContainsKey(id))
+            {
+                var blk = new GridBlock();
+                if (!res.Read(name, out var b) || !GridBlock.Parse(b, blk))
+                    return null;
+                t._blocks[id] = blk;
+            }
             t._blockFiles.Add(name);
         }
         // Resource loads, held while the terrain lives and kept until purge after it (docs/resources.md
