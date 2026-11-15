@@ -1774,6 +1774,52 @@ public static class Shape
         }
     }
 
+    /// <summary>Lists the root and then, by descending index, every node whose parent chain reaches the root.</summary>
+    /// <param name="root">The root node.</param>
+    /// <param name="nodeCount">The number of nodes.</param>
+    /// <param name="parent">The parent index of a node.</param>
+    /// <returns>The nodes, root first.</returns>
+    public static List<int> CollisionSubtree(int root, int nodeCount, Func<int, int> parent)
+    {
+        var nodes = new List<int> { root };
+        // Each node's parent chain is followed once (verdict 1 reaches the root, 2 does not, 3 is on the chain being
+        // followed, so a loop does not reach it). Following the chain again from every node (a bounded loop per node)
+        // was quadratic in the node count; this gives the same nodes in linear time.
+        var verdict = new byte[Math.Max(nodeCount, 0)];
+        var chain = new List<int>();
+        for (var i = nodeCount - 1; i >= 0; --i)
+        {
+            chain.Clear();
+            var p = i;
+            byte result = 2;
+            while (true)
+            {
+                if (p == root)
+                {
+                    result = 1;
+                    break;
+                }
+                if (p < 0 || p >= nodeCount)
+                    break;
+                if (verdict[p] == 3)
+                    break;
+                if (verdict[p] != 0)
+                {
+                    result = verdict[p];
+                    break;
+                }
+                verdict[p] = 3;
+                chain.Add(p);
+                p = parent(p);
+            }
+            foreach (var c in chain)
+                verdict[c] = result;
+            if (i != root && result == 1)
+                nodes.Add(i);
+        }
+        return nodes;
+    }
+
     /// <summary>Reads the collision detail boxes of a shape (docs/collision.md 6 T2.1, T9).</summary>
     /// <param name="dts">The file bytes.</param>
     /// <param name="output">Receives, per object of the detail whose root node is named "collision", the frame box of its mesh plus the object offset, in shape root space.</param>
@@ -1823,15 +1869,7 @@ public static class Shape
         if (!detail)
             return false;
         // Nodes of the subtree: the root, then by descending index (T2.4 visits children in descending node index).
-        var nodes = new List<int> { root };
-        for (var i = counts[0] - 1; i >= 0; --i)
-        {
-            var p = i;
-            for (var depth = 0; depth < counts[0] && p >= 0 && p < counts[0] && p != root; ++depth)
-                p = NodeParent(p);
-            if (i != root && p == root)
-                nodes.Add(i);
-        }
+        var nodes = CollisionSubtree(root, counts[0], NodeParent);
         var meshes = new List<long>();
         for (var m = 0; m < counts[8] && r.Ok; ++m)
         {

@@ -18,6 +18,10 @@ public static class RenderMaterialList
         long pos = 8;
         var nameLen = BinaryPrimitives.ReadUInt16LittleEndian(d.AsSpan((int)pos, 2));
         pos += 2 + nameLen + (nameLen & 1);
+        // The name length comes from the file: the version, detail and count fields must lie inside it (a short or
+        // lying file fails the load instead of throwing).
+        if (pos + 12 > d.Length)
+            return null;
         var version = BinaryPrimitives.ReadUInt32LittleEndian(d.AsSpan((int)pos, 4));
         if (version is < 1 or > 4)
             return null;

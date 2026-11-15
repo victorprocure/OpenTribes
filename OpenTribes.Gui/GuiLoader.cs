@@ -277,13 +277,19 @@ public static class GuiLoader
         var row = GuiClassTable.ByName(className);
         if (row == null || !GuiClassTable.IsControl(row))
             throw new GuiLoadException(2, "class " + className + " is not a control class");
+        // Deliberate departure from stock (hostile file): the blocks nest through recursive calls, so the depth is
+        // bounded. The stock screens nest at most 9 deep.
+        if (ctx.Depth >= GuiLoadContext.MaxDepth)
+            throw new GuiLoadException(3, "controls nested deeper than " + GuiLoadContext.MaxDepth);
         var c = GuiFactory.Create(row);
         var bytes = new GuiBytes(d, p, bodyEnd);
         var version = bytes.U32();
         ctx.BodyVersion = version;
         c.PersistVersion = version;
         var routine = RoutineFor(row) ?? throw new GuiLoadException(2, "class " + className + " has no load routine");
+        ++ctx.Depth;
         Run(c, routine, bytes, ctx, d, limit);
+        --ctx.Depth;
         // The 62 loadable stock files end every block exactly at its declared end. A block of an older layout does not, and fails here as it does in the original.
         if (bytes.Pos != bodyEnd)
             throw new GuiLoadException(4, $"block {className} read {bytes.Pos - p} of {bodyEnd - p} bytes");
@@ -474,4 +480,8 @@ public sealed class GuiLoadContext
 {
     /// <summary>The body version of the block being read.</summary>
     public uint BodyVersion { get; set; }
+    /// <summary>The deepest nesting of controls a file may have.</summary>
+    public const int MaxDepth = 256;
+    /// <summary>The number of blocks being read above the current one.</summary>
+    public int Depth { get; set; }
 }

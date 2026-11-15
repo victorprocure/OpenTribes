@@ -527,7 +527,14 @@ public sealed class RenderShape
             r.Skip(n[i] * sizes[i]);
         }
         if (ver >= 5)
+        {
             s.RemapSize = r.I32();
+            // Deliberate departure from stock (hostile file): stock allocates the remap array from this value
+            // unchecked. A remap key selects an entry with 12 flag bits (005c01f0), so 0x1000 is the most a
+            // shape can address. Stock shapes hold 1 to 9.
+            if (s.RemapSize is < 0 or > 0x1000)
+                return null;
+        }
         if (ver >= 6)
             s.AlwaysNode = r.I32();
         if (!r.Ok || counts[8] < 0 || counts[8] > dts.Length / 16)
@@ -672,11 +679,21 @@ public sealed class RenderShape
                 mesh.Frames[i] = new RsFrame { FirstVert = m.I32(), Sx = m.F32(), Sy = m.F32(), Sz = m.F32(), Ox = m.F32(), Oy = m.F32(), Oz = m.F32() };
             if (!m.Ok)
                 return null;
+            // Deliberate departure from stock (hostile file): a frame must start inside the vertex array. Stock
+            // reads past it. The renderer and the part debris measure index with this value.
+            foreach (var fr in mesh.Frames)
+                if (fr.FirstVert < 0 || fr.FirstVert > nVerts)
+                    return null;
         }
         // Material list (1.3): i32 hasMaterials, then a PERS TS::MaterialList.
         var has = r.I32();
         if (r.Ok && has != 0)
             s.ReadMaterials(dts, r.Pos);
+        // Deliberate departure from stock (hostile file): a node name must index the name table (the instance
+        // reads it for every node) and the parent links must not loop (Subtree walks them without a visited set).
+        foreach (var nd in s.Nodes)
+            if (nd.Name < 0 || nd.Name >= s.Names.Length)
+                return null;
         s.Children = new List<int>[s.Nodes.Length];
         for (var i = 0; i < s.Nodes.Length; ++i)
             s.Children[i] = [];
@@ -686,7 +703,30 @@ public sealed class RenderShape
             if (p >= 0 && p < s.Nodes.Length && p != i)
                 s.Children[p].Add(i);
         }
+        if (s.HasParentCycle())
+            return null;
         return s;
+    }
+
+    // Walks each parent chain once: 1 marks the chain being walked, 2 a node already known to reach a root.
+    private bool HasParentCycle()
+    {
+        var state = new byte[Nodes.Length];
+        for (var i = 0; i < Nodes.Length; ++i)
+        {
+            var n = i;
+            while (n >= 0 && n < Nodes.Length && state[n] == 0)
+            {
+                state[n] = 1;
+                var p = Nodes[n].Parent;
+                n = p == n ? -1 : p;
+            }
+            if (n >= 0 && n < Nodes.Length && state[n] == 1)
+                return true;
+            for (var c = i; c >= 0 && c < Nodes.Length && state[c] == 1; c = Nodes[c].Parent == c ? -1 : Nodes[c].Parent)
+                state[c] = 2;
+        }
+        return false;
     }
 
     private void ReadMaterials(byte[] d, int pos)
