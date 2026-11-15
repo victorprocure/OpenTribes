@@ -422,6 +422,16 @@ public sealed class BeamVisual : Visual
         }
     }
 
+    /// <summary>The largest number of Lightning bolts: the stock render helper of a Lightning (0x108 bytes, allocated in Lightning_ctor 00467ef4) holds 8 bolt records of 0x14 bytes from +0x68.</summary>
+    public const int MaxBolts = 8;
+
+    /// <summary>The number of bolts drawn for a beam.</summary>
+    /// <param name="cls">The class name.</param>
+    /// <param name="numSegments">The numSegments of the datablock (LightningData +0xb8).</param>
+    /// <returns>The bolt count: numSegments for Lightning, at least 1 and at most <see cref="MaxBolts"/>, and 1 for any other class.</returns>
+    /// <remarks>The bolt loop of the stock render (FUN_0046a530) runs numSegments times and writes the record of each bolt (FUN_0046b04c) with no bound, so a value above 8 writes past the helper. Deliberate departure from stock: the count is clamped to the 8 records, which only a hostile server exceeds (the stock scripts use 5).</remarks>
+    public static int BoltCount(string cls, double numSegments) => cls == "Lightning" ? Math.Clamp((int)numSegments, 1, MaxBolts) : 1;
+
     /// <inheritdoc/>
     public override void Build(FrameContext ctx)
     {
@@ -447,7 +457,7 @@ public sealed class BeamVisual : Visual
         {
             // Lightning and Repair: numSegments bolts of 2^n + 1 points, regenerated every updateTime ms and blended
             // linearly between the old and the new point set.
-            var bolts = Class == "Lightning" ? Math.Max(1, (int)Db.Num(_block, "numSegments", 5)) : 1;
+            var bolts = BoltCount(Class, Db.Num(_block, "numSegments", 5));
             var div = (int)Db.Num(_block, "segmentDivisions", 4);
             double bias = Db.Num(_block, "displaceBias", 0.15), width = Db.Num(_block, "beamWidth", 0.125);
             var interval = Math.Max(Db.Num(_block, "updateTime", 120), 16) * 0.001;
