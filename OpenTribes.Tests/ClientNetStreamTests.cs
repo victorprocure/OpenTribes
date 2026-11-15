@@ -96,6 +96,38 @@ public class ClientNetStreamTests
     }
 
     [Fact]
+    public void ChatTextReachesOnClientMessageAsOneArgument() // PlayerSayEvent, #80
+    {
+        foreach (var text in new[] { ScriptEscapeTests.Hostile, "ends in a backslash\\", ScriptEscapeTests.AllBytes })
+        {
+            var world = new ClientWorld();
+            var conn = new ClientGameConnection(world);
+            var interp = new OpenTribes.Script.Interpreter();
+            var calls = new List<string[]>();
+            var marks = 0;
+            interp.AddCommand("onClientMessage", (i, a) =>
+            {
+                calls.Add(a);
+                return "";
+            });
+            interp.AddCommand("marker", (i, a) =>
+            {
+                ++marks;
+                return "";
+            });
+            world.Players.OnScript = t => interp.Evaluate(t);
+            var w = new EventWriter();
+            w.PutInt(2050, 12);
+            w.PutInt(0, 5);
+            w.PutString(text);
+            conn.Receive(EventPacket((w.Finish(0x453), 0, false)));
+            var call = Assert.Single(calls);
+            Assert.Equal(["onClientMessage", "2050", text], call);
+            Assert.Equal(0, marks);
+        }
+    }
+
+    [Fact]
     public void EventsReachTheHandlers()
     {
         // client-net.md 2.3: PlayerAddEvent, TeamAddEvent, DeltaScoreEvent, TargetNameEvent, SimConsoleEvent.
