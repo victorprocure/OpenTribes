@@ -26,16 +26,67 @@ public sealed class MasterHeartbeat
     private readonly List<string> _names = [];    // resolveMasters arguments
     private readonly List<string> _resolved = []; // "IP:a.b.c.d:port" or ""
     private bool _resolveDone;
+    private Task<string[]>? _resolveTask;         // the host name lookups of the last resolveMasters
+    private readonly Func<string, uint?> _lookup;
+    private readonly Dictionary<string, HostEntry> _hosts = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The sim time in seconds between checks for a heartbeat that waits on a host name lookup.</summary>
+    public const float LookupPoll = 0.1f;
+
+    // The lookups of one $inet::Master host name. Only the frame thread touches the fields; the lookup runs in Pending.
+    private sealed class HostEntry
+    {
+        public bool Done { get; set; }            // a lookup finished
+        public uint? Ip { get; set; }             // the result of the last finished lookup, null when it failed
+        public Task<uint?>? Pending { get; set; }
+    }
 
     /// <summary>Creates the heartbeat.</summary>
     /// <param name="interp">The script interpreter.</param>
     /// <param name="net">The server network that sends the heartbeat.</param>
     /// <param name="allowRemote">True when the operator allows masters outside loopback (R6).</param>
-    public MasterHeartbeat(Interpreter interp, NetServer net, bool allowRemote)
+    /// <param name="lookup">Looks up the first IPv4 address of a host name on a worker thread, null when there is none. Null for the system resolver.</param>
+    public MasterHeartbeat(Interpreter interp, NetServer net, bool allowRemote, Func<string, uint?>? lookup = null)
     {
         _in = interp;
         _net = net;
         _allowRemote = allowRemote;
+        _lookup = lookup ?? LookupHost;
+    }
+
+    // getaddrinfo(host, AF_INET, SOCK_DGRAM): the first IPv4 address. Blocks for the resolver timeout.
+    private static uint? LookupHost(string host)
+    {
+        IPAddress[] found;
+        try
+        {
+            found = Dns.GetHostAddresses(host, AddressFamily.InterNetwork);
+        }
+        catch (Exception e) when (e is SocketException or ArgumentException)
+        {
+            return null;
+        }
+        if (found.Length == 0)
+            return null;
+        var b = found[0].GetAddressBytes();
+        return ((uint)b[0] << 24) | ((uint)b[1] << 16) | ((uint)b[2] << 8) | b[3];
+    }
+
+    // Starts a lookup off the frame thread. A lookup that throws counts as failed.
+    private Task<uint?> StartLookup(string host)
+    {
+        var lookup = _lookup;
+        return Task.Run(() =>
+        {
+            try
+            {
+                return lookup(host);
+            }
+            catch (Exception e) when (e is SocketException or ArgumentException or IOException)
+            {
+                return null;
+            }
+        });
     }
 
     /// <summary>Parses <c>IP:a.b.c.d:port</c>. The prefix is optional and matched without case.</summary>
@@ -43,38 +94,37 @@ public sealed class MasterHeartbeat
     /// <param name="result">Receives the address.</param>
     /// <param name="resolveNames">True to look up a host name given instead of the dotted address.</param>
     /// <returns>False when malformed.</returns>
+    /// <remarks>A host name lookup blocks for the resolver timeout. The heartbeat and <c>DNet::resolveMasters</c> look names up off the frame thread instead.</remarks>
     public static bool ParseMasterAddress(string text, out Address result, bool resolveNames)
     {
         result = default;
+        if (!SplitMasterAddress(text, out var host, out var port))
+            return false;
+        if (!InetPton4(host, out var ip))
+        {
+            if (!resolveNames || LookupHost(host) is not { } found)
+                return false;
+            ip = found;
+        }
+        result = new Address(ip, port);
+        return true;
+    }
+
+    // The text part of ParseMasterAddress: the host and the port, without a lookup.
+    private static bool SplitMasterAddress(string text, out string host, out ushort port)
+    {
+        host = "";
+        port = 0;
         var s = text;
         if (s.Length >= 3 && (s[0] | 0x20) == 'i' && (s[1] | 0x20) == 'p' && s[2] == ':') // strncasecmp(s, "IP:", 3)
             s = s[3..];
         var colon = s.LastIndexOf(':');
         if (colon < 0 || colon == 0 || colon + 1 >= s.Length)
             return false;
-        var host = s[..colon];
-        if (!Strtol(s, colon + 1, out var port) || port <= 0 || port > 65535)
+        if (!Strtol(s, colon + 1, out var p) || p <= 0 || p > 65535)
             return false;
-        if (!InetPton4(host, out var ip))
-        {
-            if (!resolveNames)
-                return false;
-            // getaddrinfo(host, AF_INET, SOCK_DGRAM): the first IPv4 address.
-            IPAddress[] found;
-            try
-            {
-                found = Dns.GetHostAddresses(host, AddressFamily.InterNetwork);
-            }
-            catch (Exception e) when (e is SocketException or ArgumentException)
-            {
-                return false;
-            }
-            if (found.Length == 0)
-                return false;
-            var b = found[0].GetAddressBytes();
-            ip = ((uint)b[0] << 24) | ((uint)b[1] << 16) | ((uint)b[2] << 8) | b[3];
-        }
-        result = new Address(ip, unchecked((ushort)port));
+        host = s[..colon];
+        port = unchecked((ushort)p);
         return true;
     }
 
@@ -146,17 +196,18 @@ public sealed class MasterHeartbeat
     }
 
     /// <summary>Registers <c>DNet::resolveMasters</c> and <c>DNet::getResolvedMaster</c>.</summary>
-    /// <remarks>Follows 00422ad8: up to 10 names, stopping at the first empty one. The original resolves them on a thread and returns the count at once. Here names resolve during the call, and only with <c>--allow-masters</c>. Dotted addresses always translate. <c>getResolvedMaster</c> (00422a74) returns an empty string until the resolve finished, for a wrong argument count and for an index outside 0 to 9.</remarks>
+    /// <remarks>Follows 00422ad8: up to 10 names, stopping at the first empty one. The original resolves them on a thread and returns the count at once. Here host names resolve on a worker thread too, and only with <c>--allow-masters</c>. Dotted addresses always translate during the call. <c>getResolvedMaster</c> (00422a74) returns an empty string until the resolve finished, for a wrong argument count and for an index outside 0 to 9.</remarks>
     public void RegisterCommands()
     {
         // 0x00422ad8: up to 10 names, stopping at the first empty one; the original resolves them on a thread and
-        // returns the count at once. Here names resolve during the call, and only with --allow-masters (dotted
-        // addresses always translate).
+        // returns the count at once. Host names resolve on a worker thread too, and only with --allow-masters (dotted
+        // addresses translate during the call).
         _in.AddCommand("DNet::resolveMasters", (i, a) =>
         {
             _names.Clear();
             _resolved.Clear();
             _resolveDone = false;
+            _resolveTask = null;
             if (a.Length < 2)
                 return null; // the original returns a null result
             while (_names.Count < 10 && _names.Count + 1 < a.Length && a[_names.Count + 1].Length != 0)
@@ -164,14 +215,59 @@ public sealed class MasterHeartbeat
                 var name = a[_names.Count + 1];
                 _names.Add(name.Length > 255 ? name[..255] : name);
             }
-            foreach (var name in _names)
-                _resolved.Add(ParseMasterAddress(name, out var addr, _allowRemote) ? addr.ToString() : "");
-            _resolveDone = true;
+            var results = new string[_names.Count];
+            var lookups = new List<(int Index, string Host, ushort Port)>();
+            for (var k = 0; k < _names.Count; ++k)
+            {
+                if (!SplitMasterAddress(_names[k], out var host, out var port))
+                    results[k] = "";
+                else if (InetPton4(host, out var ip))
+                    results[k] = new Address(ip, port).ToString();
+                else if (_allowRemote)
+                    lookups.Add((k, host, port));
+                else
+                    results[k] = "";
+            }
+            if (lookups.Count == 0)
+            {
+                _resolved.AddRange(results);
+                _resolveDone = true;
+            }
+            else
+            {
+                // Like the original, the names resolve on a worker thread and getResolvedMaster returns "" until they finished.
+                var lookup = _lookup;
+                _resolveTask = Task.Run(() =>
+                {
+                    foreach (var (index, host, port) in lookups)
+                    {
+                        uint? ip;
+                        try
+                        {
+                            ip = lookup(host);
+                        }
+                        catch (Exception e) when (e is SocketException or ArgumentException or IOException)
+                        {
+                            ip = null;
+                        }
+                        results[index] = ip is { } v ? new Address(v, port).ToString() : "";
+                    }
+                    return results;
+                });
+            }
             return Numbers.FormatInt(_names.Count);
         });
         // 0x00422a74: "" until the resolve finished, for a wrong argument count and for an index outside 0..9.
         _in.AddCommand("DNet::getResolvedMaster", (i, a) =>
         {
+            if (!_resolveDone && _resolveTask is { IsCompleted: true } t)
+            {
+                _resolveTask = null;
+                _resolved.AddRange(t.IsCompletedSuccessfully ? t.Result : new string[_names.Count]);
+                for (var k = 0; k < _resolved.Count; ++k)
+                    _resolved[k] ??= "";
+                _resolveDone = true;
+            }
             if (!_resolveDone || a.Length != 2)
                 return "";
             var idx = Numbers.BorlandAtoi(a[1]);
@@ -223,10 +319,63 @@ public sealed class MasterHeartbeat
             var master = _in.GetVariable("$inet::Master" + Numbers.FormatInt(i));
             if (master.Length == 0)
                 break;
-            // R6: only loopback masters without the operator's opt-in. Names resolve with it.
-            if (ParseMasterAddress(master, out var addr, _allowRemote) && (_allowRemote || (addr.Ip >> 24) == 127))
-                _net.SendConnectionless(addr, Heartbeat);
+            // R6: only loopback masters without the operator's opt-in. Names resolve with it, off the frame thread.
+            if (SplitMasterAddress(master, out var host, out var port))
+            {
+                if (InetPton4(host, out var ip))
+                {
+                    if (_allowRemote || (ip >> 24) == 127)
+                        _net.SendConnectionless(new Address(ip, port), Heartbeat);
+                }
+                else if (_allowRemote)
+                    BeatHost(host, port);
+            }
             _in.Print(2, "SimNET: Sending heartbeat to master " + master + ".");
         }
+    }
+
+    // A master given by host name. The original sends to the text address and its transport looks the name up on the
+    // frame thread. Here the lookup runs on a worker: the heartbeat goes to the last address found and a new lookup
+    // starts for the next round. Before the first lookup finished, the heartbeat waits and goes out on the first sim
+    // check after it (every LookupPoll seconds, for at most one period).
+    private void BeatHost(string host, ushort port)
+    {
+        if (!_hosts.TryGetValue(host, out var e))
+        {
+            e = new HostEntry();
+            _hosts[host] = e;
+        }
+        Collect(e);
+        e.Pending ??= StartLookup(host);
+        if (e.Done)
+        {
+            if (e.Ip is { } ip)
+                _net.SendConnectionless(new Address(ip, port), Heartbeat);
+            return;
+        }
+        WaitForLookup(e, port, (int)(Period / LookupPoll) - 1);
+    }
+
+    private void WaitForLookup(HostEntry e, ushort port, int checksLeft) =>
+        _schedule?.Invoke(LookupPoll, () =>
+        {
+            Collect(e);
+            if (e.Done)
+            {
+                if (e.Ip is { } ip)
+                    _net.SendConnectionless(new Address(ip, port), Heartbeat);
+            }
+            else if (checksLeft > 1)
+                WaitForLookup(e, port, checksLeft - 1);
+        });
+
+    // Takes the result of a finished lookup.
+    private static void Collect(HostEntry e)
+    {
+        if (e.Pending is not { IsCompleted: true } t)
+            return;
+        e.Pending = null;
+        e.Done = true;
+        e.Ip = t.IsCompletedSuccessfully ? t.Result : null;
     }
 }
