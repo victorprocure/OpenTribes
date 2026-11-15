@@ -54,6 +54,16 @@ public static class SmoothWindow
     /// <param name="now">The current time in ms.</param>
     /// <returns>The time rounded down to a tick.</returns>
     public static uint Floor(uint now) => now & ~31u;
+
+    /// <summary>The most time in ms the step loop of a remote copy catches up in one frame (32 ticks).</summary>
+    public const uint MaxCatchUp = 1024;
+
+    /// <summary>Returns the time the step loop of a remote copy starts from.</summary>
+    /// <param name="simTime">The time the copy is simulated up to (+0x218).</param>
+    /// <param name="now">The current time in ms.</param>
+    /// <returns><paramref name="simTime"/>, or <c>now - MaxCatchUp</c> when the copy is further behind.</returns>
+    /// <remarks>Stock has no limit: the loops of Player_clientUpdate (0x00414c38) and Vehicle_clientUpdate (0x0044549c) step from +0x218 to the frame time, which is the real elapsed time (FearWorld_clientAdvance 004eb7ac). Deliberate departure from stock: after a frame stall longer than <see cref="MaxCatchUp"/> (alt-tab, a map load) the copy skips the older time instead of running a step per 32 ms of it for every ghost in one frame. A frame of normal play is far shorter, and the copy then runs as in stock.</remarks>
+    public static uint CatchUpStart(uint simTime, uint now) => simTime < now && now - simTime > MaxCatchUp ? now - MaxCatchUp : simTime;
 }
 
 /// <summary>A remote Player ghost: the simulated copy and its smoothing state.</summary>
@@ -248,6 +258,7 @@ public sealed class RemotePlayer
             else
                 End = 0;
         }
+        SimTime = SmoothWindow.CatchUpStart(SimTime, now);
         while (SimTime < now)
         {
             var next = Math.Min((SimTime + 32) & ~31u, now);
@@ -395,6 +406,7 @@ public sealed class RemoteVehicle
             else
                 End = 0;
         }
+        SimTime = SmoothWindow.CatchUpStart(SimTime, now);
         while (SimTime < now)
         {
             var next = Math.Min((SimTime + 32) & ~31u, now);
