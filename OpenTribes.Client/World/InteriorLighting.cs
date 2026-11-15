@@ -187,6 +187,10 @@ public sealed class InteriorLighting
             if (flag == 1)
             {
                 uint nodeCount = U32(), leafCount = U32();
+                // Deliberate departure from stock (hostile file): the counts must fit the bytes left (8 per node,
+                // 4 per leaf) before anything is allocated. A short file failed through the catch below anyway.
+                if (((ulong)nodeCount * 8) + ((ulong)leafCount * 4) > (ulong)(d.Length - pos))
+                    return null;
                 lt.Nodes = new int[nodeCount, 2];
                 for (var i = 0; i < nodeCount; ++i)
                 {
