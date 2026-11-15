@@ -24,25 +24,38 @@ public static class StdIo
     public static void Write(string text)
     {
         lock (Lock)
-        {
-            OutWriter.Write(ByteString.ToBytes(text));
-            if (text.Contains('\n'))
-                OutWriter.Flush();
-        }
+            TryWrite(OutWriter, ByteString.ToBytes(text), text.Contains('\n'));
     }
 
     /// <summary>Flushes stdout.</summary>
     public static void Flush()
     {
         lock (Lock)
-            OutWriter.Flush();
+            TryWrite(OutWriter, [], true);
     }
 
     /// <summary>Writes unbuffered text to stderr.</summary>
     /// <param name="text">The text.</param>
-    public static void Err(string text)
+    public static void Err(string text) => TryWrite(ErrWriter, ByteString.ToBytes(text), true);
+
+    /// <summary>Writes bytes to a stream and flushes it when asked. An IO error drops the text.</summary>
+    /// <param name="stream">The stream.</param>
+    /// <param name="bytes">The bytes.</param>
+    /// <param name="flush">True to flush after the write.</param>
+    /// <returns>False when the write or the flush failed.</returns>
+    /// <remarks>Like printf and fwrite, whose result the C++ server ignores, a closed pipe or a full disk loses the text and the server keeps running.</remarks>
+    public static bool TryWrite(Stream stream, ReadOnlySpan<byte> bytes, bool flush)
     {
-        ErrWriter.Write(ByteString.ToBytes(text));
-        ErrWriter.Flush();
+        try
+        {
+            stream.Write(bytes);
+            if (flush)
+                stream.Flush();
+            return true;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
     }
 }
