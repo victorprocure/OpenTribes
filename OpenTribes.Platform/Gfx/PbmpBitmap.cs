@@ -192,6 +192,10 @@ public sealed class PbmpBitmap
             long colors = colorsUsed == 0 ? 256 : colorsUsed;
             if (colors > 256)
                 throw new GfxFormatException("bad BMP palette size");
+            // Stock (005c7e20) reads the 40 byte info header, skips the table and reads the pixels right after it. It never
+            // seeks by offBits or infoSize. Here both fields are range checked before they move the cursor.
+            if (start + 14L + infoSize > c.Data.Length)
+                throw new GfxFormatException("BMP info header runs past the data");
             c.Pos = start + 14 + (int)infoSize;
             var table = c.Bytes(colors * 4); // B, G, R, reserved
             if (includePalette)
@@ -209,6 +213,8 @@ public sealed class PbmpBitmap
         }
 
         var stride = bmp.Stride;
+        if (start + offBits > c.Data.Length)
+            throw new GfxFormatException("BMP pixel offset runs past the data");
         c.Pos = start + (int)offBits;
         var src = c.Bytes((long)stride * h);
         bmp.Pixels = new byte[(long)stride * h];

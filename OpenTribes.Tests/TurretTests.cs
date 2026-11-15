@@ -574,4 +574,85 @@ public class TurretTests
             Assert.Null(tz.TurretFindTarget());
         }
     }
+
+    // #84: the aim step, the control move and the power-down add speed * dt to the angles, and the wrap loops (00453120,
+    // 0045317c, 00455f3e) never end for an infinite angle and run for minutes for a huge one. Script floats saturate at
+    // +-3.4e38, so speed * speedModifier overflows to infinity and speed * dt is about 1e37.
+    private GameBase WrapTurret(string name, string speed, string modifier)
+    {
+        var root = Path.Combine(TestPaths.TmpDir(""), "turret_wrap_" + name);
+        if (Directory.Exists(root))
+            Directory.Delete(root, true);
+        var t = new TerrainSpec { Scale = 5, Height = 2, Heights = [.. Enumerable.Repeat(50.0f, 25)], Squares = [.. new byte[32]] };
+        PutFile(Path.Combine(root, "base/m.dtf"), DtfFile(t, 50.0f, 50.0f));
+        PutFile(Path.Combine(root, "base/m#0.dtb"), DtbFile(t, 50.0f, 50.0f));
+        PutFile(Path.Combine(root, "base/t.dml"), "dml");
+        PutFile(Path.Combine(root, "base/gun.dts"), ShapeFile([new("fire", false, 1.0f), new("power", false, 0.06f)]));
+        var w = new Fixtures.World(root);
+        _gw = w;
+        Numbers.EnterScriptFpuMode();
+        w.Run("$Server::teamName0 = \"A\"; resetPlayerManager();");
+        w.Game.AddTeam(0);
+        w.Run("BulletData Slug { muzzleVelocity = 100; liveTime = 2; totalTime = 3; };" +
+              "TurretData TW { shapeFile = \"gun\"; range = 100; projectileType = Slug; speed = " + speed + "; speedModifier = " + modifier +
+              "; reloadDelay = 0.8; maxEnergy = 100; };");
+        w.Run("instant SimTerrain \"Terrain\" { tedFileName = \"m.dtf\"; position = \"0 0 0\"; contGravity = \"0 0 -20\"; };" +
+              "instant SimGroup \"MissionGroup\" { instant Turret \"Tw\" { dataBlock = \"TW\"; position = \"100 100 55\"; }; };");
+        return GbOf(w.Run("echo(Group::getObject(MissionGroup, 0));"));
+    }
+
+    private static async Task<bool> Ends(Action a)
+    {
+        var run = Task.Run(a);
+        return run == await Task.WhenAny(run, Task.Delay(TimeSpan.FromSeconds(5)));
+    }
+
+    private static bool InRange(GameBase tu) => tu.TurretRotation is >= 0.0f and <= 6.2831855f && tu.TurretElevation is >= -3.1415927f and <= 3.1415927f;
+
+    [Theory]
+    [InlineData("1e30", "-1e30")]
+    [InlineData("-1e39", "1")]
+    public async Task HostileControlStepResetsTheAnglesInsteadOfHanging(string speed, string modifier)
+    {
+        var tu = WrapTurret("control", speed, modifier);
+        tu.TurretMode = 3;
+        Assert.True(await Ends(() => tu.TurretUpdateAim(new GameBase.TurretMove { Turn = 0.5f, Pitch = -0.5f }, 0.032f)));
+        Assert.True(InRange(tu));
+    }
+
+    [Fact]
+    public async Task HostileTrackStepResetsTheAnglesInsteadOfHanging()
+    {
+        var tu = WrapTurret("track", "-1e39", "1");
+        Assert.Equal(-float.MaxValue, tu.TurretData.Speed);
+        tu.TurretMode = 3;
+        Assert.True(await Ends(() => tu.TurretTrack(tu, 0.032f)));
+        Assert.True(InRange(tu));
+    }
+
+    [Fact]
+    public async Task HostilePowerDownStepEnds()
+    {
+        var tu = WrapTurret("down", "-1e39", "1");
+        tu.TurretMode = 3;
+        tu.TurretRotation = 1.0f;
+        Assert.True(await Ends(() =>
+        {
+            for (var i = 0; i < 4; ++i)
+                tu.TurretDeactivate(0.032f);
+        }));
+    }
+
+    [Fact]
+    public void FiniteControlStepWrapsAsBefore()
+    {
+        var tu = WrapTurret("finite", "2", "2");
+        tu.TurretMode = 3;
+        tu.TurretRotation = 6.2f;
+        tu.TurretElevation = 3.1f;
+        tu.TurretUpdateAim(new GameBase.TurretMove { Turn = 1.0f, Pitch = 1.0f }, 0.032f);
+        // turn and pitch 1 * 0.512 (dt * 16, lim 4) carry both angles past the top once.
+        Assert.Equal(6.2f + 0.512f - 6.2831855f, tu.TurretRotation, 4);
+        Assert.Equal(Math.Clamp(3.1f + 0.512f - 6.2831855f, tu.TurretMinElevation, tu.TurretMaxElevation), tu.TurretElevation, 4);
+    }
 }

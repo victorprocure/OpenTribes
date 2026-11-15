@@ -289,7 +289,7 @@ public sealed class GameServer
         c.Vc = vc;
         var hooks = new GameConnection.Hooks
         {
-            RemoteCall = (fn, args) => _in.CallFunction(fn, args),
+            RemoteCall = (fn, args) => _in.CallRemote(fn, args),
             ControlObject = () => _game.Players.ControlObjectOf(id),
             PscInputFn = input =>
             {

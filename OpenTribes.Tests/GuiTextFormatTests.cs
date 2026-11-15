@@ -101,6 +101,38 @@ public sealed class GuiTextFormatTests
     }
 
     [Fact]
+    public async Task ABitmapWiderThanTheSpanBetweenTheMarginsIsSkippedAndTheLayoutEnds()
+    {
+        // <l10> puts the left margin at 60 of 150: 90 pixels remain and the bitmap needs 100 (it fits the 150 width check).
+        var bmps = new Dictionary<string, PbmpBitmap> { ["a.bmp"] = Bmp(100, 40) };
+        var work = Task.Run(() => Layout("<l10><B0,0:a.bmp>after", 150, n => bmps.GetValueOrDefault(n)));
+        Assert.Same(work, await Task.WhenAny(work, Task.Delay(TimeSpan.FromSeconds(10))));
+        var l = await work;
+        Assert.Empty(l.Images);
+        Assert.Equal("after", string.Concat(l.Pieces.Select(p => p.Text)));
+    }
+
+    [Fact]
+    public void ABitmapThatNeedsTheFloatToPassStillWaitsForIt()
+    {
+        // 80 of 100 pixels are taken by a left float 30 high: a second 80 pixel bitmap drops below it, to the left margin.
+        var bmps = new Dictionary<string, PbmpBitmap> { ["a.bmp"] = Bmp(80, 30) };
+        var l = Layout("<B0,0:a.bmp><B0,0:a.bmp>", 100, n => bmps.GetValueOrDefault(n));
+        Assert.Equal(2, l.Images.Count);
+        Assert.Equal((0, 0), (l.Images[0].X, l.Images[0].Y));
+        Assert.Equal((0, 30), (l.Images[1].X, l.Images[1].Y));
+    }
+
+    [Fact]
+    public void ABitmapThatNeedsANewLineMovesToIt()
+    {
+        var bmps = new Dictionary<string, PbmpBitmap> { ["a.bmp"] = Bmp(80, 0) };
+        var l = Layout("aaaaaaaaaaaaaaa<B0,0:a.bmp>", 100, n => bmps.GetValueOrDefault(n));
+        Assert.Single(l.Images);
+        Assert.True(l.Images[0].Y > 0);
+    }
+
+    [Fact]
     public void ALiteralLessThanAndUnknownTagsAreHandled()
     {
         var l = Layout("a<<b<q>c", 200);

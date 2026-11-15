@@ -426,9 +426,55 @@ public sealed class InteriorGeometry
             }
         }
         g._solidCount = counts[2];
-        if (!r.Ok || g._nodes.Count == 0)
+        if (!r.Ok || g._nodes.Count == 0 || !g.BspIsSound())
             return null;
         return g;
+    }
+
+    // The deepest node chain a tree may have. A deliberate departure from stock (hostile file): the stock walks
+    // (00560420, 0048366c) follow the links unchecked. The walk is recursive, so the depth is bounded; the real
+    // interiors of the installed volumes reach depth 128.
+    private const int MaxBspDepth = 1024;
+
+    // Checks once at load what the walks (LeafAt, Rec) assume, so they stay free of per step checks: every node
+    // reachable from the root names a plane that exists and children that are leaves (negative) or nodes that
+    // exist, and the links never return to a node on the path from the root (no cycle) or run deeper than
+    // MaxBspDepth. A node shared by two parents is allowed.
+    private bool BspIsSound()
+    {
+        var state = new byte[_nodes.Count];   // 0 new, 1 on the path, 2 done
+        var node = new int[MaxBspDepth + 1];
+        var next = new byte[MaxBspDepth + 1]; // children of the node at that depth already visited
+        var top = 0;
+        node[0] = 0;
+        state[0] = 1;
+        while (top >= 0)
+        {
+            var n = node[top];
+            var nd = _nodes[n];
+            if (next[top] == 0 && nd.PlaneIndex >= _planes.Count)
+                return false;
+            if (next[top] == 2)
+            {
+                state[n] = 2;
+                --top;
+                continue;
+            }
+            int child = next[top]++ == 0 ? nd.Front : nd.Back;
+            if (child < 0)
+                continue;
+            if (child >= _nodes.Count || state[child] == 1)
+                return false;
+            if (state[child] == 2)
+                continue;
+            if (top == MaxBspDepth)
+                return false;
+            ++top;
+            node[top] = child;
+            next[top] = 0;
+            state[child] = 1;
+        }
+        return true;
     }
 
     /// <summary>Computes the box outcode of a point (ITRGeometry_boxOutcode, 00554408).</summary>

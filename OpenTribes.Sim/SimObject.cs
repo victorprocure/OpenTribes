@@ -136,12 +136,19 @@ public class SimSet : SimObject
     /// <summary>True when removal keeps the member order.</summary>
     protected bool Ordered { get; set; }
 
+    // True while the set removes or deletes its owned members. An owning set can be its own member, or a member of a
+    // set it owns, and the walk would then come back here without end. Deliberate departure from stock, which has no guard.
+    private bool _releasing;
+
     /// <summary>Deletes the members when the set owns them.</summary>
     public override void Destroy()
     {
-        if (OwnsMembers)
-            foreach (var m in MemberList)
-                m.Destroy();
+        if (!OwnsMembers || _releasing)
+            return;
+        _releasing = true;
+        foreach (var m in MemberList)
+            m.Destroy();
+        _releasing = false;
     }
 
     /// <inheritdoc/>
@@ -215,9 +222,13 @@ public class SimSet : SimObject
         var members = new List<SimObject>(MemberList);
         if (OwnsMembers)
         {
+            if (_releasing)
+                return;
+            _releasing = true;
             foreach (var m in members)
-                if (m.Manager() != null)
+                if (m != this && m.Manager() != null)
                     Manager()!.UnregisterObject(m);
+            _releasing = false;
             return; // the destructor deletes them
         }
         foreach (var m in members)
@@ -286,11 +297,24 @@ public class SimGroup : SimSet
         }
     }
 
-    /// <summary>Moves an object into this group, leaving its old group (GS3).</summary>
+    /// <summary>Tests whether an object is this group or one of the groups above it.</summary>
     /// <param name="obj">The object.</param>
+    /// <returns>True when adding the object to this group would put the object inside its own member tree.</returns>
+    public bool IsSelfOrAncestor(SimObject obj)
+    {
+        for (SimObject? g = this; g != null; g = g.RawGroup)
+            if (g == obj)
+                return true;
+        return false;
+    }
+
+    /// <summary>Moves an object into this group, leaving its old group (GS3). The group itself or a group above it is not added.</summary>
+    /// <param name="obj">The object.</param>
+    /// <remarks>Deliberate departure from stock: SimGroup_addObject (004ff15c) adds a group to itself or to its descendant, which
+    /// cuts the tree off its parent and makes the delete recurse without end. Such an add is ignored here.</remarks>
     public override void AddObject(SimObject obj)
     {
-        if (obj.RawGroup == this)
+        if (obj.RawGroup == this || IsSelfOrAncestor(obj))
             return;
         obj.RawGroup?.RemoveObject(obj);
         obj.RawGroup = this;

@@ -62,4 +62,30 @@ public class ResampleTests
         Assert.InRange(Math.Abs(a.Samples[0] - a.Samples[44099] - (a.Samples[1] - a.Samples[0])), 0, 0.01);
         Assert.Same(src, src.AtRate(11025, true));
     }
+
+    [Fact]
+    public void LowRateWaveBeyondTheLimitIsNotConverted()
+    {
+        // A 1 Hz header rate with 2 million frames asks for 96 billion output frames. The wave comes back unchanged, quickly.
+        var src = new WavData { Channels = 1, Rate = 1, Bits = 8, Frames = 2_000_000 };
+        var dst = src.AtRate(48000, false);
+        Assert.Same(src, dst);
+        Assert.Same(src, src.AtRate(48000, false));
+    }
+
+    [Fact]
+    public void ChannelsCountAgainstTheLimit()
+    {
+        // 20 million output frames are 20 million samples as mono (under the limit) and 40 million as stereo (over it).
+        var stereo = new WavData { Channels = 2, Rate = 24000, Bits = 8, Frames = 10_000_000 };
+        Assert.Same(stereo, stereo.AtRate(48000, false));
+    }
+
+    [Fact]
+    public void WaveUnderTheLimitStillConverts()
+    {
+        var dst = Tone(1000, 100, 1000).AtRate(48000, false);
+        Assert.Equal(48000, dst.Rate);
+        Assert.Equal(48000, dst.Frames);
+    }
 }

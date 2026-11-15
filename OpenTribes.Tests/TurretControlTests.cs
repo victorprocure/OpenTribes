@@ -127,6 +127,46 @@ public sealed class TurretControlTests
         Assert.Equal(-0.064f * 1.024f, t.Elevation, 5);
     }
 
+    [Theory]
+    [InlineData(float.PositiveInfinity, float.NegativeInfinity)]
+    [InlineData(1e30f, -1e30f)]
+    [InlineData(float.NaN, float.NaN)]
+    [InlineData(-3e7f, 3e7f)]
+    public async Task HostileAimAnglesResetInsteadOfHanging(float rot, float elev)
+    {
+        Numbers.EnterScriptFpuMode();
+        var cw = World();
+        var p = new TurretAimParams(2.0f, 1.0f, false, 0, 0);
+        var pred = Controlled(cw, rot, elev, 3, p, 1, 3200, _ => new Move());
+        var run = Task.Run(() => pred.AdvanceTurret(cw.Psc, 3200));
+        Assert.Same(run, await Task.WhenAny(run, Task.Delay(TimeSpan.FromSeconds(5))));
+        Assert.Equal(0.0f, pred.Turret.Rotation);
+        Assert.Equal(0.0f, pred.Turret.Elevation);
+    }
+
+    [Theory]
+    [InlineData(6.2f, 3.1f)]
+    [InlineData(0.0f, -3.1f)]
+    [InlineData(9.0f, -4.0f)]
+    [InlineData(-9000.0f, 9000.0f)]
+    public void InRangeAndModestAimAnglesWrapAsBefore(float rot, float elev)
+    {
+        Numbers.EnterScriptFpuMode();
+        var t = new TurretControl { Mode = 3, Params = new TurretAimParams(2.0f, 1.0f, false, 0, 0), Rotation = rot, Elevation = elev };
+        t.Aim(new Move(), 0.032f);
+        float r = rot, e = elev;
+        while (r > 6.2831855f)
+            r -= 6.2831855f;
+        while (r < 0.0f)
+            r += 6.2831855f;
+        while (e < -3.1415927f)
+            e += 6.2831855f;
+        while (e > 3.1415927f)
+            e -= 6.2831855f;
+        Assert.Equal(r, t.Rotation);
+        Assert.Equal(e, t.Elevation);
+    }
+
     [Fact]
     public void ReleaseOnAnotherControlObject()
     {

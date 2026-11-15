@@ -238,6 +238,34 @@ public class VolTests
         Assert.False(vol.Open(WriteTemp(junk, "junk2.vol")));
     }
 
+    // A block header claiming 2 GB inside a tiny file must fail without allocating the claimed size.
+    [Theory]
+    [InlineData(0)]
+    [InlineData(3)]
+    public void OversizedBlockFailsWithoutAllocating(byte compression)
+    {
+        var specs = new List<Spec> { new("big.dat", "abcd", compression, 0x7ff00000) };
+        var path = WriteTemp(BuildVol(specs, true), "huge" + compression + ".vol");
+        using var vol = new VolArchive();
+        Assert.True(vol.Open(path));
+        var e = vol.Find("big.dat");
+        Assert.NotNull(e);
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        Assert.False(vol.Read(e, out var buf));
+        Assert.Empty(buf);
+        Assert.True(GC.GetAllocatedBytesForCurrentThread() - before < 1_000_000);
+    }
+
+    [Fact]
+    public void UncompressedBlockStillReads()
+    {
+        var path = WriteTemp(BuildVol([new Spec("a.dat", "hello", 0)], true), "plain.vol");
+        using var vol = new VolArchive();
+        Assert.True(vol.Open(path));
+        Assert.True(vol.Read(vol.Find("a.dat")!, out var buf));
+        Assert.Equal("hello", Str(buf));
+    }
+
     [Fact]
     public void TestVol()
     {

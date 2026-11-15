@@ -33,7 +33,7 @@ public static class SyntheticShape
     // Shape: nodes bounds(0), detail0(1), detail1(2) under node 0; two objects with one quad mesh; sequences `spin` (cyclic, 2 s,
     // node 1 moves by +2 in x over half the sequence, one trigger at 0.5 with value 1) and `frames` (one-shot, 1 s, an image list
     // that sets remap[0] to 0 then 1 at position 0.5). Details 20 and 5. One material: flags 0x402, RGB (200, 50, 50).
-    public static byte[] Build(uint materialFlags = 0x402)
+    public static byte[] Build(uint materialFlags = 0x402, short node0Parent = -1, short node1Parent = 0, short node2Name = 2, int remapSize = 2, int firstVert = 0)
     {
         string[] names = ["bounds", "detail0", "detail1", "spin", "frames", "obj0", "obj1"];
         var body = new MemoryStream();
@@ -58,9 +58,9 @@ public static class SyntheticShape
             w.Write(firstSub);
             w.Write(dt);
         }
-        Node(0, -1, 0, 0, 0);
-        Node(1, 0, 1, 0, 0);
-        Node(2, 0, 0, 0, 0);
+        Node(0, node0Parent, 0, 0, 0);
+        Node(1, node1Parent, 1, 0, 0);
+        Node(node2Name, 0, 0, 0, 0);
         // sequences: name, cyclic, duration, priority, firstTrigger, numTriggers, numIfl, firstIfl
         void Seq(int name, int cyclic, float dur, int prio, int ft, int nt, int ni, int fi)
         {
@@ -131,7 +131,7 @@ public static class SyntheticShape
         // triggers
         w.Write(0.5f);
         w.Write(1u);
-        w.Write(2);                 // remap size
+        w.Write(remapSize);         // remap size
         w.Write(-1);                // always node
         // mesh: a quad in the XZ plane facing -Y (clockwise seen from outside, as the stock faces)
         var mesh = new MemoryStream();
@@ -159,7 +159,7 @@ public static class SyntheticShape
         }
         Face(0, 0, 2, 2, 1, 1);
         Face(0, 0, 3, 3, 2, 2);
-        mw.Write(0);
+        mw.Write(firstVert);
         mw.Write(1f);
         mw.Write(1f);
         mw.Write(1f);

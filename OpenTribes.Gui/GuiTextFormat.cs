@@ -344,8 +344,19 @@ public sealed class GuiTextFormat
         var w = bmp.Width + (dx * 2);
         if (w > _width)
             return;
+        // Stock (005370b8, case 'B') runs the same wait-for-room loop with 0053701c, which never ends when the bitmap is
+        // wider than the span between the margins and no float can release a margin. Deliberate departure from stock: that
+        // case skips the bitmap, as the check above does for a bitmap wider than the whole layout. Any layout that ends in
+        // stock lays out the same here.
         while (_right - _x + 1 < w)
+        {
+            var before = _y;
+            if (_x <= _left && _leftFloat <= 0 && _rightFloat <= 0)
+                return;
             NewLine();
+            if (_y <= before && _leftFloat <= 0 && _rightFloat <= 0)
+                return;
+        }
         var im = new Image { Bitmap = bmp, Just = _just, Width = w };
         if (_just == 0)
         {

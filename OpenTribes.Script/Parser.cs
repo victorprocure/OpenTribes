@@ -11,6 +11,8 @@ public sealed class ParseResult
     public int ErrorLine { get; set; }
     /// <summary>The token at the syntax error.</summary>
     public Token ErrorToken { get; set; } = new();
+    /// <summary>The deepest statement and expression nesting of the parsed text, in parser nesting levels.</summary>
+    public int MaxNesting { get; set; }
 }
 
 /// <summary>The script parser. It accepts the same language as the original LALR parser (CMDparse, 005ee998), and top-level statements completed before a syntax error are kept.</summary>
@@ -21,6 +23,13 @@ public static class ScriptParser
     /// <param name="source">The script text.</param>
     /// <returns>The statements and any error.</returns>
     public static ParseResult Parse(string source) => new Parser(source).Run();
+
+    /// <summary>The deepest statement and expression nesting the parser accepts.</summary>
+    /// <remarks>The stock LALR parser (CMDparse 005ee998) keeps its states in a 350 entry stack and reports a plain syntax error
+    /// when a push would overflow it. A nesting level here (a statement, an expression, a unary operand) always holds at least one
+    /// entry of that stack, so text the stock parser accepts stays within this limit, and deeper text fails with the same syntax
+    /// error instead of overflowing the native stack.</remarks>
+    public const int MaxNesting = 350;
 
     /// <summary>Builds the message the original prints for a syntax error (005f8010).</summary>
     /// <param name="r">The parse result.</param>
@@ -40,6 +49,7 @@ public static class ScriptParser
         private Token _tok, _next;
         private bool _failed;
         private Token _errTok = new();
+        private int _depth, _maxDepth;
 
         public Parser(string src)
         {
@@ -63,6 +73,7 @@ public static class ScriptParser
                 }
                 r.Statements.Add(s!);
             }
+            r.MaxNesting = _maxDepth;
             return r;
         }
 
@@ -98,11 +109,34 @@ public static class ScriptParser
         }
         private Node MakeNode(NodeKind k) => new() { Kind = k, Line = _tok.Line };
 
+        // One nesting level more; false (and a syntax error) past MaxNesting.
+        private bool Enter()
+        {
+            if (++_depth > _maxDepth)
+                _maxDepth = _depth;
+            if (_depth <= MaxNesting)
+                return true;
+            Fail();
+            return false;
+        }
+
         // ---- statements ----
         private Node? Statement()
         {
             if (_failed)
                 return null;
+            if (!Enter())
+            {
+                --_depth;
+                return null;
+            }
+            var n = StatementBody();
+            --_depth;
+            return n;
+        }
+
+        private Node? StatementBody()
+        {
             switch (_tok.Kind)
             {
                 case Tok.If:
@@ -305,12 +339,16 @@ public static class ScriptParser
             }
             Expect(')');
             Expect('{');
+            var outerMax = _maxDepth;
+            _maxDepth = _depth;
             while (!_failed && !At('}'))
             {
                 if (At(Tok.End))
                     return Fail();
                 n.Body.Add(Statement()!);
             }
+            n.Nesting = _maxDepth - _depth;
+            _maxDepth = Math.Max(outerMax, _maxDepth);
             Expect('}');
             return n;
         }
@@ -413,7 +451,11 @@ public static class ScriptParser
                 while (!_failed && At(Tok.Ident))
                     n.Slots.Add(Slot()!);
                 while (!_failed && At(Tok.Instant))
-                    n.Children.Add(InstantDecl()!);
+                {
+                    if (Enter())
+                        n.Children.Add(InstantDecl()!);
+                    --_depth;
+                }
                 if (!_failed && n.Slots.Count == 0 && n.Children.Count == 0)
                     return Fail();
                 Expect('}');
@@ -458,6 +500,18 @@ public static class ScriptParser
 
         private Node? Expression(int minPrec = 1)
         {
+            if (!Enter())
+            {
+                --_depth;
+                return null;
+            }
+            var e = ExpressionBody(minPrec);
+            --_depth;
+            return e;
+        }
+
+        private Node? ExpressionBody(int minPrec)
+        {
             var left = Unary();
             while (!_failed)
             {
@@ -485,7 +539,9 @@ public static class ScriptParser
                 n.Op = Tok.SingleChar;
                 n.OpChar = _tok.Ch;
                 Advance();
-                n.A = Unary();
+                if (Enter())
+                    n.A = Unary();
+                --_depth;
                 return _failed ? null : n;
             }
             return Postfix(Primary());

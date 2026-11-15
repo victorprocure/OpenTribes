@@ -128,4 +128,117 @@ public class MasterTests
             Assert.Equal("10\n", w.Eval(eleven + "));"));
         }
     }
+    // A fake resolver: blocks until released, records the threads it ran on, never touches a real resolver.
+    private sealed class SlowLookup : IDisposable
+    {
+        private readonly ManualResetEventSlim _go = new(false);
+        public List<int> Threads { get; } = [];
+        public int Calls { get; private set; }
+        public uint? Answer { get; set; } = 0x7f000002;
+
+        public uint? Lookup(string host)
+        {
+            lock (Threads)
+            {
+                Threads.Add(Environment.CurrentManagedThreadId);
+                ++Calls;
+            }
+            _go.Wait(TimeSpan.FromSeconds(5));
+            return host == "master.example" ? Answer : null;
+        }
+
+        public void Release() => _go.Set();
+
+        public void Dispose() => _go.Dispose();
+    }
+
+    // Runs the scheduled lookup checks of the sim until a heartbeat went out, for at most 5 s.
+    private static void RunChecksUntilSent(World w, int sent)
+    {
+        var until = DateTime.UtcNow.AddSeconds(5);
+        while (w.Sent.Count < sent && DateTime.UtcNow < until)
+        {
+            var due = w.Scheduled.FindIndex(x => x.delay == MasterHeartbeat.LookupPoll);
+            if (due < 0)
+                break;
+            var check = w.Scheduled[due].action;
+            w.Scheduled.RemoveAt(due);
+            Thread.Sleep(5);
+            check();
+        }
+    }
+
+    [Fact]
+    public void HostNameMasterIsLookedUpOffTheFrameThread()
+    {
+        using var slow = new SlowLookup();
+        var w = new World();
+        var hb = new MasterHeartbeat(w.In, w.Net, true, slow.Lookup);
+        w.Eval("$Console::printLevel = 2; $Server::HostPublicGame = true; $inet::Master1 = \"IP:master.example:28000\"; $inet::Master2 = \"IP:127.0.0.1:29000\"; " +
+               "function checkMasterTranslation() {}");
+        var frame = Environment.CurrentManagedThreadId;
+        hb.Start(w.Schedule());                           // returns while the lookup blocks
+        Assert.Single(w.Sent);                            // the dotted master goes out at once
+        Assert.Equal("IP:127.0.0.1:29000", w.Sent[0].to.ToString());
+        Assert.Contains("SimNET: Sending heartbeat to master IP:master.example:28000.", w.Out);
+        slow.Release();
+        RunChecksUntilSent(w, 2);
+        Assert.Equal(2, w.Sent.Count);
+        Assert.Equal("IP:127.0.0.2:28000", w.Sent[1].to.ToString());
+        Assert.True(w.Sent[1].data.SequenceEqual(Beat));
+        lock (slow.Threads)
+            Assert.DoesNotContain(frame, slow.Threads);
+        // the next round sends to the address found at once and looks the name up again for the round after
+        var next = w.Scheduled.Find(x => x.delay == MasterHeartbeat.Period).action;
+        next();
+        Assert.Equal(4, w.Sent.Count);
+        Assert.Equal("IP:127.0.0.2:28000", w.Sent[2].to.ToString());
+    }
+
+    [Fact]
+    public void FailedLookupSendsNothingAndWithoutTheOptInNothingIsLookedUp()
+    {
+        using var slow = new SlowLookup();
+        slow.Release();
+        var w = new World();
+        var hb = new MasterHeartbeat(w.In, w.Net, true, slow.Lookup);
+        w.Eval("$Server::HostPublicGame = true; $inet::Master1 = \"IP:nowhere.example:28000\"; function checkMasterTranslation() {}");
+        hb.Start(w.Schedule());
+        RunChecksUntilSent(w, 1);
+        Assert.Empty(w.Sent);
+        var w2 = new World();
+        using var never = new SlowLookup();
+        never.Release();
+        var hb2 = new MasterHeartbeat(w2.In, w2.Net, false, never.Lookup);
+        hb2.RegisterCommands();
+        w2.Eval("$Server::HostPublicGame = true; $inet::Master1 = \"IP:master.example:28000\"; function checkMasterTranslation() {}");
+        hb2.Start(w2.Schedule());
+        Assert.Equal("1|\n", w2.Eval("echo(DNet::resolveMasters(\"master.example:28000\"), DNet::getResolvedMaster(0), \"|\");"));
+        Assert.Empty(w2.Sent);
+        Assert.Equal(0, never.Calls);
+        Assert.Single(w2.Scheduled);                      // only the next round
+    }
+
+    [Fact]
+    public void ResolveMastersLooksNamesUpOnAWorkerLikeTheOriginal()
+    {
+        using var slow = new SlowLookup();
+        var w = new World();
+        var hb = new MasterHeartbeat(w.In, w.Net, true, slow.Lookup);
+        hb.RegisterCommands();
+        var frame = Environment.CurrentManagedThreadId;
+        Assert.Equal("2|\n", w.Eval("echo(DNet::resolveMasters(\"master.example:28000\", \"IP:127.0.0.1:5\"), DNet::getResolvedMaster(1), \"|\");"));
+        slow.Release();
+        var until = DateTime.UtcNow.AddSeconds(5);
+        var got = "";
+        while (got.Length == 0 && DateTime.UtcNow < until)
+        {
+            Thread.Sleep(5);
+            got = w.In.CallFunction("DNet::getResolvedMaster", ["0"]);
+        }
+        Assert.Equal("IP:127.0.0.2:28000", got);
+        Assert.Equal("IP:127.0.0.1:5", w.In.CallFunction("DNet::getResolvedMaster", ["1"]));
+        lock (slow.Threads)
+            Assert.DoesNotContain(frame, slow.Threads);
+    }
 }
