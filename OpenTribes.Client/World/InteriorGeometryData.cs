@@ -62,6 +62,27 @@ public sealed class InteriorGeometryData
     /// <summary>The planes: nx, ny, nz, d.</summary>
     public float[] Planes { get; set; } = [];
 
+    // Deliberate departure from stock (hostile file): the mesh build indexes the vertex records and the point arrays with
+    // values from the file. A surface it draws (3 or more vertices on a plane that exists) must keep inside them. Other
+    // surfaces are not read, so they are not checked.
+    private bool RenderedSurfacesInRange()
+    {
+        foreach (var surf in Surfaces)
+        {
+            if (surf.VertexCount < 3 || ((long)surf.Plane * 4) + 3 >= Planes.Length)
+                continue;
+            if ((long)surf.FirstVertex + surf.VertexCount > VertexPoint3.Length)
+                return false;
+            for (var k = 0; k < surf.VertexCount; ++k)
+            {
+                var vi = (int)surf.FirstVertex + k;
+                if ((VertexPoint3[vi] * 3) + 2 >= Point3.Length || (VertexPoint2[vi] * 2) + 1 >= Point2.Length)
+                    return false;
+            }
+        }
+        return true;
+    }
+
     /// <summary>Reads the arrays of a <c>.dig</c> file.</summary>
     /// <param name="d">The file bytes.</param>
     /// <returns>The data, or null when the file is not valid.</returns>
@@ -150,7 +171,7 @@ public sealed class InteriorGeometryData
             g.Planes = new float[counts[8] * 4];
             for (var i = 0; i < g.Planes.Length; ++i)
                 g.Planes[i] = BinaryPrimitives.ReadSingleLittleEndian(d.AsSpan((int)planePos + (i * 4), 4));
-            return g;
+            return g.RenderedSurfacesInRange() ? g : null;
         }
         catch (Exception e) when (e is ArgumentException or IndexOutOfRangeException)
         {
