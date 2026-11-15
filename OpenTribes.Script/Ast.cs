@@ -104,4 +104,6 @@ public sealed class Node
     public List<Node> Children { get; } = [];
     /// <summary>The parameter names of a function.</summary>
     public List<string> Params { get; } = [];
+    /// <summary>For a function: the deepest statement and expression nesting of its body, in parser nesting levels.</summary>
+    public int Nesting { get; set; }
 }

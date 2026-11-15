@@ -286,11 +286,24 @@ public class SimGroup : SimSet
         }
     }
 
-    /// <summary>Moves an object into this group, leaving its old group (GS3).</summary>
+    /// <summary>Tests whether an object is this group or one of the groups above it.</summary>
     /// <param name="obj">The object.</param>
+    /// <returns>True when adding the object to this group would put the object inside its own member tree.</returns>
+    public bool IsSelfOrAncestor(SimObject obj)
+    {
+        for (SimObject? g = this; g != null; g = g.RawGroup)
+            if (g == obj)
+                return true;
+        return false;
+    }
+
+    /// <summary>Moves an object into this group, leaving its old group (GS3). The group itself or a group above it is not added.</summary>
+    /// <param name="obj">The object.</param>
+    /// <remarks>Deliberate departure from stock: SimGroup_addObject (004ff15c) adds a group to itself or to its descendant, which
+    /// cuts the tree off its parent and makes the delete recurse without end. Such an add is ignored here.</remarks>
     public override void AddObject(SimObject obj)
     {
-        if (obj.RawGroup == this)
+        if (obj.RawGroup == this || IsSelfOrAncestor(obj))
             return;
         obj.RawGroup?.RemoveObject(obj);
         obj.RawGroup = this;

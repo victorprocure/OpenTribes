@@ -650,6 +650,13 @@ public sealed class SimConsole : IObjectInterface
                     error = true;
                     continue;
                 }
+                if (set is SimGroup group && group.IsSelfOrAncestor(obj))
+                {
+                    // Deliberate departure from stock: 004ff15c adds it and corrupts the tree (#69); refused like a missing object.
+                    _in.Print(1, "addToSet: Object \"" + a[i] + "\" contains set \"" + a[1] + "\"");
+                    error = true;
+                    continue;
+                }
                 set.AddObject(obj);
             }
             return error ? no : yes;

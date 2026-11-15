@@ -90,6 +90,26 @@ public static class Builtins
         return output;
     }
 
+    // True when the ".." components of a game path climb above the game directory. HostPath resolves every other
+    // component, a leading slash included, below the root, so ".." is the only way out.
+    private static bool LeavesGameDir(string path)
+    {
+        var depth = 0;
+        foreach (var part in path.Split('/', '\\'))
+        {
+            if (part == "..")
+            {
+                if (--depth < 0)
+                    return true;
+            }
+            else if (part.Length != 0 && part != ".")
+            {
+                ++depth;
+            }
+        }
+        return false;
+    }
+
     // src/script/builtins.cpp struct PathParts: path split used by File::getExt/getBase/getTitle/getPath (0x00583aac).
     private sealed class PathParts
     {
@@ -332,8 +352,10 @@ public static class Builtins
                 i.Print(1, "isFile: fileName [fileName] ...");
                 return "False";
             }
+            // Deliberate departure from stock: the sim plugin (command 0x6a) opens any host path; one that leaves the game
+            // directory counts as missing (#47).
             for (var k = 1; k < argv.Length; ++k)
-                if (!File.Exists(HostPath(rootDir, argv[k])))
+                if (LeavesGameDir(argv[k]) || !File.Exists(HostPath(rootDir, argv[k])))
                     return "False";
             return "True";
         });
@@ -411,7 +433,9 @@ public static class Builtins
         {
             if (argv.Length != 3)
                 return "FALSE";
-            if (!File.Exists(HostPath(rootDir, argv[1])))
+            // Deliberate departure from stock: 004011a8 passes any source path to CopyFileA; one that leaves the game directory
+            // fails like a missing file (#47).
+            if (LeavesGameDir(argv[1]) || !File.Exists(HostPath(rootDir, argv[1])))
                 return "FALSE";
             if (!Writeable(argv[2]))
                 return "False";

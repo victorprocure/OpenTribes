@@ -119,9 +119,23 @@ public partial class GameBase
         return X87.F32(Sub(Atan2Borland(r, nz), HalfPiD));
     }
 
+    // Deliberate departure from stock: wrapRotation (00453120), wrapElevation (0045317c) and the fold of the power-down
+    // (00455f3e) loop until the angle is in range. A TurretData speed or speedModifier of +-3.4e38 (script floats saturate)
+    // makes the aim step, and so the angle, infinite or so large that each pass moves it by one float step, and the loop
+    // never ends or runs for minutes. Stock data steps by speed * dt from a wrapped angle, so any angle outside
+    // +-AngleLimit comes only from such a datablock and resets to 0. NaN also resets: stock leaves it unchanged.
+    private const float AngleLimit = 10000.0f;
+
+    private static void ResetHostileAngle(ref float a)
+    {
+        if (!(Math.Abs(a) <= AngleLimit))
+            a = 0.0f;
+    }
+
     // src/game/turret_fire.cpp wrapRotation: 0x00453120.
     private static void WrapRotation(ref float r)
     {
+        ResetHostileAngle(ref r);
         while (r > TwoPiD)
             r = X87.F32(Sub(r, TwoPiD));
         while (r < 0.0f)
@@ -131,6 +145,7 @@ public partial class GameBase
     // src/game/turret_fire.cpp wrapElevation: 0x0045317c.
     private static void WrapElevation(ref float e)
     {
+        ResetHostileAngle(ref e);
         while (e < -PiD)
             e = X87.F32(Add(e, TwoPiD));
         while (e > PiD)
@@ -499,6 +514,7 @@ public partial class GameBase
             // non-positive one up, and the rotation snaps to 0 when the step crosses it. The rotation itself is not
             // wrapped (0x00455f3e).
             SetMaskBits(0x2000);
+            ResetHostileAngle(ref TurretRotation);
             var local = TurretRotation;
             while (local > 3.141592653589793)
                 local = Store(Sub(local, 6.283185307179586));
