@@ -20,7 +20,7 @@ public sealed class WavData
     /// <summary>Converts the wave to another sample rate with a band-limited filter.</summary>
     /// <param name="rate">The target rate.</param>
     /// <param name="loop">Whether the wave loops. A looping wave wraps around and a one-shot continues with silence.</param>
-    /// <returns>The converted wave. Cached per rate and loop flag.</returns>
+    /// <returns>The converted wave, cached per rate and loop flag, or this wave unchanged when the converted wave would exceed <see cref="MaxResampledSamples"/>. The mixer steps through a wave of another rate with linear interpolation, so it still plays at the right speed.</returns>
     /// <remarks>The filter is a windowed sinc with 16 lobes each side and a cutoff at 97% of the lower Nyquist. The mixer's linear interpolation droops 3 dB at 4 to 5 kHz and mirrors the band above 5.5 kHz for 11025 Hz sources, where the stock client's output has no energy above the source Nyquist and a flat passband to about 5 kHz.</remarks>
     public WavData AtRate(int rate, bool loop)
     {
@@ -29,17 +29,27 @@ public sealed class WavData
         lock (_rates)
         {
             if (!_rates.TryGetValue((rate, loop), out var w))
-                _rates[(rate, loop)] = w = Resample(rate, loop);
+            {
+                w = Resample(rate, loop) ?? this;
+                _rates[(rate, loop)] = w;
+            }
             return w;
         }
     }
 
-    private WavData Resample(int rate, bool loop)
+    /// <summary>The most samples (frames times channels) a converted wave may have: 2^25, which is 128 MB of floats.</summary>
+    /// <remarks>Five minutes of stereo at 48 kHz is 28.8 million samples, and the stock sounds are a few seconds each. A header rate far below the device rate would otherwise ask for billions of frames. This is a deliberate departure from the stock loader, for hostile files only.</remarks>
+    public const long MaxResampledSamples = 1L << 25;
+
+    private WavData? Resample(int rate, bool loop)
     {
         const int h2 = 16;
         var ratio = (double)Rate / rate;                       // source frames per output frame
         var fc = 0.97 * Math.Min(Rate, rate) / 2.0 / Rate;     // cutoff in cycles per source sample
-        var outFrames = (int)Math.Max(1, Math.Round(Frames / ratio));
+        var wanted = Math.Max(1, Math.Round(Frames / ratio));
+        if (wanted * Channels > MaxResampledSamples)
+            return null;
+        var outFrames = (int)wanted;
         var o = new float[outFrames * Channels];
         var scale = 2 * fc;
         const int res = 512;                                       // kernel table steps per source sample

@@ -1064,7 +1064,8 @@ public sealed class ClientApp : IDisposable
         Game?.Dispose();
         Hosted?.Dispose();
         SkinViews?.Dispose();
-        Delegates.Browser.Dispose();
+        // Start assigns Delegates late, so a startup that failed early leaves it null.
+        Delegates?.Browser.Dispose();
         AudioDev?.Dispose();
         Dev?.Dispose();
         Joysticks?.Dispose();

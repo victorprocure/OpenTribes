@@ -180,10 +180,18 @@ public sealed class LiveGame : IDisposable
         {
             return false;
         }
-        Demo = new DemoPlayback(data)
+        DemoPlayback playback;
+        try
         {
-            OnPacket = OnPacket
-        };
+            playback = new DemoPlayback(data);
+        }
+        catch (InvalidDataException e)
+        {
+            _app.Log("PlayDemo: " + e.Message);
+            return false;
+        }
+        playback.OnPacket = OnPacket;
+        Demo = playback;
         DemoName = Path.GetFileNameWithoutExtension(path);
         Hook(Demo.World);
         Demo.World.PlayerId = (int)Demo.Demo.ClientId;
