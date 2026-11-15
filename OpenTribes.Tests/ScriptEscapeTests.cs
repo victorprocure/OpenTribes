@@ -1,7 +1,10 @@
-// Server and chat strings placed into script text: the saved server list (004c4e2c, #73) and the onClientMessage call (#80).
-// Stock writes the strings raw. The escaping is a deliberate departure, so text from a server reads back as one string and runs nothing.
+// Server and chat strings placed into script text: the saved server list (004c4e2c, #73) and the onClientMessage call (#80), and the
+// info reply limits (0042c4cc). Stock writes the strings raw. The escaping is a deliberate departure, so text from a server reads back as
+// one string and runs nothing.
 namespace OpenTribes.Tests;
 
+using OpenTribes.Client.App;
+using OpenTribes.Net;
 using OpenTribes.Gui;
 using OpenTribes.Script;
 
@@ -98,5 +101,29 @@ public class ScriptEscapeTests
         var b = SavedAndLoaded(s => s.Mission = "mission\\");
         Assert.Equal("mission\\", b.Mission);
         Assert.Equal(AllBytes, SavedAndLoaded(s => s.ModList = AllBytes).ModList);
+    }
+
+    [Fact]
+    public void InfoReplyStringsTakeTheStockLimits() // 0042c4cc, copy 0042a384
+    {
+        var row = new GuiServerList.Server(1, "S", "IP:10.0.0.1:28001", "1.11", 50, false);
+        var r = new ServerInfoRecord
+        {
+            Address = row.Address,
+            Hostname = new string('h', 80),
+            Version = new string('v', 40),
+            Mission = new string('m', 40),
+            ModList = new string('o', 40),
+            MissionType = new string('t', 40),
+            Info = new string('i', 200),
+        };
+        ServerBrowser.TakeInfo(row, r);
+        Assert.Equal((63, 31, 31, 31, 31), (row.Name.Length, row.Version.Length, row.Mission.Length, row.ModList.Length, row.MissionType.Length));
+        Assert.Equal(200, row.Info.Length);
+        Assert.Equal(GuiServerList.StateInfo, row.State);
+        r.Hostname = new string('h', 63);
+        r.Version = "1.11";
+        ServerBrowser.TakeInfo(row, r);
+        Assert.Equal((63, "1.11"), (row.Name.Length, row.Version));
     }
 }
